@@ -16,7 +16,8 @@ const Stage3_Extraction = ({ formData, setFormData, onNext, onBack }) => {
           extractForm.append('doc_types', r.doc_type);
         });
 
-        const response = await axios.post('/api/extract', extractForm);
+        const API_URL = import.meta.env.VITE_API_URL || '';
+        const response = await axios.post(`${API_URL}/api/extract`, extractForm);
         setResults(response.data);
       } catch (error) {
         console.error('Extraction failed', error);

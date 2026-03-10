@@ -14,7 +14,8 @@ const Stage4_Report = ({ formData, setFormData, onBack }) => {
         researchForm.append('company_name', formData.entity.companyName);
         researchForm.append('sector', formData.entity.sector);
         
-        const res = await axios.post('/api/research', researchForm);
+        const API_URL = import.meta.env.VITE_API_URL || '';
+        const res = await axios.post(`${API_URL}/api/research`, researchForm);
         setResearch(res.data);
         
         // Mock verdict logic for demo
@@ -54,7 +55,8 @@ const Stage4_Report = ({ formData, setFormData, onBack }) => {
       const form = new FormData();
       form.append('data', allData);
       
-      const response = await axios.post('/api/generate-report', form, { responseType: 'blob' });
+      const API_URL = import.meta.env.VITE_API_URL || '';
+      const response = await axios.post(`${API_URL}/api/generate-report`, form, { responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;

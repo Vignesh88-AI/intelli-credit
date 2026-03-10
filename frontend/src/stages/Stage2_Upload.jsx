@@ -46,7 +46,8 @@ const Stage2_Upload = ({ formData, setFormData, onNext, onBack }) => {
         uploadForm.append('doc_types', u.docType);
       });
 
-      const response = await axios.post('/api/upload', uploadForm);
+      const API_URL = import.meta.env.VITE_API_URL || '';
+      const response = await axios.post(`${API_URL}/api/upload`, uploadForm);
       
       setFormData(prev => ({
         ...prev,
