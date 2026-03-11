@@ -60,7 +60,7 @@ const Stage1_Onboarding = ({ onNext }) => {
   });
   const [errors, setErrors] = useState({});
 
-  const sectors = ['NBFC', 'Manufacturing', 'Real Estate', 'Infrastructure', 'Retail', 'IT Services', 'Healthcare', 'Other'];
+  const sectors = ['NBFC', 'Manufacturing', 'Real Estate', 'Infrastructure', 'Retail', 'IT Services', 'Healthcare', 'Pharma', 'Logistics', 'Other'];
   const loanTypes = ['Term Loan', 'Working Capital', 'CC Limit', 'LC/BG', 'ECB'];
 
   const validateCIN = (cin) => /^[LU]\d{5}[A-Z]{2}\d{4}[A-Z]{3}\d{6}$/.test(cin);
@@ -144,7 +144,7 @@ const Stage1_Onboarding = ({ onNext }) => {
             <div style={{ textAlign: "left" }}>
               <label style={STYLES.label}>Sector *</label>
               <select 
-                style={STYLES.input} 
+                style={{...STYLES.input, background:"#0f2035", color:"white"}} 
                 value={localData.entity.sector || ""} 
                 onChange={(e) => handleChange('entity', 'sector', e.target.value)}
               >
@@ -176,7 +176,7 @@ const Stage1_Onboarding = ({ onNext }) => {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
             <div style={{ textAlign: "left" }}>
               <label style={STYLES.label}>Loan Type *</label>
-              <select style={STYLES.input} value={localData.loan.loanType || ""} onChange={(e) => handleChange('loan', 'loanType', e.target.value)}>
+              <select style={{...STYLES.input, background:"#0f2035", color:"white"}} value={localData.loan.loanType || ""} onChange={(e) => handleChange('loan', 'loanType', e.target.value)}>
                 <option value="">Select Type</option>
                 {loanTypes.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
