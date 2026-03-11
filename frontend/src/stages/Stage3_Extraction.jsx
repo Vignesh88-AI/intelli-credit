@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, CheckCircle, AlertCircle, Edit2, Save, X, Loader2 } from 'lucide-react';
 import axios from 'axios';
+import '../styles/stage3.css';
 
 const Stage3_Extraction = ({ formData, setFormData, onNext, onBack }) => {
   const [loading, setLoading] = useState(true);
@@ -65,13 +66,6 @@ const Stage3_Extraction = ({ formData, setFormData, onNext, onBack }) => {
 
   return (
     <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden pt-4">
-      <style>{`
-        .glass-card {
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-      `}</style>
       
       <main className="flex-1 max-w-7xl mx-auto w-full px-8 py-6 fade-in">
         {/* Progress Stepper */}

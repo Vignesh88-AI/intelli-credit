@@ -1,0 +1,9 @@
+.glass-card {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.step-active {
+    border-color: #e49f0c;
+    color: #e49f0c;
+}

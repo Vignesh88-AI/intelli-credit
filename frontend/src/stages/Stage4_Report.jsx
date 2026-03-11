@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Download, ShieldAlert, TrendingUp, Briefcase, Scale, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import axios from 'axios';
+import '../styles/stage4.css';
 
 const Stage4_Report = ({ formData, setFormData, onBack }) => {
   const [loading, setLoading] = useState(true);
@@ -88,18 +89,6 @@ const Stage4_Report = ({ formData, setFormData, onBack }) => {
 
   return (
     <div className="relative flex flex-col w-full min-h-screen overflow-x-hidden pt-4">
-      <style>{`
-        .glass-card {
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-        }
-        .glass-banner {
-            background: linear-gradient(135deg, rgba(240, 165, 0, 0.1) 0%, rgba(10, 22, 40, 0.4) 100%);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(240, 165, 0, 0.2);
-        }
-      `}</style>
 
       <main className="flex-1 flex flex-col items-center px-6 py-4 lg:px-20 max-w-7xl mx-auto w-full fade-in">
         {/* Analysis Status Bar */}

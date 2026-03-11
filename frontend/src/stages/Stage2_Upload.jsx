@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import DocumentCard from '../components/DocumentCard';
 import { ArrowLeft, Play, Loader2 } from 'lucide-react';
 import axios from 'axios';
+import '../styles/stage2.css';
 
 const Stage2_Upload = ({ formData, setFormData, onNext, onBack }) => {
   const [isUploading, setIsUploading] = useState(false);
@@ -64,13 +65,6 @@ const Stage2_Upload = ({ formData, setFormData, onNext, onBack }) => {
 
   return (
     <div className="relative flex flex-col w-full min-h-screen overflow-x-hidden pt-4">
-      <style>{`
-        .glass-card {
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-        }
-      `}</style>
 
       <main className="flex-1 flex flex-col items-center px-6 py-6 lg:px-20 max-w-7xl mx-auto w-full fade-in">
         {/* Progress Stepper */}

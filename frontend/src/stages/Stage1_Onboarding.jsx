@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowRight, ArrowLeft, CheckCircle } from 'lucide-react';
+import '../styles/stage1.css';
 
 const Stage1_Onboarding = ({ formData, setFormData, onNext }) => {
   const [step, setStep] = useState(1);
@@ -51,14 +52,6 @@ const Stage1_Onboarding = ({ formData, setFormData, onNext }) => {
 
   return (
     <div className="relative flex flex-col w-full min-h-screen overflow-x-hidden pt-4">
-      <style>{`
-        .glass-card {
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-      `}</style>
       
       <main className="flex-1 max-w-5xl mx-auto w-full px-6 py-6 fade-in">
         <div className="mb-8">
