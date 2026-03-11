@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Form
 import os
-import fitz  # PyMuPDF
+import pdfplumber
 import json
 import anthropic
 # from pydantic import BaseModel # Removed for simplicity in this draft
@@ -33,9 +33,9 @@ async def extract_data(file_paths: List[str] = Form(...), doc_types: List[str] =
             # Extract text from PDF
             text = ""
             if path.lower().endswith(".pdf"):
-                doc = fitz.open(path)
-                for page in doc:
-                    text += page.get_text()
+                with pdfplumber.open(path) as pdf:
+                    for page in pdf.pages:
+                        text += page.extract_text() or ""
             else:
                 # Handle images or other formats if needed (e.g. OCR)
                 # For now, let's assume mostly PDFs as per prompt
