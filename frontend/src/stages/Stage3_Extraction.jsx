@@ -92,6 +92,7 @@ const Stage3_Extraction = ({ onNext, entityData }) => {
         });
 
         const API_URL = import.meta.env.VITE_API_URL || 'https://intelli-credit-7kzw.onrender.com';
+        console.log('Initiating extraction from:', `${API_URL}/api/extract`);
         const response = await axios.post(`${API_URL}/api/extract`, extractForm);
         setResults(response.data);
       } catch (error) {

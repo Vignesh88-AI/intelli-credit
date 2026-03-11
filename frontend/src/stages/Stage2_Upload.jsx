@@ -51,6 +51,7 @@ const STYLES = {
 
 const Stage2_Upload = ({ onNext, entityData }) => {
   const [isUploading, setIsUploading] = useState(false);
+  const [error, setError] = useState(null);
   const [uploads, setUploads] = useState([]);
 
   const docTypes = [
@@ -77,7 +78,12 @@ const Stage2_Upload = ({ onNext, entityData }) => {
   const handleProceed = async () => {
     if (uploads.length === 0) return;
     setIsUploading(true);
+    setError(null);
+    
     try {
+      const API_URL = import.meta.env.VITE_API_URL || 'https://intelli-credit-7kzw.onrender.com';
+      console.log('Initiating upload to:', API_URL + '/api/upload');
+      
       const uploadForm = new FormData();
       const entityId = entityData?.entity?.cin || 'temp_entity';
       uploadForm.append('entity_id', entityId);
@@ -85,15 +91,16 @@ const Stage2_Upload = ({ onNext, entityData }) => {
       uploads.forEach(u => {
         uploadForm.append('files', u.file);
         uploadForm.append('doc_types', u.docType);
+        console.log(`Appending file: ${u.file.name} as ${u.docType}`);
       });
-
-      const API_URL = import.meta.env.VITE_API_URL || 'https://intelli-credit-7kzw.onrender.com';
+ 
       const response = await axios.post(`${API_URL}/api/upload`, uploadForm);
+      console.log('Upload success:', response.data);
       
       onNext({ uploadedResults: response.data, uploads });
-    } catch (error) {
-      console.error('Upload failed', error);
-      alert('Upload failed. Please try again.');
+    } catch (err) {
+      console.error('Upload API Error:', err);
+      setError('Analysis failed. Please try again.');
     } finally {
       setIsUploading(false);
     }
@@ -106,19 +113,52 @@ const Stage2_Upload = ({ onNext, entityData }) => {
         <p style={STYLES.subtitle}>Please upload the mandatory financial records for {entityData?.entity?.companyName || "the entity"}.</p>
       </div>
 
-      <div style={STYLES.grid}>
-        {docTypes.map((doc) => (
-          <DocumentCard 
-            key={doc.type}
-            type={doc.type}
-            description={doc.description}
-            isOptional={!doc.mandatory}
-            file={uploads.find(u => u.docType === doc.type)?.file}
-            onUpload={handleFileUpload}
-            onRemove={handleFileRemove}
-          />
-        ))}
-      </div>
+      {error && (
+        <div style={{ 
+          background: "rgba(255, 77, 77, 0.1)", 
+          border: "1px solid #ff4d4d", 
+          color: "#ff4d4d", 
+          padding: "16px", 
+          borderRadius: "8px", 
+          marginBottom: "24px",
+          textAlign: "left",
+          fontSize: "14px",
+          fontWeight: "600"
+        }}>
+          {error}
+        </div>
+      )}
+
+      {isUploading ? (
+        <div style={{ 
+          height: "400px", 
+          display: "flex", 
+          flexDirection: "column", 
+          alignItems: "center", 
+          justifyContent: "center",
+          background: "rgba(255,255,255,0.02)",
+          borderRadius: "16px",
+          border: "1px dashed rgba(255,255,255,0.1)"
+        }}>
+          <Loader2 className="animate-spin" size={64} color="#f0a500" />
+          <h3 style={{ marginTop: "24px", fontSize: "20px", fontWeight: "700" }}>AI Analysis in Progress</h3>
+          <p style={{ color: "rgba(255,255,255,0.5)", marginTop: "8px" }}>AI is analyzing your documents... (30-60 seconds)</p>
+        </div>
+      ) : (
+        <div style={STYLES.grid}>
+          {docTypes.map((doc) => (
+            <DocumentCard 
+              key={doc.type}
+              type={doc.type}
+              description={doc.description}
+              isOptional={!doc.mandatory}
+              file={uploads.find(u => u.docType === doc.type)?.file}
+              onUpload={handleFileUpload}
+              onRemove={handleFileRemove}
+            />
+          ))}
+        </div>
+      )}
 
       <div style={STYLES.footer}>
         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: "14px", fontWeight: "500" }}>
