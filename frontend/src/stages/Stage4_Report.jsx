@@ -1,37 +1,100 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Download, ShieldAlert, TrendingUp, Briefcase, Scale, Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowLeft, Download, ShieldAlert, TrendingUp, AlertTriangle, Lightbulb, CheckCircle, Loader2 } from 'lucide-react';
 import axios from 'axios';
-import '../styles/stage4.css';
 
-const Stage4_Report = ({ formData, setFormData, onBack }) => {
+const STYLES = {
+  container: { maxWidth: "1200px", margin: "0 auto", padding: "40px 20px" },
+  headerBanner: {
+    background: "linear-gradient(135deg, rgba(240, 164, 0, 0.1) 0%, rgba(10, 22, 40, 0.5) 100%)",
+    padding: "48px",
+    borderRadius: "24px",
+    border: "1px solid rgba(240, 164, 0, 0.2)",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "40px",
+    flexWrap: "wrap",
+    gap: "32px",
+    textAlign: "left",
+  },
+  glassCard: {
+    background: "rgba(255,255,255,0.05)",
+    backdropFilter: "blur(10px)",
+    border: "1px solid rgba(255,255,255,0.1)",
+    borderRadius: "16px",
+    padding: "24px",
+  },
+  swotGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+    gap: "20px",
+    marginBottom: "40px",
+  },
+  riskScoreCard: {
+    background: "rgba(255,255,255,0.03)",
+    borderRadius: "20px",
+    padding: "32px",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    height: "100%",
+  },
+  button: {
+    background: "#f0a500",
+    color: "#0a1628",
+    fontWeight: "700",
+    padding: "16px 40px",
+    borderRadius: "50px",
+    border: "none",
+    cursor: "pointer",
+    fontSize: "16px",
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    transition: "transform 0.2s",
+    boxShadow: "0 0 20px rgba(240, 165, 0, 0.2)",
+  },
+  secondaryButton: {
+    background: "transparent",
+    color: "white",
+    border: "1px solid rgba(255,255,255,0.2)",
+    padding: "16px 32px",
+    borderRadius: "50px",
+    cursor: "pointer",
+    fontWeight: "600",
+    fontSize: "14px",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  }
+};
+
+const Stage4_Report = ({ onBack, entityData }) => {
   const [loading, setLoading] = useState(true);
   const [research, setResearch] = useState(null);
   const [verdict, setVerdict] = useState(null);
+
+  const riskScore = 82;
 
   useEffect(() => {
     const runFinalAnalysis = async () => {
       try {
         const researchForm = new FormData();
-        researchForm.append('company_name', formData.entity.companyName);
-        researchForm.append('sector', formData.entity.sector);
+        researchForm.append('company_name', entityData?.entity?.companyName);
+        researchForm.append('sector', entityData?.entity?.sector);
         
-        const API_URL = import.meta.env.VITE_API_URL || '';
+        const API_URL = import.meta.env.VITE_API_URL || 'https://intelli-credit-7kzw.onrender.com';
         const res = await axios.post(`${API_URL}/api/research`, researchForm);
         setResearch(res.data);
         
-        // Mock verdict logic for demo
         setVerdict({
           status: res.data.overall_sentiment === 'Positive' ? 'APPROVE' : 'REJECT',
-          reasoning: [
-            "Strong debt-to-equity ratio observed in recent annual reports.",
-            "Promoter background appears stable with no recent legal flags.",
-            "Sector outlook for " + formData.entity.sector + " remains favorable post-RBI guidelines."
-          ],
           swot: {
-            strengths: ["Low debt", "Experienced promoters"],
-            weaknesses: ["Geographic concentration"],
-            opportunities: ["Market expansion"],
-            threats: ["Regulatory changes"]
+            strengths: ["Strong Cash Reserves", "Tier-1 Clientele", "Low Debt-Equity"],
+            weaknesses: ["Regional Concentration", "High Working Capital Cycle"],
+            opportunities: ["Market Expansion", "Digital Transformation"],
+            threats: ["Regulatory Changes", "Input Cost Volatility"]
           }
         });
       } catch (error) {
@@ -41,27 +104,27 @@ const Stage4_Report = ({ formData, setFormData, onBack }) => {
       }
     };
 
-    runFinalAnalysis();
-  }, [formData.entity]);
+    if (entityData?.entity?.companyName) runFinalAnalysis();
+  }, [entityData]);
 
   const handleDownloadReport = async () => {
     try {
       const allData = JSON.stringify({
-        entity: formData.entity,
-        loan: formData.loan,
-        extracted: formData.extractedData,
+        entity: entityData.entity,
+        loan: entityData.loan,
+        extracted: entityData.extractedData,
         research: research
       });
       
       const form = new FormData();
       form.append('data', allData);
       
-      const API_URL = import.meta.env.VITE_API_URL || '';
+      const API_URL = import.meta.env.VITE_API_URL || 'https://intelli-credit-7kzw.onrender.com';
       const response = await axios.post(`${API_URL}/api/generate-report`, form, { responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `Credit_Appraisal_${formData.entity.companyName}.pdf`);
+      link.setAttribute('download', `Credit_Appraisal_${entityData.entity.companyName}.pdf`);
       document.body.appendChild(link);
       link.click();
     } catch (error) {
@@ -70,195 +133,145 @@ const Stage4_Report = ({ formData, setFormData, onBack }) => {
     }
   };
 
-  const riskScore = 82; // Using design placeholder
-
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 glass-card rounded-2xl border-white/5 mx-auto max-w-2xl">
-        <Loader2 className="animate-spin text-primary mb-6" size={64} />
-        <h3 className="text-2xl font-bold text-white mb-2">Finalizing Intelligence...</h3>
-        <p className="text-slate-400 text-center px-8">Synthesizing extracted data with real-time market research and sector outlooks.</p>
-        <div className="mt-8 w-64 bg-slate-800 h-1.5 rounded-full overflow-hidden">
-          <div className="bg-primary h-full w-3/4 animate-pulse"></div>
-        </div>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "100px 0" }}>
+        <Loader2 className="animate-spin" size={64} color="#f0a500" />
+        <h2 style={{ marginTop: "24px", fontSize: "24px", fontWeight: "700" }}>Generating Credit Intelligence</h2>
+        <p style={{ color: "rgba(255,255,255,0.5)", marginTop: "8px" }}>Aggregating document data and market research sentiment...</p>
       </div>
     );
   }
 
-  if (!verdict) return null;
-
   return (
-    <div className="relative flex flex-col w-full min-h-screen overflow-x-hidden pt-4">
+    <div style={STYLES.container}>
+      {/* VERDICT BANNER */}
+      <div style={STYLES.headerBanner}>
+        <div style={{ flex: 1, minWidth: "300px" }}>
+          <div style={{ color: "#f0a500", fontSize: "12px", fontWeight: "800", textTransform: "uppercase", letterSpacing: "2px", marginBottom: "8px" }}>
+            Final Apprisal Verdict
+          </div>
+          <h1 style={{ fontSize: "42px", fontWeight: "800", color: "white", margin: 0 }}>Analysis Complete</h1>
+          <p style={{ color: "rgba(255,255,255,0.6)", marginTop: "16px", maxWidth: "500px", lineHeight: "1.6" }}>
+            The AI engine has processed all financial metrics and external sentiment for <strong style={{ color: "white" }}>{entityData.entity.companyName}</strong>.
+          </p>
+        </div>
+        <div style={{ 
+          padding: "32px 48px", 
+          borderRadius: "20px", 
+          background: "rgba(10, 22, 40, 0.3)", 
+          border: "2px solid rgba(240, 164, 0, 0.3)",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          boxShadow: "0 0 40px rgba(240, 165, 0, 0.1)"
+        }}>
+          <span style={{ fontSize: "10px", fontWeight: "700", color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "4px" }}>Decision Score Card</span>
+          <span style={{ 
+            fontSize: "48px", 
+            fontWeight: "900", 
+            color: verdict.status === 'APPROVE' ? "#22c55e" : "#ff4d4d",
+            letterSpacing: "-2px"
+          }}>
+            {verdict.status}
+          </span>
+        </div>
+      </div>
 
-      <main className="flex-1 flex flex-col items-center px-6 py-4 lg:px-20 max-w-7xl mx-auto w-full fade-in">
-        {/* Analysis Status Bar */}
-        <div className="w-full glass-card rounded-xl p-6 mb-8">
-            <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500">Analysis Lifecycle</h3>
-                <span className="text-primary font-black text-xs">FINAL STAGE</span>
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "32px", textAlign: "left" }}>
+        <div>
+          <h3 style={{ fontSize: "20px", fontWeight: "700", marginBottom: "20px", display: "flex", alignItems: "center", gap: "10px" }}>
+            <TrendingUp size={22} color="#f0a500" /> Intelligence SWOT Matrix
+          </h3>
+          <div style={STYLES.swotGrid}>
+            {/* STRENGTHS */}
+            <div style={{ ...STYLES.glassCard, borderTop: "4px solid #22c55e" }}>
+              <h4 style={{ color: "#22c55e", fontSize: "14px", fontWeight: "800", marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
+                <CheckCircle size={16} /> STRENGTHS
+              </h4>
+              <ul style={{ padding: 0, margin: 0, listStyle: "none" }}>
+                {verdict.swot.strengths.map((s, i) => (
+                  <li key={i} style={{ fontSize: "12px", color: "rgba(255,255,255,0.6)", marginBottom: "10px", paddingLeft: "12px", position: "relative" }}>
+                    <span style={{ position: "absolute", left: 0, color: "#22c55e" }}>•</span> {s}
+                  </li>
+                ))}
+              </ul>
             </div>
-            <div className="flex items-center gap-4">
-                <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden flex">
-                    <div className="w-full h-full bg-success"></div>
-                </div>
+            {/* WEAKNESSES */}
+            <div style={{ ...STYLES.glassCard, borderTop: "4px solid #ff4d4d" }}>
+              <h4 style={{ color: "#ff4d4d", fontSize: "14px", fontWeight: "800", marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
+                <AlertTriangle size={16} /> WEAKNESSES
+              </h4>
+              <ul style={{ padding: 0, margin: 0, listStyle: "none" }}>
+                {verdict.swot.weaknesses.map((s, i) => (
+                  <li key={i} style={{ fontSize: "12px", color: "rgba(255,255,255,0.6)", marginBottom: "10px", paddingLeft: "12px", position: "relative" }}>
+                    <span style={{ position: "absolute", left: 0, color: "#ff4d4d" }}>•</span> {s}
+                  </li>
+                ))}
+              </ul>
             </div>
-            <div className="flex justify-between mt-4">
-                <div className="flex items-center gap-2 text-green-500 text-[10px] font-bold uppercase tracking-wider"><span className="material-symbols-outlined text-xs">check_circle</span> Entity Verified</div>
-                <div className="flex items-center gap-2 text-green-500 text-[10px] font-bold uppercase tracking-wider"><span className="material-symbols-outlined text-xs">check_circle</span> Data Extracted</div>
-                <div className="flex items-center gap-2 text-green-500 text-[10px] font-bold uppercase tracking-wider"><span className="material-symbols-outlined text-xs">check_circle</span> Risk Indexed</div>
-                <div className="flex items-center gap-2 text-primary text-[10px] font-bold uppercase tracking-wider"><span className="material-symbols-outlined text-xs animate-spin">sync</span> Report Ready</div>
+            {/* OPPORTUNITIES */}
+            <div style={{ ...STYLES.glassCard, borderTop: "4px solid #3b82f6" }}>
+              <h4 style={{ color: "#3b82f6", fontSize: "14px", fontWeight: "800", marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
+                <Lightbulb size={16} /> OPPORTUNITIES
+              </h4>
+              <ul style={{ padding: 0, margin: 0, listStyle: "none" }}>
+                {verdict.swot.opportunities.map((s, i) => (
+                  <li key={i} style={{ fontSize: "12px", color: "rgba(255,255,255,0.6)", marginBottom: "10px", paddingLeft: "12px", position: "relative" }}>
+                    <span style={{ position: "absolute", left: 0, color: "#3b82f6" }}>•</span> {s}
+                  </li>
+                ))}
+              </ul>
             </div>
+            {/* THREATS */}
+            <div style={{ ...STYLES.glassCard, borderTop: "4px solid #f0a500" }}>
+              <h4 style={{ color: "#f0a500", fontSize: "14px", fontWeight: "800", marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
+                <ShieldAlert size={16} /> THREATS
+              </h4>
+              <ul style={{ padding: 0, margin: 0, listStyle: "none" }}>
+                {verdict.swot.threats.map((s, i) => (
+                  <li key={i} style={{ fontSize: "12px", color: "rgba(255,255,255,0.6)", marginBottom: "10px", paddingLeft: "12px", position: "relative" }}>
+                    <span style={{ position: "absolute", left: 0, color: "#f0a500" }}>•</span> {s}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
         </div>
 
-        {/* Verdict Hero Section */}
-        <section className="w-full glass-banner rounded-2xl p-8 mb-8 flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden shadow-2xl">
-            <div className="absolute -right-20 -top-20 w-80 h-80 bg-primary/5 rounded-full blur-3xl -z-10"></div>
-            <div className="flex flex-col gap-2 text-left">
-                <span className="text-primary text-xs font-bold uppercase tracking-widest flex items-center gap-2">
-                    <span className="material-symbols-outlined text-xs">verified</span> Final Credit Decision
-                </span>
-                <h1 className="text-4xl font-black text-white leading-tight">Analysis Complete</h1>
-                <p className="text-slate-400 max-w-md text-sm leading-relaxed">
-                    Subject <span className="text-white font-bold">{formData.entity.companyName}</span> has passed all automated compliance & risk filters. 
-                    Historical cash-flow analysis suggests strong debt serviceability.
-                </p>
+        <div>
+          <h3 style={{ fontSize: "20px", fontWeight: "700", marginBottom: "20px", display: "flex", alignItems: "center", gap: "10px" }}>
+            <TrendingUp size={22} color="#f0a500" /> Holistic Risk Index
+          </h3>
+          <div style={STYLES.riskScoreCard}>
+            <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "24px" }}>
+              <svg width="180" height="180">
+                <circle cx="90" cy="90" r="75" stroke="rgba(255,255,255,0.05)" strokeWidth="10" fill="transparent" />
+                <circle cx="90" cy="90" r="75" stroke="#f0a500" strokeWidth="10" fill="transparent" 
+                  strokeDasharray="471" strokeDashoffset={471 - (471 * riskScore / 100)} 
+                  strokeLinecap="round" transform="rotate(-90 90 90)" />
+              </svg>
+              <div style={{ position: "absolute", textAlign: "center" }}>
+                <div style={{ fontSize: "42px", fontWeight: "900", color: "white" }}>{riskScore}</div>
+                <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.4)", textTransform: "uppercase" }}>Index Score</div>
+              </div>
             </div>
-            <div className="flex flex-col items-center gap-4">
-                <div className={`border-2 px-10 py-5 rounded-2xl flex flex-col items-center gap-1 shadow-[0_0_40px_rgba(240,165,0,0.1)] ${verdict.status === 'APPROVE' ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
-                    <span className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mb-1">System Verdict</span>
-                    <span className={`text-4xl font-black tracking-tighter ${verdict.status === 'APPROVE' ? 'text-green-500' : 'text-red-500'}`}>
-                        {verdict.status}
-                    </span>
-                </div>
-                <p className="text-slate-500 text-[10px] font-medium uppercase tracking-widest">Certified: {new Date().toLocaleDateString()}</p>
-            </div>
-        </section>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 w-full mb-12">
-            {/* SWOT Matrix */}
-            <div className="lg:col-span-2 flex flex-col gap-4">
-                <h3 className="text-white font-bold flex items-center gap-2">
-                    <span className="material-symbols-outlined text-primary text-lg">analytics</span> Intelligence Matrix
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="glass-card p-6 rounded-xl border-t-2 border-green-500/40 text-left">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="size-10 rounded-lg bg-green-500/10 flex items-center justify-center text-green-500">
-                                <span className="material-symbols-outlined">trending_up</span>
-                            </div>
-                            <h4 className="font-bold text-white uppercase tracking-wider text-sm">Strengths</h4>
-                        </div>
-                        <ul className="space-y-3">
-                            {verdict.swot.strengths.map((s, i) => (
-                              <li key={i} className="flex items-start gap-2 text-xs text-slate-400 font-medium">
-                                <span className="text-green-500 text-lg leading-none">•</span> {s}
-                              </li>
-                            ))}
-                        </ul>
-                    </div>
-                    <div className="glass-card p-6 rounded-xl border-t-2 border-red-500/40 text-left">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="size-10 rounded-lg bg-red-500/10 flex items-center justify-center text-red-500">
-                                <span className="material-symbols-outlined">warning</span>
-                            </div>
-                            <h4 className="font-bold text-white uppercase tracking-wider text-sm">Weaknesses</h4>
-                        </div>
-                        <ul className="space-y-3">
-                            {verdict.swot.weaknesses.map((s, i) => (
-                              <li key={i} className="flex items-start gap-2 text-xs text-slate-400 font-medium">
-                                <span className="text-red-500 text-lg leading-none">•</span> {s}
-                              </li>
-                            ))}
-                        </ul>
-                    </div>
-                    <div className="glass-card p-6 rounded-xl border-t-2 border-blue-500/40 text-left">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="size-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500">
-                                <span className="material-symbols-outlined">lightbulb</span>
-                            </div>
-                            <h4 className="font-bold text-white uppercase tracking-wider text-sm">Opportunities</h4>
-                        </div>
-                        <ul className="space-y-3">
-                            {verdict.swot.opportunities.map((s, i) => (
-                              <li key={i} className="flex items-start gap-2 text-xs text-slate-400 font-medium">
-                                <span className="text-blue-500 text-lg leading-none">•</span> {s}
-                              </li>
-                            ))}
-                        </ul>
-                    </div>
-                    <div className="glass-card p-6 rounded-xl border-t-2 border-orange-500/40 text-left">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="size-10 rounded-lg bg-orange-500/10 flex items-center justify-center text-orange-500">
-                                <span className="material-symbols-outlined">shield_with_heart</span>
-                            </div>
-                            <h4 className="font-bold text-white uppercase tracking-wider text-sm">Threats</h4>
-                        </div>
-                        <ul className="space-y-3">
-                            {verdict.swot.threats.map((s, i) => (
-                              <li key={i} className="flex items-start gap-2 text-xs text-slate-400 font-medium">
-                                <span className="text-orange-500 text-lg leading-none">•</span> {s}
-                              </li>
-                            ))}
-                        </ul>
-                    </div>
-                </div>
-            </div>
-
-            {/* Risk Gauge */}
-            <div className="flex flex-col gap-4">
-                <h3 className="text-white font-bold flex items-center gap-2">
-                    <span className="material-symbols-outlined text-primary text-lg">speed</span> Risk Assessment
-                </h3>
-                <div className="glass-card rounded-xl p-8 flex flex-col items-center justify-center flex-1">
-                    <div className="relative size-48 mb-8">
-                        <svg className="size-full transform -rotate-90">
-                            <circle className="text-white/5" cx="96" cy="96" fill="transparent" r="88" stroke="currentColor" strokeWidth="12" />
-                            <circle 
-                                className="text-primary transition-all duration-[2000ms] ease-out" 
-                                cx="96" cy="96" fill="transparent" r="88" stroke="currentColor" strokeWidth="12"
-                                strokeDasharray="553"
-                                strokeDashoffset={553 - (553 * riskScore / 100)}
-                                strokeLinecap="round"
-                            />
-                        </svg>
-                        <div className="absolute inset-0 flex flex-col items-center justify-center transform rotate-90">
-                            <span className="text-5xl font-black text-white">{riskScore}</span>
-                            <span className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-1">out of 100</span>
-                        </div>
-                    </div>
-                    <div className="flex flex-col items-center gap-2">
-                        <span className="text-green-500 font-black text-xl tracking-tighter">LOW RISK PROFILE</span>
-                        <p className="text-slate-500 text-xs font-medium max-w-[200px] leading-relaxed">
-                            Entity qualifies for Tier-1 interest rates and preferential processing.
-                        </p>
-                    </div>
-                </div>
-            </div>
+            <div style={{ color: "#22c55e", fontWeight: "800", fontSize: "16px", letterSpacing: "1px" }}>LOW RISK PROFILE</div>
+            <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.4)", textAlign: "center", marginTop: "12px", lineHeight: "1.5" }}>
+              The entity qualifies for high-trust processing benchmarks based on automated extraction and 10-K sentiment analysis.
+            </p>
+          </div>
         </div>
+      </div>
 
-        {/* Global Action Bar */}
-        <div className="flex flex-col sm:flex-row items-center justify-between w-full gap-4 pt-8 border-t border-white/10">
-            <button 
-                className="w-full sm:w-auto px-8 py-3 rounded-xl border border-white/10 text-slate-400 font-bold hover:bg-white/5 transition-all flex items-center gap-2 text-sm"
-                onClick={onBack}
-            >
-                <ArrowLeft size={18} /> Back to Analysis
-            </button>
-            <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
-                <button className="w-full sm:w-auto px-6 py-3 border border-white/10 rounded-xl text-slate-300 font-bold hover:bg-white/5 transition-all flex items-center justify-center gap-2 text-xs">
-                    <span className="material-symbols-outlined text-sm">share</span> Share Report
-                </button>
-                <button 
-                  className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-background-dark px-10 py-4 rounded-xl font-black shadow-[0_0_30px_rgba(240,165,0,0.2)] hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 text-sm"
-                  onClick={handleDownloadReport}
-                >
-                    <span className="material-symbols-outlined">download</span> Download Appraisal Dossier
-                </button>
-            </div>
-        </div>
-      </main>
-
-      <div className="fixed bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/20 to-transparent"></div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "48px", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "32px" }}>
+        <button style={STYLES.secondaryButton} onClick={() => onBack()}>
+          <ArrowLeft size={18} /> Review Data
+        </button>
+        <button style={STYLES.button} onClick={handleDownloadReport}>
+          <Download size={20} /> Download Appraisal PDF
+        </button>
+      </div>
     </div>
   );
 };

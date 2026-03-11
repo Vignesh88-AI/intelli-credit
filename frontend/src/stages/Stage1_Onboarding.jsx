@@ -1,36 +1,77 @@
-import React, { useState, useEffect } from 'react';
-import { ArrowRight, ArrowLeft, CheckCircle } from 'lucide-react';
-import '../styles/stage1.css';
+import React, { useState } from 'react';
+import { ArrowRight, ArrowLeft } from 'lucide-react';
 
-const Stage1_Onboarding = ({ formData, setFormData, onNext }) => {
+const STYLES = {
+  container: { maxWidth: "800px", margin: "0 auto", padding: "40px 20px" },
+  card: {
+    background: "rgba(255,255,255,0.05)",
+    backdropFilter: "blur(10px)",
+    border: "1px solid rgba(255,255,255,0.1)",
+    borderRadius: "16px",
+    padding: "40px",
+    boxShadow: "0 8px 32px 0 rgba(0, 0, 0, 0.37)",
+  },
+  input: {
+    background: "rgba(255,255,255,0.08)",
+    border: "1px solid rgba(255,255,255,0.15)",
+    borderRadius: "8px",
+    padding: "12px 16px",
+    color: "white",
+    width: "100%",
+    fontSize: "14px",
+    marginTop: "8px",
+    outline: "none",
+  },
+  label: { fontSize: "14px", color: "rgba(255,255,255,0.7)", fontWeight: "500" },
+  button: {
+    background: "#f0a500",
+    color: "#0a1628",
+    fontWeight: "700",
+    padding: "12px 32px",
+    borderRadius: "50px",
+    border: "none",
+    cursor: "pointer",
+    fontSize: "16px",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    transition: "transform 0.2s",
+  },
+  secondaryButton: {
+    background: "transparent",
+    color: "white",
+    border: "1px solid rgba(255,255,255,0.2)",
+    padding: "12px 24px",
+    borderRadius: "50px",
+    cursor: "pointer",
+    fontWeight: "600",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+  },
+  error: { color: "#ff4d4d", fontSize: "12px", marginTop: "4px" }
+};
+
+const Stage1_Onboarding = ({ onNext }) => {
   const [step, setStep] = useState(1);
+  const [localData, setLocalData] = useState({
+    entity: {},
+    loan: {}
+  });
   const [errors, setErrors] = useState({});
 
   const sectors = ['NBFC', 'Manufacturing', 'Real Estate', 'Infrastructure', 'Retail', 'IT Services', 'Healthcare', 'Other'];
   const loanTypes = ['Term Loan', 'Working Capital', 'CC Limit', 'LC/BG', 'ECB'];
 
-  const validateCIN = (cin) => {
-    // L/U + 5 digits + state + year + type + 6 digits
-    const cinRegex = /^[LU]\d{5}[A-Z]{2}\d{4}[A-Z]{3}\d{6}$/;
-    return cinRegex.test(cin);
-  };
-
-  const validatePAN = (pan) => {
-    // 5 chars + 4 digits + 1 char
-    const panRegex = /^[A-Z]{5}\d{4}[A-Z]{1}$/;
-    return panRegex.test(pan);
-  };
+  const validateCIN = (cin) => /^[LU]\d{5}[A-Z]{2}\d{4}[A-Z]{3}\d{6}$/.test(cin);
+  const validatePAN = (pan) => /^[A-Z]{5}\d{4}[A-Z]{1}$/.test(pan);
 
   const handleChange = (section, field, value) => {
-    setFormData(prev => ({
+    setLocalData(prev => ({
       ...prev,
-      [section]: {
-        ...prev[section],
-        [field]: value
-      }
+      [section]: { ...prev[section], [field]: value }
     }));
 
-    // Real-time validation
     if (field === 'cin' || field === 'pan') {
       const isValid = field === 'cin' ? validateCIN(value) : validatePAN(value);
       setErrors(prev => ({
@@ -41,263 +82,140 @@ const Stage1_Onboarding = ({ formData, setFormData, onNext }) => {
   };
 
   const isStep1Valid = () => {
-    const { companyName, cin, pan, sector } = formData.entity;
+    const { companyName, cin, pan, sector } = localData.entity;
     return companyName && cin && pan && sector && !errors.cin && !errors.pan;
   };
 
   const isStep2Valid = () => {
-    const { loanType, amount, tenure } = formData.loan;
+    const { loanType, amount, tenure } = localData.loan;
     return loanType && amount && tenure;
   };
 
+  const handleNext = () => {
+    if (step === 1) setStep(2);
+    else onNext(localData);
+  };
+
   return (
-    <div className="relative flex flex-col w-full min-h-screen overflow-x-hidden pt-4">
-      
-      <main className="flex-1 max-w-5xl mx-auto w-full px-6 py-6 fade-in">
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-3xl font-bold tracking-tight text-white">
-              {step === 1 ? 'Entity Onboarding' : 'Loan Requirements'}
-            </h1>
-            <span className="text-sm font-medium text-primary bg-primary/10 px-3 py-1 rounded-full border border-primary/20">
-              {step === 1 ? 'Step 1 of 2' : 'Step 2 of 2'}
-            </span>
-          </div>
-          
-          <div className="relative flex items-center justify-between w-full mb-8">
-            <div className="absolute top-1/2 left-0 w-full h-0.5 bg-slate-700 -z-10 transform -translate-y-1/2"></div>
-            <div className={`absolute top-1/2 left-0 ${step === 1 ? 'w-1/4' : 'w-1/2'} h-0.5 bg-primary -z-10 transform -translate-y-1/2 transition-all duration-500`}></div>
-            <div className="flex flex-col items-center gap-2">
-              <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-slate-900 font-bold">1</div>
-              <span className="text-xs font-semibold text-primary">Entity</span>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              <div className={`w-10 h-10 rounded-full ${step === 2 ? 'bg-primary text-slate-900' : 'bg-slate-800 text-slate-400'} border border-slate-700 flex items-center justify-center font-bold transition-all duration-500`}>2</div>
-              <span className={`text-xs font-semibold ${step === 2 ? 'text-primary' : 'text-slate-500'}`}>Loan Details</span>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 font-bold">3</div>
-              <span className="text-xs font-semibold text-slate-500">Extraction</span>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 font-bold">4</div>
-              <span className="text-xs font-semibold text-slate-500">Report</span>
-            </div>
-          </div>
+    <div style={STYLES.container}>
+      <div style={STYLES.card}>
+        <div style={{ marginBottom: "32px", textAlign: "left" }}>
+          <h2 style={{ fontSize: "28px", fontWeight: "800", marginBottom: "8px", color: "#f0a500" }}>
+            {step === 1 ? "Entity Onboarding" : "Loan Requirements"}
+          </h2>
+          <p style={{ color: "rgba(255,255,255,0.5)", fontSize: "14px" }}>
+            {step === 1 
+              ? "Provide legal registration details for credit assessment." 
+              : "Specify loan amount, tenure and purpose for appraisal."}
+          </p>
         </div>
 
-        <div className="glass-card rounded-xl p-8 shadow-2xl">
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-2 text-white">
-              {step === 1 ? 'Company Information' : 'Financial Requirements'}
-            </h2>
-            <p className="text-slate-400 text-sm">
-              {step === 1 ? 'Please provide the legal registration details of the entity for credit assessment.' : 'Specify the loan amount, tenure and purpose for appraisal.'}
-            </p>
-          </div>
-
-          <form className="space-y-6">
-            {step === 1 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2 text-left">
-                  <label className="text-sm font-medium text-slate-300">Company Name *</label>
-                  <input 
-                    className="w-full bg-slate-900/50 border border-white/10 rounded-lg px-4 py-3 text-slate-100 focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-slate-600" 
-                    placeholder="Enter legal entity name" 
-                    type="text"
-                    value={formData.entity.companyName || ''} 
-                    onChange={(e) => handleChange('entity', 'companyName', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2 text-left">
-                  <label className="text-sm font-medium text-slate-300">CIN Number *</label>
-                  <input 
-                    className={`w-full bg-slate-900/50 border ${errors.cin ? 'border-red-500' : 'border-white/10'} rounded-lg px-4 py-3 text-slate-100 focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-slate-600`} 
-                    placeholder="21-digit Corporate Identity Number" 
-                    type="text"
-                    value={formData.entity.cin || ''} 
-                    onChange={(e) => handleChange('entity', 'cin', e.target.value.toUpperCase())}
-                  />
-                  {errors.cin && <p className="text-red-500 text-xs mt-1">{errors.cin}</p>}
-                </div>
-                <div className="space-y-2 text-left">
-                  <label className="text-sm font-medium text-slate-300">PAN Number *</label>
-                  <input 
-                    className={`w-full bg-slate-900/50 border ${errors.pan ? 'border-red-500' : 'border-white/10'} rounded-lg px-4 py-3 text-slate-100 focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-slate-600`} 
-                    placeholder="10-digit Permanent Account Number" 
-                    type="text"
-                    value={formData.entity.pan || ''} 
-                    onChange={(e) => handleChange('entity', 'pan', e.target.value.toUpperCase())}
-                  />
-                  {errors.pan && <p className="text-red-500 text-xs mt-1">{errors.pan}</p>}
-                </div>
-                <div className="space-y-2 text-left">
-                  <label className="text-sm font-medium text-slate-300">Sector *</label>
-                  <select 
-                    className="w-full bg-slate-900/50 border border-white/10 rounded-lg px-4 py-3 text-slate-100 focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-                    value={formData.entity.sector || ''} 
-                    onChange={(e) => handleChange('entity', 'sector', e.target.value)}
-                  >
-                    <option disabled value="">Select industry sector</option>
-                    {sectors.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-2 text-left">
-                  <label className="text-sm font-medium text-slate-300">Sub-sector</label>
-                  <input 
-                    className="w-full bg-slate-900/50 border border-white/10 rounded-lg px-4 py-3 text-slate-100 focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-slate-600" 
-                    placeholder="e.g. Fintech, Pharma, Textile" 
-                    type="text"
-                    value={formData.entity.subSector || ''} 
-                    onChange={(e) => handleChange('entity', 'subSector', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2 text-left">
-                  <label className="text-sm font-medium text-slate-300">Annual Turnover (INR Crores)</label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-medium">₹</span>
-                    <input 
-                      className="w-full bg-slate-900/50 border border-white/10 rounded-lg pl-8 pr-4 py-3 text-slate-100 focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-slate-600" 
-                      placeholder="Enter annual revenue" 
-                      type="number"
-                      value={formData.entity.turnover || ''} 
-                      onChange={(e) => handleChange('entity', 'turnover', e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2 text-left">
-                  <label className="text-sm font-medium text-slate-300">Years in Operation</label>
-                  <input 
-                    className="w-full bg-slate-900/50 border border-white/10 rounded-lg px-4 py-3 text-slate-100 focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-slate-600" 
-                    placeholder="e.g. 5" 
-                    type="number"
-                    value={formData.entity.years || ''} 
-                    onChange={(e) => handleChange('entity', 'years', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2 text-left">
-                  <label className="text-sm font-medium text-slate-300">City & State</label>
-                  <input 
-                    className="w-full bg-slate-900/50 border border-white/10 rounded-lg px-4 py-3 text-slate-100 focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-slate-600" 
-                    placeholder="e.g. Mumbai, Maharashtra" 
-                    type="text"
-                    value={formData.entity.location || ''} 
-                    onChange={(e) => handleChange('entity', 'location', e.target.value)}
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2 text-left">
-                  <label className="text-sm font-medium text-slate-300">Loan Type *</label>
-                  <select 
-                    className="w-full bg-slate-900/50 border border-white/10 rounded-lg px-4 py-3 text-slate-100 focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-                    value={formData.loan.loanType || ''} 
-                    onChange={(e) => handleChange('loan', 'loanType', e.target.value)}
-                  >
-                    <option value="">Select Type</option>
-                    {loanTypes.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-2 text-left">
-                  <label className="text-sm font-medium text-slate-300">Loan Amount (₹ Crores) *</label>
-                  <input 
-                    className="w-full bg-slate-900/50 border border-white/10 rounded-lg px-4 py-3 text-slate-100 focus:border-primary focus:ring-1 focus:ring-primary transition-all" 
-                    type="number" 
-                    value={formData.loan.amount || ''} 
-                    onChange={(e) => handleChange('loan', 'amount', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2 text-left">
-                  <label className="text-sm font-medium text-slate-300">Tenure (Months) *</label>
-                  <input 
-                    className="w-full bg-slate-900/50 border border-white/10 rounded-lg px-4 py-3 text-slate-100 focus:border-primary focus:ring-1 focus:ring-primary transition-all" 
-                    type="number"
-                    value={formData.loan.tenure || ''} 
-                    onChange={(e) => handleChange('loan', 'tenure', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2 text-left">
-                  <label className="text-sm font-medium text-slate-300">Interest Rate (%)</label>
-                  <input 
-                    className="w-full bg-slate-900/50 border border-white/10 rounded-lg px-4 py-3 text-slate-100 focus:border-primary focus:ring-1 focus:ring-primary transition-all" 
-                    type="number" step="0.1"
-                    value={formData.loan.rate || ''} 
-                    onChange={(e) => handleChange('loan', 'rate', e.target.value)}
-                  />
-                </div>
-                <div className="col-span-full space-y-2 text-left">
-                  <label className="text-sm font-medium text-slate-300">Purpose of Loan</label>
-                  <textarea 
-                    rows="3"
-                    className="w-full bg-slate-900/50 border border-white/10 rounded-lg px-4 py-3 text-slate-100 focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-                    value={formData.loan.purpose || ''} 
-                    onChange={(e) => handleChange('loan', 'purpose', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2 text-left">
-                  <label className="text-sm font-medium text-slate-300">Existing Banker</label>
-                  <input 
-                    className="w-full bg-slate-900/50 border border-white/10 rounded-lg px-4 py-3 text-slate-100 focus:border-primary focus:ring-1 focus:ring-primary transition-all" 
-                    type="text"
-                    value={formData.loan.banker || ''} 
-                    onChange={(e) => handleChange('loan', 'banker', e.target.value)}
-                  />
-                </div>
-              </div>
-            )}
-            
-            <div className={`pt-8 flex ${step === 2 ? 'justify-between' : 'justify-end'}`}>
-              {step === 2 && (
-                <button 
-                  className="px-8 py-3 rounded-lg border border-white/10 text-slate-300 font-semibold hover:bg-white/5 transition-all flex items-center gap-2"
-                  type="button"
-                  onClick={() => setStep(1)}
-                >
-                  <ArrowLeft size={18} /> Back
-                </button>
-              )}
-              <button 
-                className="bg-primary hover:bg-primary/90 text-slate-900 font-bold px-10 py-3 rounded-lg flex items-center gap-2 transition-all transform hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20 disabled:opacity-50" 
-                type="button"
-                disabled={step === 1 ? !isStep1Valid() : !isStep2Valid()}
-                onClick={step === 1 ? () => setStep(2) : onNext}
+        {step === 1 ? (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
+            <div style={{ textAlign: "left" }}>
+              <label style={STYLES.label}>Company Name *</label>
+              <input 
+                style={STYLES.input} 
+                placeholder="Legal Entity Name" 
+                value={localData.entity.companyName || ""} 
+                onChange={(e) => handleChange('entity', 'companyName', e.target.value)}
+              />
+            </div>
+            <div style={{ textAlign: "left" }}>
+              <label style={STYLES.label}>CIN Number *</label>
+              <input 
+                style={{ ...STYLES.input, borderColor: errors.cin ? "#ff4d4d" : STYLES.input.borderColor }} 
+                placeholder="21-digit CIN" 
+                value={localData.entity.cin || ""} 
+                onChange={(e) => handleChange('entity', 'cin', e.target.value.toUpperCase())}
+              />
+              {errors.cin && <div style={STYLES.error}>{errors.cin}</div>}
+            </div>
+            <div style={{ textAlign: "left" }}>
+              <label style={STYLES.label}>PAN Number *</label>
+              <input 
+                style={{ ...STYLES.input, borderColor: errors.pan ? "#ff4d4d" : STYLES.input.borderColor }} 
+                placeholder="10-digit PAN" 
+                value={localData.entity.pan || ""} 
+                onChange={(e) => handleChange('entity', 'pan', e.target.value.toUpperCase())}
+              />
+              {errors.pan && <div style={STYLES.error}>{errors.pan}</div>}
+            </div>
+            <div style={{ textAlign: "left" }}>
+              <label style={STYLES.label}>Sector *</label>
+              <select 
+                style={STYLES.input} 
+                value={localData.entity.sector || ""} 
+                onChange={(e) => handleChange('entity', 'sector', e.target.value)}
               >
-                {step === 1 ? 'Next' : 'Proceed to Upload'}
-                <span className="material-symbols-outlined">{step === 1 ? 'arrow_forward' : 'check_circle'}</span>
-              </button>
+                <option value="">Select Sector</option>
+                {sectors.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
             </div>
-          </form>
-        </div>
+            <div style={{ textAlign: "left" }}>
+              <label style={STYLES.label}>Sub-sector</label>
+              <input 
+                style={STYLES.input} 
+                placeholder="e.g. Fintech" 
+                value={localData.entity.subSector || ""} 
+                onChange={(e) => handleChange('entity', 'subSector', e.target.value)}
+              />
+            </div>
+            <div style={{ textAlign: "left" }}>
+              <label style={STYLES.label}>Annual Turnover (INR Crores)</label>
+              <input 
+                style={STYLES.input} 
+                type="number" 
+                placeholder="Turnover" 
+                value={localData.entity.turnover || ""} 
+                onChange={(e) => handleChange('entity', 'turnover', e.target.value)}
+              />
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
+            <div style={{ textAlign: "left" }}>
+              <label style={STYLES.label}>Loan Type *</label>
+              <select style={STYLES.input} value={localData.loan.loanType || ""} onChange={(e) => handleChange('loan', 'loanType', e.target.value)}>
+                <option value="">Select Type</option>
+                {loanTypes.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div style={{ textAlign: "left" }}>
+              <label style={STYLES.label}>Amount (₹ Crores) *</label>
+              <input style={STYLES.input} type="number" value={localData.loan.amount || ""} onChange={(e) => handleChange('loan', 'amount', e.target.value)} />
+            </div>
+            <div style={{ textAlign: "left" }}>
+              <label style={STYLES.label}>Tenure (Months) *</label>
+              <input style={STYLES.input} type="number" value={localData.loan.tenure || ""} onChange={(e) => handleChange('loan', 'tenure', e.target.value)} />
+            </div>
+            <div style={{ textAlign: "left" }}>
+              <label style={STYLES.label}>Interest Rate (%)</label>
+              <input style={STYLES.input} type="number" step="0.1" value={localData.loan.rate || ""} onChange={(e) => handleChange('loan', 'rate', e.target.value)} />
+            </div>
+            <div style={{ gridColumn: "span 2", textAlign: "left" }}>
+              <label style={STYLES.label}>Purpose of Loan</label>
+              <textarea style={{ ...STYLES.input, height: "100px", resize: "none" }} value={localData.loan.purpose || ""} onChange={(e) => handleChange('loan', 'purpose', e.target.value)} />
+            </div>
+          </div>
+        )}
 
-        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="p-4 rounded-xl bg-white/5 border border-white/10 flex gap-4 items-start text-left">
-            <span className="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-lg">security</span>
-            <div>
-              <h4 className="text-sm font-semibold">Secure Encryption</h4>
-              <p className="text-xs text-slate-500 mt-1">Your data is encrypted with bank-grade 256-bit security protocols.</p>
-            </div>
-          </div>
-          <div className="p-4 rounded-xl bg-white/5 border border-white/10 flex gap-4 items-start text-left">
-            <span className="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-lg">speed</span>
-            <div>
-              <h4 className="text-sm font-semibold">Real-time Extraction</h4>
-              <p className="text-xs text-slate-500 mt-1">AI-powered data extraction from documents in under 60 seconds.</p>
-            </div>
-          </div>
-          <div className="p-4 rounded-xl bg-white/5 border border-white/10 flex gap-4 items-start text-left">
-            <span className="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-lg">analytics</span>
-            <div>
-              <h4 className="text-sm font-semibold">Advanced Scoring</h4>
-              <p className="text-xs text-slate-500 mt-1">Multi-dimensional credit scoring engine for precise risk assessment.</p>
-            </div>
-          </div>
+        <div style={{ marginTop: "40px", display: "flex", justifyContent: step === 2 ? "space-between" : "flex-end" }}>
+          {step === 2 && (
+            <button style={STYLES.secondaryButton} onClick={() => setStep(1)}>
+              <ArrowLeft size={18} /> Back
+            </button>
+          )}
+          <button 
+            style={{ ...STYLES.button, opacity: (step === 1 ? !isStep1Valid() : !isStep2Valid()) ? 0.5 : 1 }} 
+            disabled={step === 1 ? !isStep1Valid() : !isStep2Valid()}
+            onClick={handleNext}
+          >
+            {step === 1 ? "Next Step" : "Proceed to Upload"}
+            <ArrowRight size={18} />
+          </button>
         </div>
-      </main>
-      
-      <footer className="w-full border-t border-white/5 px-6 py-8 mt-auto text-center">
-        <p className="text-slate-600 text-xs text-center">© 2024 Intelli-Credit FinTech Solutions. All rights reserved. Registered RBI NBFC Partner.</p>
-      </footer>
+      </div>
     </div>
   );
 };
