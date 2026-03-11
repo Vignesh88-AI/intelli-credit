@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Entity Onboarding - Intelli-Credit</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#f0a400",
+                        "background-light": "#f8f7f5",
+                        "background-dark": "#0a1628",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen">
+<div class="relative flex flex-col w-full min-h-screen overflow-x-hidden">
+<header class="w-full border-b border-white/10 px-6 lg:px-20 py-4 flex items-center justify-between bg-background-dark/50 backdrop-blur-md sticky top-0 z-50">
+<div class="flex items-center gap-2">
+<span class="text-primary text-2xl font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-primary">bolt</span>
+                    Intelli-Credit
+                </span>
+</div>
+<nav class="hidden md:flex items-center gap-8">
+<a class="text-sm font-medium hover:text-primary transition-colors" href="#">Dashboard</a>
+<a class="text-sm font-medium hover:text-primary transition-colors" href="#">Analytics</a>
+<a class="text-sm font-medium hover:text-primary transition-colors" href="#">Reports</a>
+<a class="text-sm font-medium hover:text-primary transition-colors" href="#">Settings</a>
+</nav>
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center border border-primary/30">
+<span class="material-symbols-outlined text-primary">person</span>
+</div>
+</div>
+</header>
+<main class="flex-1 max-w-5xl mx-auto w-full px-6 py-12">
+<div class="mb-12">
+<div class="flex items-center justify-between mb-4">
+<h1 class="text-3xl font-bold tracking-tight">Entity Onboarding</h1>
+<span class="text-sm font-medium text-primary bg-primary/10 px-3 py-1 rounded-full border border-primary/20">Step 1 of 4</span>
+</div>
+<div class="relative flex items-center justify-between w-full mb-8">
+<div class="absolute top-1/2 left-0 w-full h-0.5 bg-slate-700 -z-10 transform -translate-y-1/2"></div>
+<div class="absolute top-1/2 left-0 w-1/4 h-0.5 bg-primary -z-10 transform -translate-y-1/2"></div>
+<div class="flex flex-col items-center gap-2">
+<div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-slate-900 font-bold">1</div>
+<span class="text-xs font-semibold text-primary">Entity</span>
+</div>
+<div class="flex flex-col items-center gap-2">
+<div class="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 font-bold">2</div>
+<span class="text-xs font-semibold text-slate-500">Documents</span>
+</div>
+<div class="flex flex-col items-center gap-2">
+<div class="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 font-bold">3</div>
+<span class="text-xs font-semibold text-slate-500">Extraction</span>
+</div>
+<div class="flex flex-col items-center gap-2">
+<div class="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 font-bold">4</div>
+<span class="text-xs font-semibold text-slate-500">Report</span>
+</div>
+</div>
+</div>
+<div class="glass-card rounded-xl p-8 shadow-2xl">
+<div class="mb-8">
+<h2 class="text-xl font-semibold mb-2">Company Information</h2>
+<p class="text-slate-400 text-sm">Please provide the legal registration details of the entity for credit assessment.</p>
+</div>
+<form class="space-y-6">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="space-y-2">
+<label class="text-sm font-medium text-slate-300">Company Name</label>
+<input class="w-full bg-slate-900/50 border border-white/10 rounded-lg px-4 py-3 text-slate-100 focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-slate-600" placeholder="Enter legal entity name" type="text"/>
+</div>
+<div class="space-y-2">
+<label class="text-sm font-medium text-slate-300">CIN Number</label>
+<input class="w-full bg-slate-900/50 border border-white/10 rounded-lg px-4 py-3 text-slate-100 focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-slate-600" placeholder="21-digit Corporate Identity Number" type="text"/>
+</div>
+<div class="space-y-2">
+<label class="text-sm font-medium text-slate-300">PAN Number</label>
+<input class="w-full bg-slate-900/50 border border-white/10 rounded-lg px-4 py-3 text-slate-100 focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-slate-600" placeholder="10-digit Permanent Account Number" type="text"/>
+</div>
+<div class="space-y-2">
+<label class="text-sm font-medium text-slate-300">Sector</label>
+<select class="w-full bg-slate-900/50 border border-white/10 rounded-lg px-4 py-3 text-slate-100 focus:border-primary focus:ring-1 focus:ring-primary transition-all">
+<option disabled="" selected="" value="">Select industry sector</option>
+<option value="manufacturing">Manufacturing</option>
+<option value="services">Services</option>
+<option value="retail">Retail &amp; E-commerce</option>
+<option value="technology">Technology</option>
+<option value="healthcare">Healthcare</option>
+</select>
+</div>
+<div class="space-y-2">
+<label class="text-sm font-medium text-slate-300">Sub-sector</label>
+<input class="w-full bg-slate-900/50 border border-white/10 rounded-lg px-4 py-3 text-slate-100 focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-slate-600" placeholder="e.g. Fintech, Pharma, Textile" type="text"/>
+</div>
+<div class="space-y-2">
+<label class="text-sm font-medium text-slate-300">Annual Turnover (INR)</label>
+<div class="relative">
+<span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-medium">₹</span>
+<input class="w-full bg-slate-900/50 border border-white/10 rounded-lg pl-8 pr-4 py-3 text-slate-100 focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-slate-600" placeholder="Enter annual revenue" type="number"/>
+</div>
+</div>
+<div class="space-y-2">
+<label class="text-sm font-medium text-slate-300">Years in Operation</label>
+<input class="w-full bg-slate-900/50 border border-white/10 rounded-lg px-4 py-3 text-slate-100 focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-slate-600" placeholder="e.g. 5" type="number"/>
+</div>
+<div class="space-y-2">
+<label class="text-sm font-medium text-slate-300">City &amp; State</label>
+<input class="w-full bg-slate-900/50 border border-white/10 rounded-lg px-4 py-3 text-slate-100 focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-slate-600" placeholder="e.g. Mumbai, Maharashtra" type="text"/>
+</div>
+</div>
+<div class="pt-8 flex justify-end">
+<button class="bg-primary hover:bg-primary/90 text-slate-900 font-bold px-10 py-3 rounded-lg flex items-center gap-2 transition-all transform hover:scale-[1.02] active:scale-95 shadow-lg shadow-primary/20" type="button">
+                            Next
+                            <span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</form>
+</div>
+<div class="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="p-4 rounded-xl bg-white/5 border border-white/10 flex gap-4 items-start">
+<span class="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-lg">security</span>
+<div>
+<h4 class="text-sm font-semibold">Secure Encryption</h4>
+<p class="text-xs text-slate-500 mt-1">Your data is encrypted with bank-grade 256-bit security protocols.</p>
+</div>
+</div>
+<div class="p-4 rounded-xl bg-white/5 border border-white/10 flex gap-4 items-start">
+<span class="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-lg">speed</span>
+<div>
+<h4 class="text-sm font-semibold">Real-time Extraction</h4>
+<p class="text-xs text-slate-500 mt-1">AI-powered data extraction from documents in under 60 seconds.</p>
+</div>
+</div>
+<div class="p-4 rounded-xl bg-white/5 border border-white/10 flex gap-4 items-start">
+<span class="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-lg">analytics</span>
+<div>
+<h4 class="text-sm font-semibold">Advanced Scoring</h4>
+<p class="text-xs text-slate-500 mt-1">Multi-dimensional credit scoring engine for precise risk assessment.</p>
+</div>
+</div>
+</div>
+</main>
+<footer class="w-full border-t border-white/5 px-6 py-8 mt-auto text-center">
+<p class="text-slate-600 text-xs">© 2024 Intelli-Credit FinTech Solutions. All rights reserved. Registered RBI NBFC Partner.</p>
+</footer>
+</div>
+</body></html>

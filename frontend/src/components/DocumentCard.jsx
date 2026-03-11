@@ -30,7 +30,7 @@ const DocumentCard = ({ type, description, isOptional, file, onUpload, onRemove,
       onDrop={handleDrop}
       onClick={() => !file && fileInputRef.current?.click()}
     >
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between text-left">
         <h3 className="text-white font-semibold text-lg">{type}</h3>
         {file ? (
           <span className="material-symbols-outlined text-green-500 fill-1">check_circle</span>
@@ -44,7 +44,7 @@ const DocumentCard = ({ type, description, isOptional, file, onUpload, onRemove,
       <div className="flex flex-col items-center justify-center py-4 gap-2">
         {file ? (
           <div className="w-full">
-            <div className="w-full bg-slate-900/50 rounded-lg p-4 flex items-center gap-3 border border-white/10 mb-4">
+            <div className="w-full bg-[#0a1628]/50 rounded-lg p-4 flex items-center gap-3 border border-white/10 mb-4 text-left">
               <span className="material-symbols-outlined text-primary">description</span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-white font-medium truncate">{file.name}</p>
@@ -58,7 +58,7 @@ const DocumentCard = ({ type, description, isOptional, file, onUpload, onRemove,
               </button>
             </div>
             <button 
-              className="w-full text-primary hover:text-primary/80 text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-1 transition-colors"
+              className="text-primary hover:text-primary/80 text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-1 transition-colors w-full"
               onClick={(e) => { e.stopPropagation(); onRemove(type); }}
             >
               <span className="material-symbols-outlined text-sm">delete</span> Remove

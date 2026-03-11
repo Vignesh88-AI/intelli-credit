@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import Navbar from './components/Navbar';
-import ProgressBar from './components/ProgressBar';
 import Stage1_Onboarding from './stages/Stage1_Onboarding';
 import Stage2_Upload from './stages/Stage2_Upload';
 import Stage3_Extraction from './stages/Stage3_Extraction';
