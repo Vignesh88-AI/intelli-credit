@@ -9,17 +9,7 @@ from typing import List, Dict, Any
 router = APIRouter(prefix="/api")
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
-SYSTEM_PROMPT = """You are a financial document classifier and extractor for Indian corporate 
-lending. Given this document text, first identify the document type from: 
-[ALM, Shareholding Pattern, Borrowing Profile, Annual Report, Portfolio Data].
-Then extract all key financial metrics into structured JSON. 
-For Annual Reports extract: revenue, EBITDA, PAT, total debt, networth, 
-current ratio, debt-to-equity, interest coverage ratio, for last 3 years.
-For ALM extract: maturity buckets, asset-liability gap, liquidity ratios.
-For Shareholding: promoter %, FII %, public %, any pledge %.
-For Borrowing Profile: total borrowings, lender-wise breakup, repayment schedule.
-For Portfolio: NPA %, collection efficiency, portfolio growth rate.
-Return ONLY valid JSON, no explanation."""
+SYSTEM_PROMPT = """You are a financial document parser. Extract ALL financial data from this document and return ONLY valid JSON. No explanation, no markdown, just raw JSON."""
 
 @router.post("/extract")
 async def extract_data(file_paths: List[str] = Form(...), doc_types: List[str] = Form(...)):
@@ -36,27 +26,59 @@ async def extract_data(file_paths: List[str] = Form(...), doc_types: List[str] =
                     with pdfplumber.open(path) as pdf:
                         for page in pdf.pages:
                             text += page.extract_text() or ""
-                else:
-                    text = "Non-PDF file context."
+                
+                
+                if not text.strip():
+                    results.append({
+                        "file_path": path,
+                        "status": "error",
+                        "message": "No text content found in document.",
+                        "fields": {}
+                    })
+                    continue
+
+                # Prepare User Prompt
+                user_msg = f"""Extract all financial metrics from this document.
+Return JSON in this exact format:
+{{
+  "document_type": "Annual Report|ALM|Shareholding|Borrowing|Portfolio",
+  "fields": {{
+    "metric_name": "value",
+    "metric_name2": "value2"
+  }}
+}}
+
+Document text:
+{text[:20000]}"""
 
                 # Call Claude
                 message = client.messages.create(
                     model="claude-3-5-sonnet-20240620",
-                    max_tokens=4096,
+                    max_tokens=2000,
                     system=SYSTEM_PROMPT,
                     messages=[
-                        {"role": "user", "content": f"Document Type Hint: {doc_types[i]}\n\nDocument Text:\n{text[:15000]}"}
+                        {"role": "user", "content": user_msg}
                     ]
                 )
                 
-                # Parse JSON response
-                extracted_json = json.loads(message.content[0].text)
-                
+                response_text = message.content[0].text
+
+                # Parse JSON response safely
+                extracted_json = {}
+                try:
+                    extracted_json = json.loads(response_text)
+                except json.JSONDecodeError:
+                    # Attempt to find JSON block if AI included markdown
+                    import re
+                    match = re.search(r'\{.*\}', response_text, re.DOTALL)
+                    if match:
+                        extracted_json = json.loads(match.group())
+
                 results.append({
                     "file_path": path,
                     "original_type": doc_types[i],
-                    "detected_type": extracted_json.get("document_type", doc_types[i]),
-                    "fields": extracted_json,
+                    "detected_type": extracted_json.get("document_type", "Unknown"),
+                    "fields": extracted_json.get("fields", {}),
                     "status": "success"
                 })
                 

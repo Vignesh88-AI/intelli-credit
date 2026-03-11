@@ -15,9 +15,8 @@ client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 async def perform_research(company_name: str = Form(...), sector: str = Form(...)):
     try:
         # Prompt for research findings
-        # In a real scenario, we'd use a search tool. Here we'll rely on Claude's internal knowledge
-        prompt = f"""You are a credit risk researcher for Indian corporate lending.
-        Identify and analyze for {company_name} in the {sector} sector:
+        system_msg = "You are a credit risk researcher. Extract financial sentiment and return ONLY valid JSON."
+        user_msg = f"""Identify and analyze for {company_name} in the {sector} sector:
         1. Recent news - fraud, defaults, legal cases
         2. Promoter background
         3. Sector outlook in India (RBI regs, headwinds)
@@ -31,10 +30,22 @@ async def perform_research(company_name: str = Form(...), sector: str = Form(...
         message = client.messages.create(
             model="claude-3-5-sonnet-20240620",
             max_tokens=2000,
-            messages=[{"role": "user", "content": prompt}]
+            system=system_msg,
+            messages=[{"role": "user", "content": user_msg}]
         )
         
-        return json.loads(message.content[0].text)
+        response_text = message.content[0].text
+        
+        # Robust parsing
+        try:
+            return json.loads(response_text)
+        except json.JSONDecodeError:
+            import re
+            match = re.search(r'\{.*\}', response_text, re.DOTALL)
+            if match:
+                return json.loads(match.group())
+            raise HTTPException(status_code=500, detail="Failed to parse AI research response")
+            
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
