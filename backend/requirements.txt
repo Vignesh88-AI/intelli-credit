@@ -1,8 +1,9 @@
-fastapi==0.110.0
-uvicorn==0.27.1
-pymupdf==1.23.26
-reportlab==4.1.0
-python-dotenv==1.0.1
-anthropic==0.19.1
-python-multipart==0.0.9
+fastapi==0.104.1
+uvicorn==0.24.0
+anthropic==0.40.0
+pymupdf==1.23.8
+python-multipart==0.0.6
+reportlab==4.0.7
 requests==2.31.0
+python-dotenv==1.0.0
+pydantic==2.5.0
