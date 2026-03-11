@@ -101,7 +101,7 @@ const Stage4_Report = ({ formData, setFormData, onBack }) => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         {/* Research Findings */}
-        <div className="glass p-6">
+        <div className="glass-card p-6">
           <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
             <TrendingUp size={20} className="text-[#f0a500]" /> Research Insights
           </h3>
@@ -118,7 +118,7 @@ const Stage4_Report = ({ formData, setFormData, onBack }) => {
         </div>
 
         {/* SWOT Analysis */}
-        <div className="glass p-6">
+        <div className="glass-card p-6">
           <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
             <Briefcase size={20} className="text-[#f0a500]" /> SWOT Matrix
           </h3>

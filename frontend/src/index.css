@@ -1,15 +1,17 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 :root {
-  --bg-color: #010409;
-  --panel-color: #0a1628;
+  --bg-color: #050510;
+  --panel-color: rgba(10, 22, 40, 0.6);
   --accent-color: #f0a500;
-  --text-primary: #f0f6fc;
-  --text-secondary: #8b949e;
-  --border-color: #30363d;
-  --success: #238636;
-  --error: #f85149;
+  --accent-glow: rgba(240, 165, 0, 0.4);
+  --text-primary: #ffffff;
+  --text-secondary: #b0b0b0;
+  --border-color: rgba(255, 255, 255, 0.1);
+  --success: #00c853;
+  --error: #ff1744;
   --font-main: 'Inter', sans-serif;
+  --grey: #404040;
 }
 
 * {
@@ -27,11 +29,22 @@ body {
 }
 
 .glass {
-  background: rgba(10, 22, 40, 0.7);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
+  background: var(--panel-color);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.glass-card {
+  border-radius: 16px;
+  padding: 2rem;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.glass-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px 0 rgba(240, 165, 0, 0.1);
 }
 
 .container {
@@ -42,19 +55,21 @@ body {
 
 input, select, textarea {
   width: 100%;
-  padding: 12px;
-  background: #0d1117;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: 8px;
   color: var(--text-primary);
-  font-size: 1rem;
+  font-size: 0.95rem;
   margin-top: 8px;
-  transition: border-color 0.2s;
+  transition: all 0.3s ease;
 }
 
 input:focus, select:focus, textarea:focus {
   outline: none;
   border-color: var(--accent-color);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 0 15px var(--accent-glow);
 }
 
 label {
@@ -105,12 +120,74 @@ label {
   .grid-2 { grid-template-columns: 1fr; }
 }
 
-/* Animations */
+/* Step Indicators */
+.step-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.step-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.step-circle.active {
+  background: var(--accent-color);
+  color: #000;
+  box-shadow: 0 0 15px var(--accent-glow);
+}
+
+.step-circle.done {
+  background: var(--success);
+  color: #fff;
+}
+
+.step-circle.upcoming {
+  background: transparent;
+  border-color: var(--grey);
+  color: var(--grey);
+}
+
+.step-line {
+  height: 2px;
+  width: 30px;
+  background: var(--grey);
+  border-radius: 2px;
+}
+
+.step-line.done {
+  background: var(--success);
+}
+
+.step-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.step-label.active { color: var(--accent-color); }
+.step-label.done { color: var(--success); }
+.step-label.upcoming { color: var(--grey); }
+
+@media (max-width: 1024px) {
+  .container { max-width: 95%; }
+}
+
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 .fade-in {
-  animation: fadeIn 0.4s ease-out forwards;
+  animation: fadeIn 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }

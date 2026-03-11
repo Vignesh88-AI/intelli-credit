@@ -23,8 +23,8 @@ const DocumentCard = ({ type, description, isOptional, file, onUpload, onRemove 
 
   return (
     <div 
-      className={`glass p-4 border-2 border-dashed transition-all duration-300 relative ${
-        file ? 'border-[#238636]' : 'border-[#30363d] hover:border-[#f0a500]'
+      className={`glass-card p-4 border-2 border-dashed transition-all duration-300 relative ${
+        file ? 'border-[#00c853]' : 'border-white/10 hover:border-[#f0a500]'
       }`}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
@@ -36,7 +36,7 @@ const DocumentCard = ({ type, description, isOptional, file, onUpload, onRemove 
       )}
       
       <div className="flex items-start gap-4">
-        <div className={`p-3 rounded-lg ${file ? 'bg-[#238636]/20 text-[#238636]' : 'bg-[#30363d] text-gray-400'}`}>
+        <div className={`p-3 rounded-lg ${file ? 'bg-[#00c853]/20 text-[#00c853]' : 'bg-white/5 text-gray-400'}`}>
           {file ? <CheckCircle size={24} /> : <FileText size={24} />}
         </div>
         

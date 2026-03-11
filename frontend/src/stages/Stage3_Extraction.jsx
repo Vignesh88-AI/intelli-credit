@@ -69,7 +69,7 @@ const Stage3_Extraction = ({ formData, setFormData, onNext, onBack }) => {
 
       <div className="space-y-8">
         {results.map((res, idx) => (
-          <div key={idx} className="glass p-6">
+          <div key={idx} className="glass-card p-6">
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center gap-3">
                 <h3 className="text-lg font-bold">{res.original_type}</h3>

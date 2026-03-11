@@ -31,10 +31,9 @@ function App() {
 
   return (
     <div className="min-h-screen">
-      <Navbar />
+      <Navbar currentStage={stage} />
       <div className="container">
-        <ProgressBar currentStage={stage} totalStages={4} />
-        <main className="mt-8">
+        <main className="mt-4">
           {renderStage()}
         </main>
       </div>

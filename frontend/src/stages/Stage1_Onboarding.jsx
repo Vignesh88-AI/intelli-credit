@@ -51,7 +51,7 @@ const Stage1_Onboarding = ({ formData, setFormData, onNext }) => {
 
   return (
     <div className="fade-in max-w-3xl mx-auto">
-      <div className="glass p-8 mb-8">
+      <div className="glass-card mb-8">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold">
             {step === 1 ? 'Entity Details' : 'Loan Requirements'}
