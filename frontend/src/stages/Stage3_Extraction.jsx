@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { ArrowLeft, ArrowRight, CheckCircle, Edit2, Save, X, Loader2, AlertCircle } from 'lucide-react';
-import axios from 'axios';
+import React, { useState } from 'react';
+import { ArrowLeft, ArrowRight, CheckCircle, Edit2, Save, Loader2, AlertCircle } from 'lucide-react';
 
 const STYLES = {
   container: { maxWidth: "1200px", margin: "0 auto", padding: "40px 20px" },
@@ -78,49 +77,34 @@ const STYLES = {
 };
 
 const Stage3_Extraction = ({ onNext, entityData }) => {
-  const [loading, setLoading] = useState(true);
-  const [results, setResults] = useState([]);
+  const [extractions, setExtractions] = useState(entityData?.extractions || []);
   const [editingId, setEditingId] = useState(null);
 
-  useEffect(() => {
-    const triggerExtraction = async () => {
-      try {
-        const extractForm = new FormData();
-        entityData.uploadedResults.forEach(r => {
-          extractForm.append('file_paths', r.path);
-          extractForm.append('doc_types', r.doc_type);
-        });
-
-        const API_URL = import.meta.env.VITE_API_URL || 'https://intelli-credit-7kzw.onrender.com';
-        console.log('Initiating extraction from:', `${API_URL}/api/extract`);
-        const response = await axios.post(`${API_URL}/api/extract`, extractForm);
-        setResults(response.data);
-      } catch (error) {
-        console.error('Extraction failed', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (entityData?.uploadedResults) triggerExtraction();
-  }, [entityData]);
-
   const handleFieldChange = (docIdx, key, value) => {
-    const newResults = [...results];
-    newResults[docIdx].data[key] = value;
-    setResults(newResults);
+    const newExtractions = [...extractions];
+    if (newExtractions[docIdx]?.fields) {
+      newExtractions[docIdx].fields[key] = value;
+      setExtractions(newExtractions);
+    }
   };
 
   const handleConfirm = () => {
-    onNext({ extractedData: results });
+    onNext({ extractedData: extractions });
   };
 
-  if (loading) {
+  if (!extractions || extractions.length === 0) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "100px 0" }}>
-        <Loader2 className="animate-spin" size={64} color="#f0a500" />
-        <h2 style={{ marginTop: "24px", fontSize: "24px", fontWeight: "700" }}>AI Intelligence Engine</h2>
-        <p style={{ color: "rgba(255,255,255,0.5)", marginTop: "8px" }}>Extracting key financial metrics from uploaded repositories...</p>
+      <div style={{ ...STYLES.container, textAlign: "center", padding: "100px 0" }}>
+        <div style={{ ...STYLES.glassCard, padding: "48px" }}>
+          <AlertCircle size={48} color="#ff4d4d" style={{ marginBottom: "24px" }} />
+          <h2 style={{ fontSize: "24px", fontWeight: "700", marginBottom: "8px" }}>No Data Extracted</h2>
+          <p style={{ color: "rgba(255,255,255,0.5)", marginBottom: "32px" }}>
+            The AI engine could not retrieve any structured fields from the provided documents.
+          </p>
+          <button style={STYLES.button} onClick={() => window.location.reload()}>
+            Try Again
+          </button>
+        </div>
       </div>
     );
   }
@@ -134,18 +118,20 @@ const Stage3_Extraction = ({ onNext, entityData }) => {
 
       <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "32px" }}>
         <div style={{ textAlign: "left" }}>
-          {results.map((res, idx) => (
+          {extractions.map((res, idx) => (
             <div key={idx} style={STYLES.glassCard}>
               <div style={STYLES.tableHeader}>
                 <div>
                   <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "700" }}>{res.original_type}</h3>
                   <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.4)", marginTop: "2px" }}>
-                    Source Identified: {res.detected_type}
+                    Source Identified: {res.detected_type || "Unknown"}
                   </div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#22c55e", fontSize: "12px", fontWeight: "600" }}>
-                  <CheckCircle size={14} /> AI Verified
-                </div>
+                {res.status === 'success' && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#22c55e", fontSize: "12px", fontWeight: "600" }}>
+                    <CheckCircle size={14} /> AI Verified
+                  </div>
+                )}
               </div>
               <div style={{ overflowX: "auto" }}>
                 <table style={STYLES.table}>
@@ -157,7 +143,7 @@ const Stage3_Extraction = ({ onNext, entityData }) => {
                     </tr>
                   </thead>
                   <tbody>
-                    {Object.entries(res.data).map(([key, val]) => (
+                    {Object.entries(res.fields || {}).map(([key, val]) => (
                       key !== 'document_type' && (
                         <tr key={key}>
                           <td style={STYLES.td}>{key.replace(/_/g, ' ')}</td>
@@ -166,13 +152,13 @@ const Stage3_Extraction = ({ onNext, entityData }) => {
                               <input 
                                 style={STYLES.input}
                                 type="text" 
-                                value={typeof val === 'object' ? JSON.stringify(val) : val}
+                                value={typeof val === 'object' ? JSON.stringify(val) : (val || "")}
                                 onChange={(e) => handleFieldChange(idx, key, e.target.value)}
                                 autoFocus
                               />
                             ) : (
                               <span style={{ fontFamily: "monospace", color: "#f0a500" }}>
-                                {typeof val === 'object' ? 'Structured Data' : val}
+                                {typeof val === 'object' ? 'Structured Data' : (val || "N/A")}
                               </span>
                             )}
                           </td>
@@ -196,6 +182,13 @@ const Stage3_Extraction = ({ onNext, entityData }) => {
                         </tr>
                       )
                     ))}
+                    {Object.keys(res.fields || {}).length === 0 && (
+                      <tr>
+                        <td colSpan="3" style={{ ...STYLES.td, textAlign: "center", color: "rgba(255,255,255,0.3)" }}>
+                          No fields extracted for this document.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>

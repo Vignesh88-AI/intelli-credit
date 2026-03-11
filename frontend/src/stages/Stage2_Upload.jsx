@@ -82,7 +82,7 @@ const Stage2_Upload = ({ onNext, entityData }) => {
     
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'https://intelli-credit-7kzw.onrender.com';
-      console.log('Initiating upload to:', API_URL + '/api/upload');
+      console.log('Initiating upload and extraction sequence...');
       
       const uploadForm = new FormData();
       const entityId = entityData?.entity?.cin || 'temp_entity';
@@ -91,15 +91,38 @@ const Stage2_Upload = ({ onNext, entityData }) => {
       uploads.forEach(u => {
         uploadForm.append('files', u.file);
         uploadForm.append('doc_types', u.docType);
-        console.log(`Appending file: ${u.file.name} as ${u.docType}`);
       });
  
-      const response = await axios.post(`${API_URL}/api/upload`, uploadForm);
-      console.log('Upload success:', response.data);
+      // 1. Upload documents
+      console.log('Step 1: Uploading documents...');
+      const uploadResponse = await axios.post(`${API_URL}/api/upload`, uploadForm);
+      const uploadedFiles = uploadResponse.data;
+      console.log('Upload successful:', uploadedFiles);
+
+      // 2. Trigger Extraction
+      console.log('Step 2: Triggering AI extraction...');
+      const extractForm = new FormData();
+      uploadedFiles.forEach(file => {
+        extractForm.append('file_paths', file.path);
+        extractForm.append('doc_types', file.doc_type);
+      });
+
+      const extractResponse = await axios.post(`${API_URL}/api/extract`, extractForm);
+      const result = extractResponse.data;
+      console.log('Extraction response:', result);
+
+      if (!result || !result.extractions || result.extractions.length === 0) {
+        console.error('Extraction failed: Empty result');
+        setError('Analysis failed. No data could be extracted. Please try again.');
+        return;
+      }
       
-      onNext({ uploadedResults: response.data, uploads });
+      onNext({ 
+        extractions: result.extractions || [],
+        uploads 
+      });
     } catch (err) {
-      console.error('Upload API Error:', err);
+      console.error('API Sequence Error:', err);
       setError('Analysis failed. Please try again.');
     } finally {
       setIsUploading(false);
