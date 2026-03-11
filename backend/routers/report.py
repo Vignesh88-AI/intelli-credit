@@ -55,8 +55,10 @@ async def generate_report(data: str = Form(...)): # Accepting all data as a JSON
         payload = json.loads(data)
         
         # Call Claude for CAM content
+        data_str = str(data)
+        data_context = data_str[0:15000]
         prompt = f"""You are a Senior Credit Officer at an Indian bank. Generate a complete 
-        Credit Appraisal Memo (CAM) for this loan application based on this data: {data[:15000]}
+        Credit Appraisal Memo (CAM) for this loan application based on this data: {data_context}
         
         Sections: Executive Summary, Company Background, Financial Analysis, 5Cs Assessment, 
         SWOT Analysis, Secondary Research Findings, Risk Factors, Financial Ratios, FINAL DECISION.
