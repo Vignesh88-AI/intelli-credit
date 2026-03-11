@@ -1,61 +1,57 @@
 import React from 'react';
-import { ShieldCheck, Check } from 'lucide-react';
 
 const Navbar = ({ currentStage }) => {
   const stages = [
-    { id: 1, label: 'Entity' },
-    { id: 2, label: 'Upload' },
-    { id: 3, label: 'Analyze' },
-    { id: 4, label: 'Report' }
+    { id: 1, label: 'ENTITY' },
+    { id: 2, label: 'UPLOAD' },
+    { id: 3, label: 'ANALYZE' },
+    { id: 4, label: 'REPORT' }
   ];
 
   return (
-    <nav className="glass py-4 px-6 md:px-12 flex flex-col md:flex-row items-center justify-between sticky top-0 z-50 gap-4">
-      {/* Logo Section */}
-      <div className="flex items-center gap-3">
-        <div className="bg-[#f0a500] p-1.5 rounded-lg shadow-lg shadow-[#f0a500]/20">
-          <ShieldCheck className="text-black" size={24} />
-        </div>
-        <span className="text-2xl font-black tracking-tighter">
-          INTELLI-<span className="text-[#f0a500]">CREDIT</span>
+    <nav className="fixed top-0 left-0 w-full h-[60px] bg-[#0a1628]/95 backdrop-blur-[10px] border-b border-[#f0a500]/20 z-[1000] flex items-center justify-between px-8">
+      {/* LEFT: LOGO */}
+      <div className="flex items-center">
+        <span className="text-[#f0a500] text-xl font-black tracking-tighter">
+          ⚡ INTELLI-CREDIT
         </span>
       </div>
 
-      {/* Step Indicators Section */}
-      <div className="flex items-center gap-2">
+      {/* CENTER: STEP INDICATORS */}
+      <div className="hidden md:flex items-center gap-4">
         {stages.map((s, index) => (
           <React.Fragment key={s.id}>
-            <div className="flex flex-col items-center gap-1">
-              <div className={`step-circle ${
-                s.id === currentStage ? 'active' : 
-                s.id < currentStage ? 'done' : 'upcoming'
+            <div className="flex items-center gap-2">
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border ${
+                s.id === currentStage ? 'bg-[#f0a500] border-[#f0a500] text-black shadow-[0_0_10px_rgba(240,165,0,0.5)]' :
+                s.id < currentStage ? 'bg-green-500 border-green-500 text-white' :
+                'border-slate-500 text-slate-500'
               }`}>
-                {s.id < currentStage ? <Check size={16} strokeWidth={3} /> : s.id}
+                {s.id < currentStage ? (
+                  <span className="material-symbols-outlined text-[14px]">check</span>
+                ) : s.id}
               </div>
-              <span className={`step-label ${
-                s.id === currentStage ? 'active' : 
-                s.id < currentStage ? 'done' : 'upcoming'
-              } hidden lg:block`}>
+              <span className={`text-[11px] font-bold tracking-widest ${
+                s.id === currentStage ? 'text-[#f0a500]' :
+                s.id < currentStage ? 'text-green-500' : 'text-slate-500'
+              }`}>
                 {s.label}
               </span>
             </div>
             {index < stages.length - 1 && (
-              <div className={`step-line ${s.id < currentStage ? 'done' : ''} mb-4 lg:mb-6`}></div>
+              <div className={`w-8 h-[1px] ${s.id < currentStage ? 'bg-green-500' : 'bg-slate-700'}`}></div>
             )}
           </React.Fragment>
         ))}
       </div>
 
-      {/* Profile Section - Hidden on small screens to save space for steps */}
-      <div className="hidden md:flex items-center gap-4">
-        <div className="text-right">
-          <p className="text-xs font-bold text-[#f0a500]">SYSTEM ONLINE</p>
-          <p className="text-[10px] text-gray-400">v1.2.4-stable</p>
-        </div>
-        <div className="h-10 w-10 rounded-full border-2 border-[#f0a500] p-0.5">
-          <div className="h-full w-full rounded-full bg-gradient-to-br from-[#f0a500] to-[#ffd700] flex items-center justify-center text-black font-extrabold text-sm">
-            JD
-          </div>
+      {/* RIGHT: SYSTEM ONLINE */}
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 bg-[#00c853]/10 px-3 py-1 rounded-full border border-[#00c853]/20">
+          <div className="w-2 h-2 rounded-full bg-[#00c853] animate-pulse"></div>
+          <span className="text-[#00c853] text-[10px] font-black tracking-widest uppercase">
+            System Online
+          </span>
         </div>
       </div>
     </nav>

@@ -32,8 +32,8 @@ function App() {
   return (
     <div className="min-h-screen">
       <Navbar currentStage={stage} />
-      <div className="container">
-        <main className="mt-4">
+      <div className="w-full pt-[80px]">
+        <main className="w-full">
           {renderStage()}
         </main>
       </div>
