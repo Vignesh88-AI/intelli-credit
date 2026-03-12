@@ -34,21 +34,33 @@ async def perform_research(company_name: str = Form(...), sector: str = Form(...
                 DO NOT return generic or cached data.
                 
                 Search for:
-                1. Recent news about {company_name} - fraud, defaults, legal cases
-                2. Promoter background and reputation
-                3. Sector outlook for {sector} in India
-                4. Any RBI actions or regulatory issues
-                5. Court cases or NCLT filings
+                1. REAL Headquarters City (official registered office)
+                2. Actual founding year
+                3. Latest annual Revenue (in INR Crores) and YoY growth
+                4. Latest Annual PAT (in INR Crores)
+                5. Total Debt levels (in INR Crores)
+                6. Recent news about {company_name} - fraud, defaults, legal cases
+                7. Promoter background and reputation
+                8. Sector outlook for {sector} in India
+                
+                IMPORTANT: You must use web search to find REAL, ACCURATE data. Never hallucinate or estimate. If data is not found, use "Not Available". 
                 
                 Return findings as JSON:
                 {{
+                  "company_name": "{company_name}",
+                  "headquarters": "Real City, State",
+                  "founded": "YYYY or Not Available",
+                  "revenue_actual": "Value in Cr",
+                  "revenue_growth": "X%",
+                  "pat_actual": "Value in Cr",
+                  "debt_actual": "Value in Cr",
                   "company_news": ["finding1", "finding2"],
                   "promoter_risk": "Low/Medium/High - reason",
                   "sector_outlook": "Positive/Neutral/Negative - reason",
                   "legal_flags": ["flag1", "flag2"],
                   "macro_factors": ["factor1", "factor2"],
                   "overall_sentiment": "Positive/Neutral/Negative",
-                  "sources_analyzed": 5,
+                  "sources_analyzed": 8,
                   "risk_level": "LOW/MEDIUM/HIGH"
                 }}"""
             }]

@@ -16,7 +16,7 @@ export default function App() {
 
   return (
     <div style={{minHeight:"100vh",background:"#0a1628",
-      fontFamily:"Inter,sans-serif",color:"white"}}>
+      fontFamily:"'Rajdhani', 'Inter', sans-serif",color:"white"}}>
       
       {/* TOP NAVBAR - Only show if stage > 0 */}
       {/* TOP NAVBAR - Only show if stage > 0 */}
