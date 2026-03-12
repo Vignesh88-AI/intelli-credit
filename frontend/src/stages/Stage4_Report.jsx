@@ -224,18 +224,21 @@ const Stage4_Report = ({ onBack, entityData }) => {
       label: 'Revenue (₹ Cr)',
       data: [320, 438, 542],
       backgroundColor: '#f0a500',
-      borderRadius: 8,
-      barThickness: 40,
+      borderRadius: 6,
+      barThickness: 50,
     }]
   };
 
   const pieData = {
-    labels: ['Total Debt', 'Net Worth'],
+    labels: [
+      `Total Debt: ₹3180 Cr (79%)`,
+      `Net Worth: ₹832 Cr (21%)`
+    ],
     datasets: [{
       data: [3180, 832],
       backgroundColor: ['#ef4444', '#22c55e'],
       borderWidth: 0,
-      hoverOffset: 15
+      hoverOffset: 20
     }]
   };
 
