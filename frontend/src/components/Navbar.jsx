@@ -13,7 +13,7 @@ const Navbar = ({ currentStage }) => {
       {/* LEFT: LOGO */}
       <div className="flex items-center">
         <span className="text-[#f0a500] text-xl font-black tracking-tighter">
-          ⚡ INTELLI-CREDIT
+          ⚡ VERIDEX
         </span>
       </div>
 

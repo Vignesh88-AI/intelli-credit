@@ -141,7 +141,7 @@ async def generate_report(data: str = Form(...)):
         )
 
         elements = []
-        elements.append(Paragraph("INTELLI-CREDIT® PRIVATE APPRAISAL", title_style))
+        elements.append(Paragraph("VERIDEX® PRIVATE APPRAISAL", title_style))
         elements.append(Paragraph(f"Company: {entity_name}", styles['Heading2']))
         elements.append(Spacer(1, 24))
         

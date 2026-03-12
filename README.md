@@ -1,4 +1,4 @@
-# Intelli-Credit
+# VERIDEX
 
 AI-powered corporate credit appraisal system for Indian lending.
 

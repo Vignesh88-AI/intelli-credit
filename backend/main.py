@@ -8,7 +8,7 @@ load_dotenv()
 
 from routers import upload, extraction, report
 
-app = FastAPI(title="Intelli-Credit API")
+app = FastAPI(title="VERIDEX API")
 
 # Configure CORS
 app.add_middleware(
@@ -25,7 +25,7 @@ app.include_router(report.router)
 
 @app.get("/")
 async def root():
-    return {"message": "Welcome to Intelli-Credit API"}
+    return {"message": "Welcome to VERIDEX API"}
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))

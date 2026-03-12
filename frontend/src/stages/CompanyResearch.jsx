@@ -217,7 +217,7 @@ export default function CompanyResearch({ onBack }) {
             ← Back
         </button>
         <span style={{ fontSize: "22px", color: "#f0a500", marginRight: "10px" }}>⚡</span>
-        <span style={{ fontWeight: "800", color: "#f0a500", letterSpacing: "2px", fontSize: "16px" }}>INTELLI-CREDIT</span>
+        <span style={{ fontWeight: "800", color: "#f0a500", letterSpacing: "2px", fontSize: "16px" }}>VERIDEX</span>
         <span style={{ color: "#334155", margin: "0 12px" }}>|</span>
         <span style={{ color: "#64748b", fontSize: "13px" }}>Company Research Engine</span>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "6px" }}>

@@ -41,7 +41,7 @@ export default function App() {
           <div style={{display:"flex", alignItems:"center", gap:"20px"}}>
             <div style={{fontSize:"20px",fontWeight:"700",
               color:"#f0a500",letterSpacing:"2px", cursor: "pointer"}} onClick={() => setStage(0)}>
-              ⚡ INTELLI-CREDIT
+              ⚡ VERIDEX
             </div>
             
             <button 

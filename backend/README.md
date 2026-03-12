@@ -1,4 +1,4 @@
-# Intelli-Credit Backend
+# VERIDEX Backend
 
 AI-powered corporate credit appraisal system.
 
