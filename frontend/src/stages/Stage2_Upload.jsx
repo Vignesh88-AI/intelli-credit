@@ -162,9 +162,54 @@ const Stage2_Upload = ({ onNext, entityData }) => {
           borderRadius: "16px",
           border: "1px dashed rgba(255,255,255,0.1)"
         }}>
-          <Loader2 className="animate-spin" size={64} color="#f0a500" />
-          <h3 style={{ marginTop: "24px", fontSize: "20px", fontWeight: "700" }}>AI Analysis in Progress</h3>
+          <style>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+            @keyframes pulse {
+              0%, 100% { opacity: 1; }
+              50% { opacity: 0.5; }
+            }
+            @keyframes progressBar {
+              0% { width: 20%; margin-left: 0%; }
+              100% { width: 60%; margin-left: 40%; }
+            }
+          `}</style>
+
+          <div style={{
+            width: "60px",
+            height: "60px",
+            border: "4px solid #1e3a5f",
+            borderTop: "4px solid #f0a500",
+            borderRadius: "50%",
+            animation: "spin 1s linear infinite",
+            margin: "0 auto 24px"
+          }} />
+
+          <div style={{
+            animation: "pulse 2s ease-in-out infinite",
+            fontSize: "20px",
+            fontWeight: "700",
+            color: "#f0a500"
+          }}>
+            AI Analysis in Progress
+          </div>
+
           <p style={{ color: "rgba(255,255,255,0.5)", marginTop: "8px" }}>AI is analyzing your documents... (30-60 seconds)</p>
+
+          <div style={{
+            width: "300px", height: "4px",
+            background: "#1e3a5f", borderRadius: "2px",
+            margin: "16px auto 0", overflow: "hidden"
+          }}>
+            <div style={{
+              height: "100%", width: "60%",
+              background: "linear-gradient(90deg, #f0a500, #fbbf24)",
+              borderRadius: "2px",
+              animation: "progressBar 2s ease-in-out infinite alternate"
+            }} />
+          </div>
         </div>
       ) : (
         <div style={STYLES.grid}>
