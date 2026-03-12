@@ -17,7 +17,7 @@ async def perform_research(company_name: str = Form(...), sector: str = Form(...
     
     try:
         response = client.messages.create(
-            model="claude-3-5-sonnet-20241022", # Using latest 3.5 Sonnet which supports tools
+            model="claude-3-5-sonnet-20241022",
             max_tokens=2000,
             tools=[{
                 "type": "web_search_20250305",
@@ -50,11 +50,13 @@ async def perform_research(company_name: str = Form(...), sector: str = Form(...
             }]
         )
         
-        # Extract text from response
-        full_text = ""
+        # Extract text from response blocks
+        text_blocks = []
         for block in response.content:
-            if hasattr(block, "text"):
-                full_text += block.text
+            text_val = getattr(block, 'text', '')
+            if text_val:
+                text_blocks.append(str(text_val))
+        full_text = "".join(text_blocks)
         
         # Parse JSON from response
         import re
@@ -87,50 +89,79 @@ async def perform_research(company_name: str = Form(...), sector: str = Form(...
         }
 
 @router.post("/generate-report")
-async def generate_report(data: str = Form(...)): # Accepting all data as a JSON string
+async def generate_report(data: str = Form(...)):
     try:
         payload = json.loads(data)
+        entity_name = payload.get('entity', {}).get('companyName', 'Entity')
         
-        # Call Claude for CAM content
-        data_str = str(data)
-        data_context = data_str[0:15000]
-        prompt = f"""You are a Senior Credit Officer at an Indian bank. Generate a complete 
-        Credit Appraisal Memo (CAM) for this loan application based on this data: {data_context}
+        # Call Claude for professional CAM content
+        data_context = str(data)[:15000] # Standard slicing to ensure Pyre is happy
+        prompt = f"""You are a Lead Credit Officer at a top-tier Indian bank (SBI/HDFC/ICICI). 
+        Generate a professional Credit Appraisal Memo (CAM) for: {entity_name}
+        Sector: {payload.get('entity', {}).get('sector', 'General')}
+        Data Summary: {data_context}
         
-        Sections: Executive Summary, Company Background, Financial Analysis, 5Cs Assessment, 
-        SWOT Analysis, Secondary Research Findings, Risk Factors, Financial Ratios, FINAL DECISION.
-        
-        Be specific about Indian context (GSTR, CIBIL, RBI). Return markdown."""
+        The report must be formal, detailed, and analytical. 
+        Focus on: Debt Serviceability, Promoter Pedigree, Sectoral Tailwinds, and Risk Mitigation.
+        Return in professional Markdown with clear headings."""
 
         message = client.messages.create(
-            model="claude-3-5-sonnet-20240620",
+            model="claude-3-5-sonnet-20241022",
             max_tokens=4000,
             messages=[{"role": "user", "content": prompt}]
         )
         
         cam_markdown = message.content[0].text
         
-        # Generate PDF with ReportLab
+        # Generate Styled PDF with ReportLab
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=letter)
         styles = getSampleStyleSheet()
+        
+        # Custom Styles for Premium Look
+        title_style = ParagraphStyle(
+            'GoldTitle',
+            parent=styles['Title'],
+            textColor=colors.HexColor("#f0a500"),
+            fontSize=24,
+            spaceAfter=30
+        )
+        body_style = styles['Normal']
+        h1_style = ParagraphStyle(
+            'H1',
+            parent=styles['Heading1'],
+            textColor=colors.HexColor("#0a1628"),
+            fontSize=16,
+            spaceBefore=12,
+            spaceAfter=12
+        )
+
         elements = []
+        elements.append(Paragraph("INTELLI-CREDIT® PRIVATE APPRAISAL", title_style))
+        elements.append(Paragraph(f"Company: {entity_name}", styles['Heading2']))
+        elements.append(Spacer(1, 24))
         
-        elements.append(Paragraph("INTELLI-CREDIT APPRAISAL MEMO", styles['Title']))
-        elements.append(Spacer(1, 12))
-        
-        # Simple parsing of markdown into ReportLab paragraphs (simplified for now)
+        # Parse markdown into ReportLab
         for line in cam_markdown.split('\n'):
+            line = line.strip()
+            if not line:
+                continue
             if line.startswith('#'):
-                elements.append(Paragraph(line.replace('#', '').strip(), styles['Heading1']))
-            elif line.strip():
-                elements.append(Paragraph(line.strip(), styles['Normal']))
-            elements.append(Spacer(1, 6))
+                clean_h = line.replace('#', '').strip()
+                elements.append(Paragraph(clean_h, h1_style))
+            else:
+                elements.append(Paragraph(line, body_style))
+                elements.append(Spacer(1, 8))
             
         doc.build(elements)
         buffer.seek(0)
         
-        return Response(content=buffer.getvalue(), media_type="application/pdf")
+        return Response(
+            content=buffer.getvalue(), 
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename=CAM_{entity_name.replace(' ', '_')}.pdf"}
+        )
         
     except Exception as e:
+        print(f"Error generating report: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

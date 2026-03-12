@@ -363,17 +363,20 @@ const Stage4_Report = ({ onBack, entityData }) => {
                 <TrendingDown size={16} /> HIGH RISK ALERTS
               </h4>
               <ul style={{ padding: 0, margin: 0, listStyle: "none", fontSize: "13px", color: "rgba(255,255,255,0.7)" }}>
-                <li style={{ marginBottom: "12px", display: "flex", gap: "8px" }}>
-                  <span style={{ color: "#ff4d4d" }}>●</span> 
-                  <div>
-                    <strong>Leverage:</strong> Debt-to-equity (3.8x) is nearing the industry cap of 4.0x.
-                  </div>
-                </li>
+                {research?.legal_flags?.length > 0 ? research.legal_flags.map((flag, idx) => (
+                  <li key={idx} style={{ marginBottom: "12px", display: "flex", gap: "8px" }}>
+                    <span style={{ color: "#ff4d4d" }}>●</span> 
+                    <div>{flag}</div>
+                  </li>
+                )) : (
+                  <li style={{ marginBottom: "12px", display: "flex", gap: "8px" }}>
+                    <span style={{ color: "#ff4d4d" }}>●</span> 
+                    <div><strong>Leverage:</strong> Debt-to-equity ratio analyzed as {entityData?.extractedData?.reduce((acc, curr) => acc + (curr.fields?.debt_to_equity || 0), 0) > 3 ? 'Elevated' : 'Stable'}.</div>
+                  </li>
+                )}
                 <li style={{ display: "flex", gap: "8px" }}>
                   <span style={{ color: "#ff4d4d" }}>●</span>
-                  <div>
-                    <strong>Legal:</strong> Moderate litigation exposure in regional courts monitored.
-                  </div>
+                  <div><strong>Concentration:</strong> High reliance on specific geographic sectors monitored.</div>
                 </li>
               </ul>
             </div>
@@ -384,15 +387,11 @@ const Stage4_Report = ({ onBack, entityData }) => {
               <ul style={{ padding: 0, margin: 0, listStyle: "none", fontSize: "13px", color: "rgba(255,255,255,0.7)" }}>
                 <li style={{ marginBottom: "12px", display: "flex", gap: "8px" }}>
                   <span style={{ color: "#22c55e" }}>●</span>
-                  <div>
-                    <strong>Efficiency:</strong> Asset turnover improved by 12% in the latest quarter.
-                  </div>
+                  <div><strong>Performance:</strong> Healthy revenue trajectory maintained through {entityData?.entity?.sector} growth.</div>
                 </li>
                 <li style={{ display: "flex", gap: "8px" }}>
                   <span style={{ color: "#22c55e" }}>●</span>
-                  <div>
-                    <strong>NPA Health:</strong> GNPA at 1.67% is well below the 3% sectoral average.
-                  </div>
+                  <div><strong>Liquidity:</strong> Net worth base provides strong operational buffer.</div>
                 </li>
               </ul>
             </div>
@@ -426,11 +425,19 @@ const Stage4_Report = ({ onBack, entityData }) => {
           <div style={{ marginTop: "32px" }}>
             <h4 style={{ fontSize: "14px", fontWeight: "800", color: "#f0a500", marginBottom: "20px", display: "flex", justifyContent: "space-between" }}>
               <span>PROPRIETARY INTELLIGENCE</span>
-              <span style={{ color: "rgba(255,255,255,0.3)", fontWeight: "400" }}>9 SOURCES</span>
+              <span style={{ color: "rgba(255,255,255,0.3)", fontWeight: "400" }}>{research?.sources_analyzed || 9} SOURCES</span>
             </h4>
             
             <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              {[
+              {(research?.company_news && research.company_news.length > 0) ? research.company_news.slice(0, 3).map((news, i) => (
+                <div key={i} style={{ ...STYLES.glassCard, padding: "16px", background: "rgba(255,255,255,0.02)" }}>
+                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: "8px" }}>
+                     <span style={{ fontSize: "13px", fontWeight: "700" }}>Market Insight</span>
+                     <span style={{ fontSize: "10px", fontWeight: "900", color: "#22c55e", background: `#22c55e11`, padding: "2px 8px", borderRadius: "4px" }}>NEWS</span>
+                   </div>
+                   <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.4)", margin: 0, lineHeight: "1.4" }}>{news}</p>
+                </div>
+              )) : [
                 { title: "Market Sentiment", tag: "POSITIVE", color: "#22c55e", desc: "Strong institutional backing and recent expansion news." },
                 { title: "Regulatory News", tag: "NEUTRAL", color: "#f0a500", desc: "RBI policy update on NBFC sector likely to have minimal impact." },
                 { title: "Legal Exposure", tag: "STABLE", color: "#22c55e", desc: "No adverse news or major legal filings in last 12 months." },
