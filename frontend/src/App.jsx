@@ -64,7 +64,7 @@ export default function App() {
                 gap: "8px"
               }}
             >
-              🔍 Research Engine
+              Research Engine
             </button>
           </div>
 

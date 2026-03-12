@@ -47,8 +47,18 @@ const MiniBar = ({ label, score, max }) => {
   );
 };
 
-const RevenueChart = ({ data }) => {
+const RevenueChart = ({ data, growth }) => {
   if (!data || !data.length) return null;
+  
+  if (data.length < 3) {
+    const latestValue = data[0]?.val || 0;
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100px", color: "#94a3b8", fontSize: "14px", textAlign: "center" }}>
+        Revenue data: ₹{latestValue} Cr ({growth || 0}% YoY growth)
+      </div>
+    );
+  }
+
   const max = Math.max(...data.map(d => d.val)) * 1.2;
   return (
     <div style={{ display: "flex", alignItems: "flex-end", gap: "10px", height: "100px", padding: "0 8px" }}>
@@ -137,7 +147,7 @@ export default function CompanyResearch({ onBack }) {
             gnpa: "Not Available"
           },
           revenue_trend: [
-            {label: "Latest", val: parseFloat(data.revenue?.replace(/[^0-9.]/g, '')) || 0}
+            {label: "Latest", val: parseFloat(String(data.revenue).replace(/[^0-9.]/g, '')) || 0}
           ],
           five_cs: {
             character: {score: data.character_score || 18, max: 20, note: "Promoter background checked"},
@@ -375,10 +385,10 @@ export default function CompanyResearch({ onBack }) {
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px" }}>
               {[
-                { label: "Revenue", val: result.financials.revenue ? `₹${result.financials.revenue} Cr` : 'N/A', sub: `↑${result.financials.revenue_growth} YoY`, color: "#22c55e" },
-                { label: "PAT", val: result.financials.pat ? `₹${result.financials.pat} Cr` : 'N/A', sub: "Profit After Tax", color: "#22c55e" },
-                { label: "Total Debt", val: result.financials.total_debt ? `₹${result.financials.total_debt} Cr` : 'N/A', sub: `D/E: ${result.financials.debt_equity}`, color: "#f59e0b" },
-                { label: "Net Worth", val: result.financials.net_worth ? `₹${result.financials.net_worth} Cr` : 'N/A', sub: `ROE: ${result.financials.roe}`, color: "#60a5fa" },
+                { label: "Revenue", val: result.financials.revenue ? `₹${String(result.financials.revenue).replace('₹','').trim()} Cr` : 'N/A', sub: `↑${result.financials.revenue_growth} YoY`, color: "#22c55e" },
+                { label: "PAT", val: result.financials.pat ? `₹${String(result.financials.pat).replace('₹','').trim()} Cr` : 'N/A', sub: "Profit After Tax", color: "#22c55e" },
+                { label: "Total Debt", val: result.financials.total_debt ? `₹${String(result.financials.total_debt).replace('₹','').trim()} Cr` : 'N/A', sub: `D/E: ${result.financials.debt_equity}`, color: "#f59e0b" },
+                { label: "Net Worth", val: result.financials.net_worth ? `₹${String(result.financials.net_worth).replace('₹','').trim()} Cr` : 'N/A', sub: `ROE: ${result.financials.roe}`, color: "#60a5fa" },
               ].map((m, i) => (
                 <div key={i} style={{ background: "#0a1628", border: "1px solid #1e3a5f", borderRadius: "14px", padding: "18px" }}>
                   <div style={{ fontSize: "11px", color: "#64748b", marginBottom: "8px", letterSpacing: "1px" }}>{m.label.toUpperCase()}</div>
@@ -391,7 +401,7 @@ export default function CompanyResearch({ onBack }) {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
               <div style={{ background: "#0a1628", border: "1px solid #1e3a5f", borderRadius: "16px", padding: "24px" }}>
                 <div style={{ fontSize: "13px", fontWeight: "600", color: "#94a3b8", marginBottom: "20px" }}>Revenue Growth (INR Crores)</div>
-                <RevenueChart data={result.revenue_trend} />
+                <RevenueChart data={result.revenue_trend} growth={result.financials.revenue_growth} />
               </div>
 
               <div style={{ background: "#0a1628", border: "1px solid #1e3a5f", borderRadius: "16px", padding: "24px" }}>
