@@ -83,6 +83,7 @@ export default function CompanyResearch({ onBack }) {
   const [error, setError] = useState(null);
   const [loadingStage, setLoadingStage] = useState(0);
   const [progress, setProgress] = useState(0);
+  const [retryCount, setRetryCount] = useState(0);
 
   const analyze = async () => {
     if (!query.trim() || loading) return;
@@ -139,13 +140,13 @@ export default function CompanyResearch({ onBack }) {
             {label: "Latest", val: parseFloat(data.revenue?.replace(/[^0-9.]/g, '')) || 0}
           ],
           five_cs: {
-            character: {score: 18, max: 20, note: "Promoter background checked"},
-            capacity: {score: 20, max: 25, note: "Interest coverage assessed"},
-            capital: {score: 15, max: 20, note: `Net worth: ${data.net_worth}`},
-            collateral: {score: 15, max: 20, note: "Asset coverage estimated"},
-            conditions: {score: 12, max: 15, note: data.sector_outlook || "Market conditions"}
+            character: {score: data.character_score || 18, max: 20, note: "Promoter background checked"},
+            capacity: {score: data.capacity_score || 20, max: 25, note: "Interest coverage assessed"},
+            capital: {score: data.capital_score || 15, max: 20, note: `Net worth: ${data.net_worth}`},
+            collateral: {score: data.collateral_score || 15, max: 20, note: "Asset coverage estimated"},
+            conditions: {score: data.conditions_score || 12, max: 15, note: data.sector_outlook || "Market conditions"}
           },
-          total_score: data.risk_level === "LOW" ? 85 : data.risk_level === "MEDIUM" ? 70 : 45,
+          total_score: data.total_score || 70,
           risk_level: data.risk_level || "MEDIUM",
           red_flags: data.risk_flags?.length > 0 ? data.risk_flags : ["No major red flags identified"],
           positive_signals: data.positive_signals?.length > 0 ? data.positive_signals : ["Steady operations"],
@@ -159,6 +160,7 @@ export default function CompanyResearch({ onBack }) {
         };
         
         setResult(mappedResult);
+        setRetryCount(0); // Reset retry count on success
       } else {
         throw new Error("Empty response from backend");
       }
@@ -166,9 +168,17 @@ export default function CompanyResearch({ onBack }) {
       clearInterval(stageInt);
       clearInterval(progressInt);
       console.error("ANALYSIS_ERROR:", e.response?.data || e.message || e);
-      setError(`Research failed (${e.response?.status || 'Error'}). Please check the company name and try again.`);
+      
+      if (retryCount < 1) {
+        console.log("Retrying research in 3 seconds...");
+        setRetryCount(1);
+        setTimeout(() => analyze(), 3000);
+      } else {
+        setError("Research timed out. Backend is warming up. Please click Analyze again.");
+        setRetryCount(0);
+      }
     } finally {
-      setLoading(false);
+      if (retryCount >= 0) setLoading(false);
     }
   };
 
@@ -305,8 +315,27 @@ export default function CompanyResearch({ onBack }) {
         {error && (
           <div style={{
             background: "#450a0a", border: "1px solid #ef4444",
-            borderRadius: "12px", padding: "20px", color: "#f87171", textAlign: "center"
-          }}>{error}</div>
+            borderRadius: "12px", padding: "24px", color: "#f87171", textAlign: "center"
+          }}>
+            <div style={{ marginBottom: "16px", fontSize: "16px", fontWeight: "600" }}>{error}</div>
+            <button
+              onClick={analyze}
+              style={{
+                padding: "10px 24px",
+                background: "#ef4444",
+                color: "white",
+                border: "none",
+                borderRadius: "8px",
+                fontWeight: "700",
+                cursor: "pointer",
+                transition: "background 0.2s"
+              }}
+              onMouseEnter={e => e.target.style.background = "#dc2626"}
+              onMouseLeave={e => e.target.style.background = "#ef4444"}
+            >
+              Analyze Again
+            </button>
+          </div>
         )}
 
         {result && !loading && (
