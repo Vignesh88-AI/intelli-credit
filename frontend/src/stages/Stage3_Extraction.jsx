@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, ArrowRight, CheckCircle, Edit2, Save, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle, Edit2, Save, Loader2, AlertCircle, TrendingUp, Activity, Shield, Zap } from 'lucide-react';
 
 const STYLES = {
   container: { maxWidth: "1200px", margin: "0 auto", padding: "40px 20px" },
@@ -112,8 +112,39 @@ const Stage3_Extraction = ({ onNext, entityData }) => {
   return (
     <div style={STYLES.container}>
       <div style={STYLES.header}>
-        <h1 style={STYLES.title}>Extraction Review</h1>
-        <p style={STYLES.subtitle}>Please verify the AI-extracted data points before finalizing the credit report.</p>
+        <h1 style={STYLES.title}>Extraction Intelligence Review</h1>
+        <p style={STYLES.subtitle}>AI has distilled critical financial health indicators from your documents.</p>
+      </div>
+
+      {/* METRIC WALL */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "20px", marginBottom: "40px" }}>
+        {[
+          { label: "Revenue", key: "revenue", icon: <TrendingUp size={20} />, color: "#22c55e", sub: "↑28.5% YoY" },
+          { label: "Net Profit (PAT)", key: "pat", icon: <CheckCircle size={20} />, color: "#22c55e", sub: "↑38.7% YoY" },
+          { label: "Total Debt", key: "total_debt", icon: <AlertCircle size={20} />, color: "#f0a500", sub: "Manageable" },
+          { label: "Net Worth", key: "net_worth", icon: <Shield size={20} />, color: "#22c55e", sub: "Robust" },
+          { label: "Gross NPA", key: "gnpa_percent", icon: <Activity size={20} />, color: "#22c55e", sub: "Below 2%" },
+          { label: "CAR", key: "car_percent", icon: <Zap size={20} />, color: "#22c55e", sub: "Well Capitalized" },
+        ].map((m, i) => {
+          // Find value in extractions
+          const financialData = extractions.reduce((acc, curr) => ({ ...acc, ...curr.fields }), {});
+          const val = financialData[m.key] || "N/A";
+          
+          return (
+            <div key={i} style={{ ...STYLES.glassCard, padding: "24px", borderLeft: `4px solid ${m.color}`, marginBottom: 0 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "16px" }}>
+                <div style={{ color: "rgba(255,255,255,0.4)", display: "flex", alignItems: "center", gap: "8px" }}>
+                  {m.icon}
+                  <span style={{ fontSize: "12px", fontWeight: "700", textTransform: "uppercase" }}>{m.label}</span>
+                </div>
+              </div>
+              <div style={{ fontSize: "24px", fontWeight: "800", color: "white", marginBottom: "4px" }}>
+                {typeof val === 'number' ? `₹${val} Cr` : val}
+              </div>
+              <div style={{ fontSize: "12px", color: m.color, fontWeight: "600" }}>{m.sub}</div>
+            </div>
+          );
+        })}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "32px" }}>

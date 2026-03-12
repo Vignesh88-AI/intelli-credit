@@ -38,18 +38,39 @@ async def extract_data(file_paths: List[str] = Form(...), doc_types: List[str] =
                     continue
 
                 # Prepare User Prompt
-                user_msg = f"""Extract all financial metrics from this document.
-Return JSON in this exact format:
-{{
-  "document_type": "Annual Report|ALM|Shareholding|Borrowing|Portfolio",
-  "fields": {{
-    "metric_name": "value",
-    "metric_name2": "value2"
-  }}
-}}
+                user_msg = f"""Extract critical financial metrics from this document. 
+                Focus on these specific fields if present:
+                - revenue (current and previous year)
+                - pat (profit after tax)
+                - ebitda
+                - total_debt
+                - net_worth
+                - total_assets
+                - gnpa_percent (Gross NPA %)
+                - car_percent (Capital Adequacy Ratio)
+                - promoter_holding (percentage)
+                - debt_to_equity (ratio)
 
-Document text:
-{text[:20000]}"""
+                Return JSON in this exact format:
+                {{
+                  "document_type": "Annual Report|ALM|Shareholding|Borrowing|Portfolio",
+                  "fields": {{
+                    "revenue": "value in numeric/string",
+                    "pat": "value",
+                    "total_debt": "value",
+                    "net_worth": "value",
+                    "gnpa_percent": "value",
+                    "car_percent": "value",
+                    "debt_to_equity": "value",
+                    "ebitda": "value",
+                    "promoter_holding": "value",
+                    "other_metrics": {{}}
+                  }}
+                }}
+
+                If a field is not found, omit it or set to null. 
+                Document text:
+                {text[:20000]}"""
 
                 # Call Claude
                 message = client.messages.create(
