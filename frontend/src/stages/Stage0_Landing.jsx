@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import FluidCursor from '../components/FluidCursor';
 
 const TAGLINES = [
   "From raw documents to credit decisions in 5 minutes.",
@@ -40,9 +39,8 @@ const Stage0_Landing = ({ onStart, onResearch }) => {
   }, [typing]);
 
   return (
-    <div style={{ minHeight: "100vh", background: "radial-gradient(ellipse at 20% 20%, #0d2040 0%, #060d1a 55%, #070e1c 100%)", fontFamily: "'Segoe UI', system-ui, sans-serif", color: "#e2e8f0", overflowX: "hidden", cursor: "none" }}>
+    <div style={{ minHeight: "100vh", background: "radial-gradient(ellipse at 20% 20%, #0d2040 0%, #060d1a 55%, #070e1c 100%)", fontFamily: "'Segoe UI', system-ui, sans-serif", color: "#e2e8f0", overflowX: "hidden" }}>
       <style>{`
-        * { cursor: none !important; }
         @keyframes fadeUp { from{opacity:0;transform:translateY(36px)}to{opacity:1;transform:translateY(0)} }
         @keyframes glow { 0%,100%{text-shadow:0 0 20px #f0a50055}50%{text-shadow:0 0 60px #f0a500bb,0 0 100px #f0a50033} }
         @keyframes pulse { 0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.6);opacity:0.6} }
@@ -52,7 +50,6 @@ const Stage0_Landing = ({ onStart, onResearch }) => {
         .tech:hover{transform:translateY(-4px)!important;border-color:#f0a500!important}
         .step:hover{transform:translateY(-4px)!important}
       `}</style>
-      <FluidCursor />
 
       {/* Navbar */}
       <nav style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 200, height: "60px", padding: "0 48px", display: "flex", alignItems: "center", justifyContent: "space-between", background: "#060d1acc", backdropFilter: "blur(16px)", borderBottom: "1px solid #1e3a5f55" }}>
