@@ -165,8 +165,8 @@ export default function CompanyResearch({ onBack }) {
     } catch (e) {
       clearInterval(stageInt);
       clearInterval(progressInt);
-      console.error(e);
-      setError("Research failed. Please check the company name and try again.");
+      console.error("ANALYSIS_ERROR:", e.response?.data || e.message || e);
+      setError(`Research failed (${e.response?.status || 'Error'}). Please check the company name and try again.`);
     } finally {
       setLoading(false);
     }
@@ -234,7 +234,7 @@ export default function CompanyResearch({ onBack }) {
             </span>
           </h1>
           <p style={{ color: "#475569", fontSize: "16px", marginBottom: "36px" }}>
-            Type any Indian company — Claude searches the web and generates a full credit appraisal in seconds
+            Type any Indian company — VERIDEX AI searches the web and generates a full credit appraisal in seconds
           </p>
 
           <div style={{ display: "flex", gap: "12px", maxWidth: "640px", margin: "0 auto" }}>
@@ -288,7 +288,7 @@ export default function CompanyResearch({ onBack }) {
               {LOADING_STAGES[loadingStage]}
             </div>
             <div style={{ color: "#475569", fontSize: "14px", marginBottom: "32px" }}>
-              Claude is searching the internet for real data on <strong style={{ color: "#94a3b8" }}>{query}</strong>
+              VERIDEX AI is searching the internet for real data on <strong style={{ color: "#94a3b8" }}>{query}</strong>
             </div>
             <div style={{ height: "6px", background: "#1e293b", borderRadius: "3px", overflow: "hidden", maxWidth: "400px", margin: "0 auto" }}>
               <div style={{

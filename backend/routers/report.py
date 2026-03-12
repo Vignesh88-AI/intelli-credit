@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Form, Response
+from typing import Optional
 import os
 import json
 import anthropic
@@ -14,8 +15,14 @@ anthropic_client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 @router.post("/research")
-async def perform_research(company_name: str = Form(...), sector: str = Form(...)):
+async def perform_research(
+    company_name: str = Form(...), 
+    sector: str = Form(...),
+    is_deep_research: Optional[str] = Form(None)
+):
     print(f"Researching: {company_name}")
+    if not groq_client:
+        raise HTTPException(status_code=500, detail="Groq client not initialized. Check GROQ_API_KEY.")
     try:
         # Using groq_client initialized at module level (from env var)
         response = groq_client.chat.completions.create(
