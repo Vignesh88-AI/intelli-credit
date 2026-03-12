@@ -13,6 +13,7 @@ client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
 @router.post("/research")
 async def perform_research(company_name: str = Form(...), sector: str = Form(...)):
+    print(f"Researching: {company_name}") # User requested print statement
     print(f"DEBUG: Starting real-time web research for {company_name} in {sector}")
     
     try:
@@ -28,6 +29,9 @@ async def perform_research(company_name: str = Form(...), sector: str = Form(...
                 "content": f"""Research this Indian company for credit risk assessment:
                 Company: {company_name}
                 Sector: {sector}
+                
+                IMPORTANT: Generate unique, specific credit analysis for {company_name}. 
+                DO NOT return generic or cached data.
                 
                 Search for:
                 1. Recent news about {company_name} - fraud, defaults, legal cases
@@ -65,27 +69,27 @@ async def perform_research(company_name: str = Form(...), sector: str = Form(...
             return json.loads(json_match.group())
         
         return {
-            "company_news": ["Research completed via web search"],
-            "promoter_risk": "Low",
-            "sector_outlook": "Positive",
+            "company_news": [f"Research completed for {company_name}"],
+            "promoter_risk": "N/A",
+            "sector_outlook": "Neutral",
             "legal_flags": [],
-            "macro_factors": ["Stable macro environment"],
-            "overall_sentiment": "Positive",
-            "sources_analyzed": 3,
-            "risk_level": "LOW"
+            "macro_factors": [],
+            "overall_sentiment": "Neutral",
+            "sources_analyzed": 1,
+            "risk_level": "MEDIUM"
         }
     except Exception as e:
         print(f"DEBUG: Exception in perform_research: {str(e)}")
-        # Fallback mock data
+        # Fallback empty data
         return {
-            "company_news": ["No recent adverse news found"],
-            "promoter_risk": "Low - No negative findings",
-            "sector_outlook": "Positive - NBFC sector growing",
+            "company_news": ["Error fetching research data"],
+            "promoter_risk": "Unknown",
+            "sector_outlook": "Unknown",
             "legal_flags": [],
-            "macro_factors": ["RBI supportive of NBFC growth"],
-            "overall_sentiment": "Positive",
+            "macro_factors": [],
+            "overall_sentiment": "Neutral",
             "sources_analyzed": 0,
-            "risk_level": "LOW"
+            "risk_level": "MEDIUM"
         }
 
 @router.post("/generate-report")

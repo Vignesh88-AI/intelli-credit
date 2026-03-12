@@ -172,41 +172,39 @@ const Stage0_Landing = ({ onStart, onResearch }) => {
           </div>
         </div>
         
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "16px", marginTop: "40px" }}>
-          <button 
-            style={STYLES.button} 
-            onClick={onStart}
-            onMouseOver={(e) => {
-              e.currentTarget.style.transform = "translateY(-5px)";
-              e.currentTarget.style.boxShadow = "0 15px 40px rgba(240, 165, 0, 0.4)";
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.transform = "translateY(0)";
-              e.currentTarget.style.boxShadow = "0 10px 30px rgba(240, 165, 0, 0.2)";
-            }}
-          >
-            Start Full Appraisal <ArrowRight size={22} />
+        <div style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: "20px",
+          marginTop: "48px",
+          marginBottom: "48px"
+        }}>
+          <button onClick={() => onStart()} style={{
+            padding: "18px 64px",
+            background: "#f0a500",
+            color: "#0a1628",
+            border: "none",
+            borderRadius: "50px",
+            fontSize: "18px",
+            fontWeight: "800",
+            cursor: "pointer",
+            display: "block"
+          }}>
+            Start Full Appraisal →
           </button>
-
-          <button 
-            onClick={onResearch}
-            style={{
-              background: "transparent",
-              color: "#f0a500",
-              border: "2px solid #f0a500",
-              padding: "20px 48px", // Matched with main button
-              borderRadius: "50px",
-              fontSize: "18px", // Matched with main button
-              fontWeight: "700",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-              transition: "all 0.3s ease",
-            }}
-            onMouseOver={(e) => e.currentTarget.style.background = "rgba(240, 165, 0, 0.1)"}
-            onMouseOut={(e) => e.currentTarget.style.background = "transparent"}
-          >
+          
+          <button onClick={() => onResearch()} style={{
+            padding: "16px 48px",
+            background: "transparent",
+            color: "#f0a500",
+            border: "2px solid #f0a500",
+            borderRadius: "50px",
+            fontSize: "16px",
+            fontWeight: "700",
+            cursor: "pointer",
+            display: "block"
+          }}>
             🔍 Quick Company Research
           </button>
         </div>
