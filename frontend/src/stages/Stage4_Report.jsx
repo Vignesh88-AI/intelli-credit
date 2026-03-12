@@ -361,16 +361,4 @@ const Stage4_Report = ({ onBack, entityData }) => {
   );
 };
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "48px", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "32px" }}>
-        <button style={STYLES.secondaryButton} onClick={() => onBack()}>
-          <ArrowLeft size={18} /> Review Data
-        </button>
-        <button style={STYLES.button} onClick={handleDownloadReport}>
-          <Download size={20} /> Download Appraisal PDF
-        </button>
-      </div>
-    </div>
-  );
-};
-
 export default Stage4_Report;
