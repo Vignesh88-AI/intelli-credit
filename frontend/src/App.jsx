@@ -4,6 +4,7 @@ import Stage1_Onboarding from "./stages/Stage1_Onboarding"
 import Stage2_Upload from "./stages/Stage2_Upload"
 import Stage3_Extraction from "./stages/Stage3_Extraction"
 import Stage4_Report from "./stages/Stage4_Report"
+import CompanyResearch from "./stages/CompanyResearch"
 
 const STAGES = ["Entity", "Documents", "Extraction", "Report"]
 
@@ -25,13 +26,34 @@ export default function App() {
           display:"flex",alignItems:"center",justifyContent:"space-between",
           padding:"0 32px",zIndex:1000}}>
           
-          <div style={{fontSize:"20px",fontWeight:"700",
-            color:"#f0a500",letterSpacing:"2px"}}>
-            ⚡ INTELLI-CREDIT
+          <div style={{display:"flex", alignItems:"center", gap:"20px"}}>
+            <div style={{fontSize:"20px",fontWeight:"700",
+              color:"#f0a500",letterSpacing:"2px", cursor: "pointer"}} onClick={() => setStage(0)}>
+              ⚡ INTELLI-CREDIT
+            </div>
+            
+            <button 
+              onClick={() => setStage(5)}
+              style={{
+                background: "rgba(240,165,0,0.1)",
+                border: "1px solid rgba(240,165,0,0.3)",
+                color: "#f0a500",
+                padding: "6px 16px",
+                borderRadius: "20px",
+                fontSize: "12px",
+                fontWeight: "700",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px"
+              }}
+            >
+              🔍 Research Engine
+            </button>
           </div>
 
           <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
-            {STAGES.map((s,i)=>(
+            {stage < 5 && STAGES.map((s,i)=>(
               <div key={i} style={{display:"flex",alignItems:"center"}}>
                 <div style={{display:"flex",flexDirection:"column",
                   alignItems:"center",gap:"4px"}}>
@@ -53,6 +75,7 @@ export default function App() {
                   background:stage>i+1?"#22c55e":"#1e3a5f",margin:"0 8px 18px 8px"}}/>}
               </div>
             ))}
+            {stage === 5 && <span style={{fontSize:"12px", opacity: 0.5, letterSpacing: "1px"}}>DEEP RESEARCH MODE ON</span>}
           </div>
 
           <div style={{display:"flex",alignItems:"center",gap:"8px",
@@ -65,12 +88,13 @@ export default function App() {
       )}
 
       {/* MAIN CONTENT */}
-      <div style={{paddingTop: stage === 0 ? "0" : "80px"}}>
-        {stage===0&&<Stage0_Landing onStart={() => setStage(1)}/>}
+      <div style={{paddingTop: (stage === 0 || stage === 5) ? "0" : "80px"}}>
+        {stage===0&&<Stage0_Landing onStart={() => setStage(1)} onResearch={() => setStage(5)}/>}
         {stage===1&&<Stage1_Onboarding onNext={next}/>}
         {stage===2&&<Stage2_Upload onNext={next} entityData={data}/>}
         {stage===3&&<Stage3_Extraction onNext={next} entityData={data}/>}
         {stage===4&&<Stage4_Report entityData={data}/>}
+        {stage===5&&<CompanyResearch onBack={() => setStage(0)}/>}
       </div>
     </div>
   )

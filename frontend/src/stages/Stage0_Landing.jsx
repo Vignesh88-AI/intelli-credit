@@ -135,7 +135,7 @@ const STYLES = {
   }
 };
 
-const Stage0_Landing = ({ onStart }) => {
+const Stage0_Landing = ({ onStart, onResearch }) => {
   return (
     <div style={STYLES.container}>
       <div style={STYLES.animatedBg} />
@@ -172,7 +172,7 @@ const Stage0_Landing = ({ onStart }) => {
           </div>
         </div>
         
-        <div style={{ display: "flex", justifyContent: "center" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "16px" }}>
           <button 
             style={STYLES.button} 
             onClick={onStart}
@@ -185,7 +185,29 @@ const Stage0_Landing = ({ onStart }) => {
               e.currentTarget.style.boxShadow = "0 10px 30px rgba(240, 165, 0, 0.2)";
             }}
           >
-            Start Credit Appraisal <ArrowRight size={22} />
+            Start Full Appraisal <ArrowRight size={22} />
+          </button>
+
+          <button 
+            onClick={onResearch}
+            style={{
+              background: "transparent",
+              color: "#f0a500",
+              border: "2px solid #f0a500",
+              padding: "16px 40px",
+              borderRadius: "50px",
+              fontSize: "16px",
+              fontWeight: "700",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              transition: "all 0.3s ease",
+            }}
+            onMouseOver={(e) => e.currentTarget.style.background = "rgba(240, 165, 0, 0.1)"}
+            onMouseOut={(e) => e.currentTarget.style.background = "transparent"}
+          >
+            🔍 Quick Company Research
           </button>
         </div>
         
