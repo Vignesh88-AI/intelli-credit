@@ -149,15 +149,20 @@ const Stage4_Report = ({ onBack, entityData }) => {
           breakdown: { character: 16, capacity: capacityScore, capital: 14, collateral: 14, conditions: 10 }
         });
 
-        // ANIMATION LOGIC
+        // ANIMATION LOGIC - Exactly ~2 seconds implementation
         let current = 0;
+        const steps = 100;
+        const increment = targetScore / steps;
         const interval = setInterval(() => {
           setAnimatedScore(prev => {
-             if (prev < targetScore) return prev + 1;
-             clearInterval(interval);
-             return targetScore;
+             const nextVal = prev + increment;
+             if (nextVal >= targetScore) {
+               clearInterval(interval);
+               return targetScore;
+             }
+             return Math.ceil(nextVal);
           });
-        }, 20);
+        }, 2000 / steps);
         
         setVerdict({
           status: targetScore >= 80 ? 'APPROVE' : targetScore >= 70 ? 'APPROVE WITH CONDITIONS' : 'REJECT',

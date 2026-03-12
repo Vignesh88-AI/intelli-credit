@@ -136,23 +136,67 @@ const STYLES = {
 };
 
 const Stage0_Landing = ({ onStart, onResearch }) => {
+  // Generate 20 random floating particles
+  const particles = Array.from({ length: 20 }).map((_, i) => ({
+    id: i,
+    size: Math.random() * 4 + 2 + "px",
+    left: Math.random() * 100 + "%",
+    top: Math.random() * 100 + "%",
+    delay: Math.random() * 8 + "s",
+    duration: Math.random() * 4 + 4 + "s",
+    anim: i % 2 === 0 ? "float1" : "float2"
+  }));
+
   return (
     <div style={STYLES.container}>
+      <style>{`
+        @keyframes float1 { 
+          0%,100% { transform: translate(0,0); opacity:0.3; }
+          50% { transform: translate(20px,-30px); opacity:0.8; }
+        }
+        @keyframes float2 {
+          0%,100% { transform: translate(0,0); opacity:0.2; }
+          50% { transform: translate(-15px,25px); opacity:0.6; }
+        }
+        @keyframes fadeInUp {
+          from { opacity:0; transform:translateY(30px); }
+          to { opacity:1; transform:translateY(0); }
+        }
+      `}</style>
+
+      {/* Floating Particles */}
+      {particles.map(p => (
+        <div key={p.id} style={{
+          position: "absolute",
+          width: p.size,
+          height: p.size,
+          background: "#f0a500",
+          borderRadius: "50%",
+          left: p.left,
+          top: p.top,
+          opacity: 0.4,
+          zIndex: 0,
+          animation: `${p.anim} ${p.duration} ease-in-out ${p.delay} infinite`
+        }} />
+      ))}
+
       <div style={STYLES.animatedBg} />
       <div style={STYLES.glow} />
       
       <div style={STYLES.content}>
-        <div style={STYLES.logo}>
+        <div style={{ ...STYLES.logo, animation: "fadeInUp 0.8s ease 0.2s both" }}>
           <Zap size={40} fill="#f0a500" /> INTELLI-CREDIT
         </div>
         
-        <h1 style={STYLES.tagline}>AI-Powered Corporate Credit Appraisal</h1>
-        <p style={STYLES.subtitle}>
+        <h1 style={{ ...STYLES.tagline, animation: "fadeInUp 0.8s ease 0.2s both" }}>
+          AI-Powered Corporate Credit Appraisal
+        </h1>
+        <p style={{ ...STYLES.subtitle, animation: "fadeInUp 0.8s ease 0.4s both" }}>
           From raw financial documents to a complete 
           Credit Appraisal Memo in under 5 minutes.
         </p>
         
-        <div style={STYLES.cardGrid}>
+        <div style={{ ...STYLES.cardGrid, animation: "fadeInUp 0.8s ease 0.6s both" }}>
           <div style={STYLES.card}>
             <div style={STYLES.cardIcon}><Shield size={24} /></div>
             <h3 style={STYLES.cardTitle}>AI Document Analysis</h3>
@@ -178,7 +222,8 @@ const Stage0_Landing = ({ onStart, onResearch }) => {
           alignItems: "center",
           gap: "20px",
           marginTop: "48px",
-          marginBottom: "48px"
+          marginBottom: "48px",
+          animation: "fadeInUp 0.8s ease 0.8s both"
         }}>
           <button onClick={() => onStart()} style={{
             padding: "18px 64px",

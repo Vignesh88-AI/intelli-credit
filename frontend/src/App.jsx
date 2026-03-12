@@ -19,12 +19,24 @@ export default function App() {
       fontFamily:"Inter,sans-serif",color:"white"}}>
       
       {/* TOP NAVBAR - Only show if stage > 0 */}
+      {/* TOP NAVBAR - Only show if stage > 0 */}
       {stage > 0 && (
         <nav style={{position:"fixed",top:0,left:0,right:0,
           height:"64px",background:"rgba(10,22,40,0.95)",
           backdropFilter:"blur(10px)",borderBottom:"1px solid rgba(240,165,0,0.2)",
           display:"flex",alignItems:"center",justifyContent:"space-between",
           padding:"0 32px",zIndex:1000}}>
+          
+          <style>{`
+            @keyframes shimmer {
+              0% { background-position: -200% center; }
+              100% { background-position: 200% center; }
+            }
+            @keyframes dotPulse {
+              0%,100% { transform:scale(1); opacity:1; }
+              50% { transform:scale(1.5); opacity:0.7; }
+            }
+          `}</style>
           
           <div style={{display:"flex", alignItems:"center", gap:"20px"}}>
             <div style={{fontSize:"20px",fontWeight:"700",
@@ -71,8 +83,13 @@ export default function App() {
                     {s}
                   </span>
                 </div>
-                {i<3&&<div style={{width:"60px",height:"2px",marginBottom:"18px",
-                  background:stage>i+1?"#22c55e":"#1e3a5f",margin:"0 8px 18px 8px"}}/>}
+                {i<3&&<div style={{
+                  width:"60px",height:"2px",marginBottom:"18px",
+                  background: stage>i+1 ? "linear-gradient(90deg, #22c55e, #4ade80, #22c55e)" : "#1e3a5f",
+                  backgroundSize: "200% auto",
+                  animation: stage>i+1 ? "shimmer 2s linear infinite" : "none",
+                  margin:"0 8px 18px 8px"
+                }}/>}
               </div>
             ))}
             {stage === 5 && <span style={{fontSize:"12px", opacity: 0.5, letterSpacing: "1px"}}>DEEP RESEARCH MODE ON</span>}
@@ -81,7 +98,8 @@ export default function App() {
           <div style={{display:"flex",alignItems:"center",gap:"8px",
             fontSize:"12px",color:"#22c55e",letterSpacing:"1px"}}>
             <div style={{width:"8px",height:"8px",borderRadius:"50%",
-              background:"#22c55e",boxShadow:"0 0 8px #22c55e"}}/>
+              background:"#22c55e",boxShadow:"0 0 8px #22c55e",
+              animation: "dotPulse 2s ease-in-out infinite"}}/>
             SYSTEM ONLINE
           </div>
         </nav>

@@ -80,6 +80,7 @@ const STYLES = {
 
 const DocumentCard = ({ type, description, isOptional, file, onUpload, onRemove }) => {
   const fileInputRef = useRef(null);
+  const [isHovered, setIsHovered] = React.useState(false);
 
   const handleDragOver = (e) => {
     e.preventDefault();
@@ -102,8 +103,15 @@ const DocumentCard = ({ type, description, isOptional, file, onUpload, onRemove 
     <div 
       style={{
         ...STYLES.card,
-        ...(file ? STYLES.cardActive : {})
+        ...(file ? STYLES.cardActive : {}),
+        ...(isHovered ? {
+          transform: "translateY(-4px)",
+          boxShadow: "0 8px 30px rgba(240, 165, 0, 0.2)",
+          borderColor: "#f0a500",
+        } : {})
       }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       onClick={() => !file && fileInputRef.current?.click()}
