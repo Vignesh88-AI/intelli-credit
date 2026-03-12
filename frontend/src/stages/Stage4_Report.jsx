@@ -31,7 +31,7 @@ ChartJS.register(
 );
 
 const STYLES = {
-  container: { maxWidth: "1200px", margin: "0 auto", padding: "40px 20px" },
+  container: { maxWidth: "900px", margin: "0 auto", padding: "40px 20px" },
   headerBanner: {
     background: "linear-gradient(135deg, rgba(240, 164, 0, 0.1) 0%, rgba(10, 22, 40, 0.5) 100%)",
     padding: "48px",
@@ -51,12 +51,8 @@ const STYLES = {
     border: "1px solid rgba(255,255,255,0.1)",
     borderRadius: "16px",
     padding: "24px",
-  },
-  swotGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-    gap: "20px",
-    marginBottom: "40px",
+    width: "100%",
+    boxSizing: "border-box"
   },
   riskScoreCard: {
     background: "rgba(255,255,255,0.03)",
@@ -68,26 +64,29 @@ const STYLES = {
     justifyContent: "center",
     height: "100%",
   },
-  button: {
+  mainDownloadBtn: {
     background: "#f0a500",
-    color: "#0a1628",
-    fontWeight: "700",
-    padding: "16px 40px",
-    borderRadius: "50px",
-    border: "none",
+    color: "#0a1628", 
+    padding: "16px 48px",
+    borderRadius: "8px",
+    fontSize: "18px",
+    fontWeight: "bold",
     cursor: "pointer",
-    fontSize: "16px",
+    border: "none",
+    marginTop: "32px",
+    width: "100%",
     display: "flex",
     alignItems: "center",
+    justifyContent: "center",
     gap: "12px",
     transition: "transform 0.2s",
-    boxShadow: "0 0 20px rgba(240, 165, 0, 0.2)",
+    boxShadow: "0 4px 20px rgba(240, 165, 0, 0.3)"
   },
   secondaryButton: {
     background: "transparent",
-    color: "white",
+    color: "rgba(255,255,255,0.6)",
     border: "1px solid rgba(255,255,255,0.2)",
-    padding: "16px 32px",
+    padding: "12px 24px",
     borderRadius: "50px",
     cursor: "pointer",
     fontWeight: "600",
@@ -95,6 +94,7 @@ const STYLES = {
     display: "flex",
     alignItems: "center",
     gap: "8px",
+    marginTop: "24px"
   }
 };
 
@@ -238,29 +238,6 @@ const Stage4_Report = ({ onBack, entityData }) => {
     return "#ff4d4d";
   };
 
-  // --- CHART DATA ---
-  const barData = {
-    labels: ['FY22', 'FY23', 'FY24'],
-    datasets: [{
-      label: 'Revenue (₹ Cr)',
-      data: [420, 542, 698],
-      backgroundColor: 'rgba(240, 165, 0, 0.6)',
-      borderColor: '#f0a500',
-      borderWidth: 1,
-      borderRadius: 5
-    }]
-  };
-
-  const pieData = {
-    labels: ['Total Debt', 'Net Worth'],
-    datasets: [{
-      data: [3180, 832],
-      backgroundColor: ['rgba(255, 77, 77, 0.6)', 'rgba(34, 197, 94, 0.6)'],
-      borderColor: ['#ff4d4d', '#22c55e'],
-      borderWidth: 1
-    }]
-  };
-
   return (
     <div style={STYLES.container}>
       {/* VERDICT BANNER */}
@@ -290,203 +267,129 @@ const Stage4_Report = ({ onBack, entityData }) => {
             fontSize: "24px", 
             fontWeight: "900", 
             color: getStatusColor(verdict?.status),
-            textAlign: "center",
-            maxWidth: "200px"
+            textAlign: "center"
           }}>
             {verdict?.status || 'PENDING'}
           </span>
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: "32px", textAlign: "left" }}>
-        <div>
-          {/* ANALYTICS CHARTS */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px", marginBottom: "32px" }}>
-            <div style={STYLES.glassCard}>
-               <h4 style={{ fontSize: "14px", fontWeight: "700", marginBottom: "20px", color: "rgba(255,255,255,0.5)", display: "flex", alignItems: "center", gap: "8px" }}>
-                 <BarChart3 size={16} /> Revenue Growth Path
-               </h4>
-               <div style={{ height: "200px" }}>
-                 <Bar data={barData} options={{ maintainAspectRatio: false, plugins: { legend: { display: false } } }} />
-               </div>
-            </div>
-            <div style={STYLES.glassCard}>
-               <h4 style={{ fontSize: "14px", fontWeight: "700", marginBottom: "20px", color: "rgba(255,255,255,0.5)", display: "flex", alignItems: "center", gap: "8px" }}>
-                 <PieIcon size={16} /> Debt-Equity Structure
-               </h4>
-               <div style={{ height: "200px", display: "flex", justifyContent: "center" }}>
-                 <Pie data={pieData} options={{ maintainAspectRatio: false }} />
-               </div>
-            </div>
-          </div>
-
-          {/* 5 Cs BREAKDOWN */}
-          <h3 style={{ fontSize: "20px", fontWeight: "700", marginBottom: "20px", display: "flex", alignItems: "center", gap: "10px" }}>
-            <TrendingUp size={22} color="#f0a500" /> 5 Cs Framework Analysis
-          </h3>
-          <div style={{ ...STYLES.glassCard, padding: 0, marginBottom: "32px" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
-                  <th style={{ padding: "16px", textAlign: "left", fontSize: "14px", color: "rgba(255,255,255,0.4)" }}>Category</th>
-                  <th style={{ padding: "16px", textAlign: "right", fontSize: "14px", color: "rgba(255,255,255,0.4)" }}>Score</th>
-                </tr>
-              </thead>
-              <tbody>
-                 {[
-                   { label: "Character (Promoter Background)", val: scoreData.breakdown.character, max: 20 },
-                   { label: "Capacity (Revenue & Profit)", val: scoreData.breakdown.capacity, max: 25 },
-                   { label: "Capital (Net Worth & Leverage)", val: scoreData.breakdown.capital, max: 20 },
-                   { label: "Collateral (Asset Coverage)", val: scoreData.breakdown.collateral, max: 20 },
-                   { label: "Conditions (Sector Outlook)", val: scoreData.breakdown.conditions, max: 15 },
-                 ].map((row, i) => (
-                   <tr key={i}>
-                    <td style={{ padding: "12px 16px", fontSize: "14px" }}>{row.label}</td>
-                    <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: "700" }}>{row.val}/{row.max}</td>
-                   </tr>
-                 ))}
-                <tr style={{ borderTop: "2px solid rgba(240, 165, 0, 0.3)", background: "rgba(240, 165, 0, 0.05)" }}>
-                  <td style={{ padding: "16px", fontWeight: "800", color: "#f0a500" }}>TOTAL AGGREGATE SCORE</td>
-                  <td style={{ padding: "16px", textAlign: "right", fontWeight: "900", color: "#f0a500", fontSize: "18px" }}>{scoreData.total}/100</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          {/* EARLY WARNING SIGNALS */}
-          <h3 style={{ fontSize: "20px", fontWeight: "700", marginBottom: "20px", display: "flex", alignItems: "center", gap: "10px" }}>
-            <ShieldAlert size={22} color="#ff4d4d" /> Credit Risk Monitors (EWS)
-          </h3>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px", marginBottom: "32px" }}>
-            <div style={{ padding: "24px", borderRadius: "16px", background: "rgba(255, 77, 77, 0.05)", border: "1px solid rgba(255, 77, 77, 0.2)" }}>
-              <h4 style={{ color: "#ff4d4d", fontSize: "14px", fontWeight: "800", marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
-                <TrendingDown size={16} /> HIGH RISK ALERTS
-              </h4>
-              <ul style={{ padding: 0, margin: 0, listStyle: "none", fontSize: "13px", color: "rgba(255,255,255,0.7)" }}>
-                {research?.legal_flags?.length > 0 ? research.legal_flags.map((flag, idx) => (
-                  <li key={idx} style={{ marginBottom: "12px", display: "flex", gap: "8px" }}>
-                    <span style={{ color: "#ff4d4d" }}>●</span> 
-                    <div>{flag}</div>
-                  </li>
-                )) : (
-                  <li style={{ marginBottom: "12px", display: "flex", gap: "8px" }}>
-                    <span style={{ color: "#ff4d4d" }}>●</span> 
-                    <div><strong>Leverage:</strong> Debt-to-equity ratio analyzed as {entityData?.extractedData?.reduce((acc, curr) => acc + (curr.fields?.debt_to_equity || 0), 0) > 3 ? 'Elevated' : 'Stable'}.</div>
-                  </li>
-                )}
-                <li style={{ display: "flex", gap: "8px" }}>
-                  <span style={{ color: "#ff4d4d" }}>●</span>
-                  <div><strong>Concentration:</strong> High reliance on specific geographic sectors monitored.</div>
-                </li>
-              </ul>
-            </div>
-            <div style={{ padding: "24px", borderRadius: "16px", background: "rgba(34, 197, 94, 0.05)", border: "1px solid rgba(34, 197, 94, 0.2)" }}>
-              <h4 style={{ color: "#22c55e", fontSize: "14px", fontWeight: "800", marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
-                <CheckCircle size={16} /> POSITIVE INDICATORS
-              </h4>
-              <ul style={{ padding: 0, margin: 0, listStyle: "none", fontSize: "13px", color: "rgba(255,255,255,0.7)" }}>
-                <li style={{ marginBottom: "12px", display: "flex", gap: "8px" }}>
-                  <span style={{ color: "#22c55e" }}>●</span>
-                  <div><strong>Performance:</strong> Healthy revenue trajectory maintained through {entityData?.entity?.sector} growth.</div>
-                </li>
-                <li style={{ display: "flex", gap: "8px" }}>
-                  <span style={{ color: "#22c55e" }}>●</span>
-                  <div><strong>Liquidity:</strong> Net worth base provides strong operational buffer.</div>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        <div>
-           {/* RISK SCORE CARD (ANIMATED) */}
-          <h3 style={{ fontSize: "20px", fontWeight: "700", marginBottom: "20px", display: "flex", alignItems: "center", gap: "10px" }}>
-            <Activity size={22} color="#f0a500" /> Inteli-Score Meter
-          </h3>
-          <div style={STYLES.riskScoreCard}>
-            <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "24px" }}>
-              <svg width="200" height="200" viewBox="0 0 200 200">
-                <circle cx="100" cy="100" r="90" stroke="rgba(255,255,255,0.05)" strokeWidth="15" fill="transparent" />
-                <circle cx="100" cy="100" r="90" stroke={getStatusColor(verdict?.status)} strokeWidth="15" fill="transparent" 
-                  strokeDasharray="565" strokeDashoffset={565 - (565 * animatedScore / 100)} 
-                  strokeLinecap="round" transform="rotate(-90 100 100)" style={{ transition: "stroke-dashoffset 0.5s ease" }} />
-              </svg>
-              <div style={{ position: "absolute", textAlign: "center" }}>
-                <div style={{ fontSize: "56px", fontWeight: "900", color: "white" }}>{animatedScore}</div>
-                <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "1px" }}>Credit Confidence</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: "32px", textAlign: "left" }}>
+        {/* 5 Cs + SCORE METER SIDE BY SIDE */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
+           <div style={STYLES.glassCard}>
+              <h3 style={{ fontSize: "20px", fontWeight: "700", marginBottom: "20px", display: "flex", alignItems: "center", gap: "10px" }}>
+                <TrendingUp size={22} color="#f0a500" /> 5 Cs Analysis
+              </h3>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <tbody>
+                  {[
+                    { label: "Character", val: scoreData.breakdown.character, max: 20 },
+                    { label: "Capacity", val: scoreData.breakdown.capacity, max: 25 },
+                    { label: "Capital", val: scoreData.breakdown.capital, max: 20 },
+                    { label: "Collateral", val: scoreData.breakdown.collateral, max: 20 },
+                    { label: "Conditions", val: scoreData.breakdown.conditions, max: 15 },
+                  ].map((row, i) => (
+                    <tr key={i} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                      <td style={{ padding: "12px 0", fontSize: "14px" }}>{row.label}</td>
+                      <td style={{ padding: "12px 0", textAlign: "right", fontWeight: "700" }}>{row.val}/{row.max}</td>
+                    </tr>
+                  ))}
+                  <tr>
+                    <td style={{ padding: "16px 0", fontWeight: "800", color: "#f0a500" }}>TOTAL</td>
+                    <td style={{ padding: "16px 0", textAlign: "right", fontWeight: "900", color: "#f0a500", fontSize: "18px" }}>{scoreData.total}/100</td>
+                  </tr>
+                </tbody>
+              </table>
+           </div>
+           <div style={STYLES.riskScoreCard}>
+              <h3 style={{ fontSize: "18px", fontWeight: "700", marginBottom: "20px", color: "rgba(255,255,255,0.4)" }}>Inteli-Score Meter</h3>
+              <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "20px" }}>
+                <svg width="160" height="160" viewBox="0 0 200 200">
+                  <circle cx="100" cy="100" r="90" stroke="rgba(255,255,255,0.05)" strokeWidth="15" fill="transparent" />
+                  <circle cx="100" cy="100" r="90" stroke={getStatusColor(verdict?.status)} strokeWidth="15" fill="transparent" 
+                    strokeDasharray="565" strokeDashoffset={565 - (565 * animatedScore / 100)} 
+                    strokeLinecap="round" transform="rotate(-90 100 100)" style={{ transition: "stroke-dashoffset 0.5s ease" }} />
+                </svg>
+                <div style={{ position: "absolute", textAlign: "center" }}>
+                  <div style={{ fontSize: "42px", fontWeight: "900", color: "white" }}>{animatedScore}</div>
+                </div>
               </div>
-            </div>
-            <div style={{ color: getStatusColor(verdict?.status), fontWeight: "900", fontSize: "18px", letterSpacing: "2px" }}>
-              {animatedScore >= 80 ? "LOW RISK" : animatedScore >= 60 ? "MODERATE RISK" : "HIGH RISK"}
-            </div>
-          </div>
+              <div style={{ color: getStatusColor(verdict?.status), fontWeight: "900", fontSize: "16px", letterSpacing: "2px" }}>
+                {animatedScore >= 80 ? "LOW RISK" : animatedScore >= 60 ? "MODERATE RISK" : "HIGH RISK"}
+              </div>
+           </div>
+        </div>
 
-          {/* WEB RESEARCH NEWS */}
-          <div style={{ marginTop: "32px" }}>
-            <h4 style={{ fontSize: "14px", fontWeight: "800", color: "#f0a500", marginBottom: "20px", display: "flex", justifyContent: "space-between" }}>
-              <span>PROPRIETARY INTELLIGENCE</span>
-              <span style={{ color: "rgba(255,255,255,0.3)", fontWeight: "400" }}>{research?.sources_analyzed || 9} SOURCES</span>
+        {/* SIGNALS SIDE BY SIDE */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
+          <div style={{ padding: "24px", borderRadius: "16px", background: "rgba(34, 197, 94, 0.05)", border: "1px solid rgba(34, 197, 94, 0.2)" }}>
+            <h4 style={{ color: "#22c55e", fontSize: "14px", fontWeight: "800", marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
+              <CheckCircle size={16} /> POSITIVE INDICATORS
             </h4>
-            
-            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              {(research?.company_news && research.company_news.length > 0) ? research.company_news.slice(0, 3).map((news, i) => (
-                <div key={i} style={{ ...STYLES.glassCard, padding: "16px", background: "rgba(255,255,255,0.02)" }}>
-                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: "8px" }}>
-                     <span style={{ fontSize: "13px", fontWeight: "700" }}>Market Insight</span>
-                     <span style={{ fontSize: "10px", fontWeight: "900", color: "#22c55e", background: `#22c55e11`, padding: "2px 8px", borderRadius: "4px" }}>NEWS</span>
-                   </div>
-                   <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.4)", margin: 0, lineHeight: "1.4" }}>{news}</p>
-                </div>
-              )) : [
-                { title: "Market Sentiment", tag: "POSITIVE", color: "#22c55e", desc: "Strong institutional backing and recent expansion news." },
-                { title: "Regulatory News", tag: "NEUTRAL", color: "#f0a500", desc: "RBI policy update on NBFC sector likely to have minimal impact." },
-                { title: "Legal Exposure", tag: "STABLE", color: "#22c55e", desc: "No adverse news or major legal filings in last 12 months." },
-              ].map((news, i) => (
-                <div key={i} style={{ ...STYLES.glassCard, padding: "16px", background: "rgba(255,255,255,0.02)" }}>
-                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: "8px" }}>
-                     <span style={{ fontSize: "13px", fontWeight: "700" }}>{news.title}</span>
-                     <span style={{ fontSize: "10px", fontWeight: "900", color: news.color, background: `${news.color}11`, padding: "2px 8px", borderRadius: "4px" }}>{news.tag}</span>
-                   </div>
-                   <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.4)", margin: 0, lineHeight: "1.4" }}>{news.desc}</p>
-                </div>
-              ))}
-            </div>
+            <ul style={{ padding: 0, margin: 0, listStyle: "none", fontSize: "13px", color: "rgba(255,255,255,0.7)" }}>
+              <li style={{ marginBottom: "12px", display: "flex", gap: "8px" }}>
+                <span style={{ color: "#22c55e" }}>●</span>
+                <div>Strong operational performance in {entityData?.entity?.sector} segment.</div>
+              </li>
+              <li style={{ display: "flex", gap: "8px" }}>
+                <span style={{ color: "#22c55e" }}>●</span>
+                <div>Robust equity base providing significant loss-absorption buffer.</div>
+              </li>
+            </ul>
           </div>
-
-          {/* RECOMMENDED TERMS */}
-          <div style={{ ...STYLES.glassCard, marginTop: "24px", background: "rgba(240, 165, 0, 0.05)", border: "1px solid rgba(240, 165, 0, 0.2)" }}>
-             <h4 style={{ fontSize: "14px", fontWeight: "800", color: "#f0a500", marginBottom: "20px", textTransform: "uppercase", display: "flex", alignItems: "center", gap: "8px" }}>
-               <Zap size={16} /> Recommended Structure
-             </h4>
-             <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                   <span style={{ fontSize: "13px", color: "rgba(255,255,255,0.5)" }}>Facility Amount</span>
-                   <span style={{ fontSize: "15px", fontWeight: "800" }}>₹50.00 Cr</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                   <span style={{ fontSize: "13px", color: "rgba(255,255,255,0.5)" }}>Spread over Base</span>
-                   <span style={{ fontSize: "15px", fontWeight: "800" }}>+150 bps</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                   <span style={{ fontSize: "13px", color: "rgba(255,255,255,0.5)" }}>Tenure Profile</span>
-                   <span style={{ fontSize: "15px", fontWeight: "800" }}>36 Months</span>
-                </div>
-             </div>
+          <div style={{ padding: "24px", borderRadius: "16px", background: "rgba(255, 77, 77, 0.05)", border: "1px solid rgba(255, 77, 77, 0.2)" }}>
+            <h4 style={{ color: "#ff4d4d", fontSize: "14px", fontWeight: "800", marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
+              <AlertTriangle size={16} /> RISK RED FLAGS
+            </h4>
+            <ul style={{ padding: 0, margin: 0, listStyle: "none", fontSize: "13px", color: "rgba(255,255,255,0.7)" }}>
+              <li style={{ marginBottom: "12px", display: "flex", gap: "8px" }}>
+                <span style={{ color: "#ff4d4d" }}>●</span> 
+                <div>Leverage ratio analyzed as {animatedScore < 70 ? 'Moderately Elevated' : 'Stable'}.</div>
+              </li>
+              <li style={{ display: "flex", gap: "8px" }}>
+                <span style={{ color: "#ff4d4d" }}>●</span>
+                <div>Concentration risk monitored in regional exposure.</div>
+              </li>
+            </ul>
           </div>
         </div>
-      </div>
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "48px", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "32px" }}>
-        <button style={STYLES.secondaryButton} onClick={() => onBack()}>
-          <ArrowLeft size={18} /> Modify Input
-        </button>
-        <button style={STYLES.button} onClick={handleDownloadReport} disabled={isGeneratingPDF}>
+        {/* RECOMMENDED TERMS FULL WIDTH */}
+        <div style={{ ...STYLES.glassCard, background: "rgba(240, 165, 0, 0.05)", border: "1px solid rgba(240, 165, 0, 0.2)", width: "100%", marginTop: "0" }}>
+           <h4 style={{ fontSize: "16px", fontWeight: "800", color: "#f0a500", marginBottom: "20px", textTransform: "uppercase", display: "flex", alignItems: "center", gap: "8px" }}>
+             <Zap size={18} /> Recommended Structure
+           </h4>
+           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "24px" }}>
+              <div>
+                 <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.4)", marginBottom: "4px" }}>Facility Amount</div>
+                 <div style={{ fontSize: "20px", fontWeight: "800", color: "white" }}>₹50.00 Cr</div>
+              </div>
+              <div>
+                 <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.4)", marginBottom: "4px" }}>Spread over Base</div>
+                 <div style={{ fontSize: "20px", fontWeight: "800", color: "white" }}>+150 bps</div>
+              </div>
+              <div>
+                 <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.4)", marginBottom: "4px" }}>Tenure Profile</div>
+                 <div style={{ fontSize: "20px", fontWeight: "800", color: "white" }}>36 Months</div>
+              </div>
+           </div>
+        </div>
+
+        {/* DOWNLOAD BUTTON FULL WIDTH */}
+        <button style={STYLES.mainDownloadBtn} onClick={handleDownloadReport} disabled={isGeneratingPDF}>
           {isGeneratingPDF ? (
-            <><Loader2 className="animate-spin" size={20} /> Generating CAM Report...</>
+            <><Loader2 className="animate-spin" size={24} /> Generating CAM Report...</>
           ) : (
-            <><Download size={20} /> Download Final appraisal PDF</>
+            <><Download size={24} /> 📄 Download CAM Report (PDF)</>
           )}
         </button>
+
+        <div style={{ textAlign: "center" }}>
+          <button style={STYLES.secondaryButton} onClick={() => onBack()}>
+            <ArrowLeft size={16} /> Modify Input Data
+          </button>
+        </div>
       </div>
     </div>
   );
