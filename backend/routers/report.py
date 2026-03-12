@@ -26,45 +26,28 @@ async def perform_research(company_name: str = Form(...), sector: str = Form(...
             }],
             messages=[{
                 "role": "user",
-                "content": f"""Research this Indian company for credit risk assessment:
-                Company: {company_name}
-                Sector: {sector}
-                
-                IMPORTANT: Generate unique, specific credit analysis for {company_name}. 
-                DO NOT return generic or cached data.
-                
-                Search for:
-                1. REAL Headquarters City (official registered office)
-                2. Actual founding year
-                3. Latest annual Revenue (in INR Crores) and YoY growth
-                4. Latest Annual PAT (in INR Crores)
-                5. Total Debt levels (in INR Crores)
-                6. Recent news about {company_name} - fraud, defaults, legal cases
-                7. Promoter background and reputation
-                8. Sector outlook for {sector} in India
-                
-                IMPORTANT: You must use web search to find REAL, ACCURATE data. Never hallucinate or estimate. If data is not found, use "Not Available". 
-                
-                Return ONLY a valid JSON object. No markdown. No backticks. No explanation. Just the JSON.
-                
-                Return findings as JSON:
+                "content": f"""You are a credit research analyst. Use web search to research the given Indian company. Return a JSON object with these exact fields:
                 {{
                   "company_name": "{company_name}",
-                  "headquarters": "Real City, State",
-                  "founded": "YYYY or Not Available",
-                  "revenue_actual": "Value in Cr",
-                  "revenue_growth": "X%",
-                  "pat_actual": "Value in Cr",
-                  "debt_actual": "Value in Cr",
-                  "company_news": ["finding1", "finding2"],
-                  "promoter_risk": "Low/Medium/High - reason",
-                  "sector_outlook": "Positive/Neutral/Negative - reason",
-                  "legal_flags": ["flag1", "flag2"],
-                  "macro_factors": ["factor1", "factor2"],
-                  "overall_sentiment": "Positive/Neutral/Negative",
-                  "sources_analyzed": 8,
-                  "risk_level": "LOW/MEDIUM/HIGH"
-                }}"""
+                  "sector": "{sector}",
+                  "headquarters": "",
+                  "founded_year": "",
+                  "revenue": "",
+                  "pat": "",
+                  "total_debt": "",
+                  "net_worth": "",
+                  "revenue_growth": "",
+                  "de_ratio": "",
+                  "roe": "",
+                  "credit_decision": "APPROVE or REJECT or REFER TO COMMITTEE",
+                  "risk_level": "LOW or MEDIUM or HIGH",
+                  "positive_signals": ["signal1", "signal2"],
+                  "risk_flags": ["flag1", "flag2"],
+                  "latest_news": ["news1", "news2"],
+                  "sector_outlook": "",
+                  "research_summary": ""
+                }}
+                Use real web search results only. Return ONLY the JSON."""
             }]
         )
         
@@ -74,39 +57,27 @@ async def perform_research(company_name: str = Form(...), sector: str = Form(...
             if hasattr(block, 'text'):
                 full_text += block.text
         
+        print('Claude raw response:', full_text[:500])
+        
         # Parse JSON from response
         import re
         # Look for the first '{' and the last '}' to handle potential preamble or postamble
         json_match = re.search(r'(\{.*\})', full_text, re.DOTALL)
         if json_match:
             try:
-                return json.loads(json_match.group(1))
+                result = json.loads(json_match.group(1))
+                return result
             except json.JSONDecodeError as je:
                 print(f"DEBUG: JSONDecodeError: {str(je)} for text: {json_match.group(1)}")
+                raise HTTPException(status_code=500, detail=f"JSON Parsing Failed. Raw Response: {full_text[:500]}")
         
-        return {
-            "company_news": [f"Research completed for {company_name}"],
-            "promoter_risk": "N/A",
-            "sector_outlook": "Neutral",
-            "legal_flags": [],
-            "macro_factors": [],
-            "overall_sentiment": "Neutral",
-            "sources_analyzed": 1,
-            "risk_level": "MEDIUM"
-        }
+        raise HTTPException(status_code=500, detail=f"No JSON block found in Claude response. Raw: {full_text[:500]}")
+
     except Exception as e:
         print(f"DEBUG: Exception in perform_research: {str(e)}")
-        # Fallback empty data
-        return {
-            "company_news": ["Error fetching research data"],
-            "promoter_risk": "Unknown",
-            "sector_outlook": "Unknown",
-            "legal_flags": [],
-            "macro_factors": [],
-            "overall_sentiment": "Neutral",
-            "sources_analyzed": 0,
-            "risk_level": "MEDIUM"
-        }
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/generate-report")
 async def generate_report(data: str = Form(...)):

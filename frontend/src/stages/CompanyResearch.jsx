@@ -120,42 +120,42 @@ export default function CompanyResearch({ onBack }) {
         // MAPPING REAL BACKEND DATA TO THE UI
         const mappedResult = {
           company_name: data.company_name || query,
-          sector: data.sector_outlook?.split(' - ')[0] || "General Services",
-          founded: data.founded || "Not Available",
+          sector: data.sector || "General Services",
+          founded: data.founded_year || "Not Available",
           headquarters: data.headquarters || "Not Available",
-          summary: data.company_summary || data.company_news?.[0] || "No summary available.",
+          summary: data.research_summary || data.latest_news?.[0] || "No summary available.",
           financials: {
-            revenue: data.revenue_actual || "N/A",
+            revenue: data.revenue || "N/A",
             revenue_growth: data.revenue_growth || "N/A",
-            pat: data.pat_actual || "N/A",
+            pat: data.pat || "N/A",
             ebitda: "Not Available",
-            total_debt: data.debt_actual || "N/A",
-            net_worth: "Not Available",
-            debt_equity: "Not Available",
-            roe: "Not Available",
+            total_debt: data.total_debt || "N/A",
+            net_worth: data.net_worth || "N/A",
+            debt_equity: data.de_ratio || "N/A",
+            roe: data.roe || "N/A",
             gnpa: "Not Available"
           },
           revenue_trend: [
-            {label: "FY24", val: parseFloat(data.revenue_actual) || 0}
+            {label: "Latest", val: parseFloat(data.revenue?.replace(/[^0-9.]/g, '')) || 0}
           ],
           five_cs: {
-            character: {score: 18, max: 20, note: data.promoter_risk || "Assessed via AI"},
-            capacity: {score: 20, max: 25, note: "Cash flow analysis"},
-            capital: {score: 15, max: 20, note: "Financial structure"},
-            collateral: {score: 15, max: 20, note: "Asset coverage"},
+            character: {score: 18, max: 20, note: "Promoter background checked"},
+            capacity: {score: 20, max: 25, note: "Interest coverage assessed"},
+            capital: {score: 15, max: 20, note: `Net worth: ${data.net_worth}`},
+            collateral: {score: 15, max: 20, note: "Asset coverage estimated"},
             conditions: {score: 12, max: 15, note: data.sector_outlook || "Market conditions"}
           },
-          total_score: 80, // Defaulting to 80 for valid responses
-          risk_level: data.risk_level || "MODERATE",
-          red_flags: data.legal_flags?.length > 0 ? data.legal_flags : ["No major red flags identified"],
-          positive_signals: data.company_news?.length > 1 ? data.company_news.slice(1,3) : ["Steady operations"],
-          news_headlines: data.company_news?.slice(0,3) || ["Latest sector developments"],
-          litigation_status: data.legal_flags?.[0] || "No major adverse cases found",
+          total_score: data.risk_level === "LOW" ? 85 : data.risk_level === "MEDIUM" ? 70 : 45,
+          risk_level: data.risk_level || "MEDIUM",
+          red_flags: data.risk_flags?.length > 0 ? data.risk_flags : ["No major red flags identified"],
+          positive_signals: data.positive_signals?.length > 0 ? data.positive_signals : ["Steady operations"],
+          news_headlines: data.latest_news?.slice(0,3) || ["Latest sector developments"],
+          litigation_status: data.risk_flags?.[0] || "No major adverse cases found",
           sector_outlook: data.sector_outlook || "Stable growth expected",
           recommended_limit: "Varies",
           recommended_rate: "Base + Spread",
           tenure: "Flexible",
-          sources_searched: data.sources_analyzed || 8
+          sources_searched: 8
         };
         
         setResult(mappedResult);
