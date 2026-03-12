@@ -9,7 +9,7 @@ const STYLES = {
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    padding: "40px 20px",
+    padding: "40px 20px 60px 20px", // Increased bottom padding
     position: "relative",
     overflow: "hidden",
     textAlign: "center",
@@ -73,7 +73,7 @@ const STYLES = {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
     gap: "24px",
-    marginBottom: "56px",
+    marginBottom: "80px", // Increased spacing before buttons
     width: "100%",
   },
   card: {
@@ -172,7 +172,7 @@ const Stage0_Landing = ({ onStart, onResearch }) => {
           </div>
         </div>
         
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "16px" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "16px", marginTop: "40px" }}>
           <button 
             style={STYLES.button} 
             onClick={onStart}
@@ -194,9 +194,9 @@ const Stage0_Landing = ({ onStart, onResearch }) => {
               background: "transparent",
               color: "#f0a500",
               border: "2px solid #f0a500",
-              padding: "16px 40px",
+              padding: "20px 48px", // Matched with main button
               borderRadius: "50px",
-              fontSize: "16px",
+              fontSize: "18px", // Matched with main button
               fontWeight: "700",
               cursor: "pointer",
               display: "flex",
