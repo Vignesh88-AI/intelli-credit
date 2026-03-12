@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Form, Response
 import os
 import json
 import anthropic
+from groq import Groq
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -9,74 +10,32 @@ from reportlab.lib import colors
 import io
 
 router = APIRouter(prefix="/api")
-client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+anthropic_client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 @router.post("/research")
 async def perform_research(company_name: str = Form(...), sector: str = Form(...)):
-    print(f"Researching: {company_name}") # User requested print statement
-    print(f"DEBUG: Starting real-time web research for {company_name} in {sector}")
-    
+    print(f"Researching: {company_name}")
     try:
-        response = client.messages.create(
-            model="claude-3-5-sonnet-20241022",
+        # Using groq_client initialized at module level (from env var)
+        response = groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": "You are a credit analyst. Return ONLY a JSON object with these fields filled with real data about the company: company_name, sector, headquarters, founded_year, revenue, pat, total_debt, net_worth, revenue_growth, de_ratio, roe, credit_decision (APPROVE/REJECT/REFER TO COMMITTEE), risk_level (LOW/MEDIUM/HIGH), positive_signals (array), risk_flags (array), latest_news (array), sector_outlook, research_summary. No markdown, no backticks, just JSON."},
+                {"role": "user", "content": f"Research Indian company: {company_name}"}
+            ],
             max_tokens=2000,
-            tools=[{
-                "type": "web_search_20250305",
-                "name": "web_search"
-            }],
-            messages=[{
-                "role": "user",
-                "content": f"""You are a credit research analyst. Use web search to research the given Indian company. Return a JSON object with these exact fields:
-                {{
-                  "company_name": "{company_name}",
-                  "sector": "{sector}",
-                  "headquarters": "",
-                  "founded_year": "",
-                  "revenue": "",
-                  "pat": "",
-                  "total_debt": "",
-                  "net_worth": "",
-                  "revenue_growth": "",
-                  "de_ratio": "",
-                  "roe": "",
-                  "credit_decision": "APPROVE or REJECT or REFER TO COMMITTEE",
-                  "risk_level": "LOW or MEDIUM or HIGH",
-                  "positive_signals": ["signal1", "signal2"],
-                  "risk_flags": ["flag1", "flag2"],
-                  "latest_news": ["news1", "news2"],
-                  "sector_outlook": "",
-                  "research_summary": ""
-                }}
-                Use real web search results only. Return ONLY the JSON."""
-            }]
+            temperature=0.3
         )
-        
-        # Extract text from response blocks
-        full_text = ""
-        for block in response.content:
-            if hasattr(block, 'text'):
-                full_text += block.text
-        
-        print('Claude raw response:', full_text[:500])
-        
-        # Parse JSON from response
+        text = response.choices[0].message.content
+        print("GROQ RESPONSE:", text[:300])
         import re
-        # Look for the first '{' and the last '}' to handle potential preamble or postamble
-        json_match = re.search(r'(\{.*\})', full_text, re.DOTALL)
-        if json_match:
-            try:
-                result = json.loads(json_match.group(1))
-                return result
-            except json.JSONDecodeError as je:
-                print(f"DEBUG: JSONDecodeError: {str(je)} for text: {json_match.group(1)}")
-                raise HTTPException(status_code=500, detail=f"JSON Parsing Failed. Raw Response: {full_text[:500]}")
-        
-        raise HTTPException(status_code=500, detail=f"No JSON block found in Claude response. Raw: {full_text[:500]}")
-
+        match = re.search(r'\{.*\}', text, re.DOTALL)
+        if match:
+            return json.loads(match.group())
+        raise HTTPException(status_code=500, detail="No JSON found")
     except Exception as e:
-        print(f"DEBUG: Exception in perform_research: {str(e)}")
-        if isinstance(e, HTTPException):
-            raise e
+        print(f"ERROR: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/generate-report")
@@ -96,7 +55,7 @@ async def generate_report(data: str = Form(...)):
         Focus on: Debt Serviceability, Promoter Pedigree, Sectoral Tailwinds, and Risk Mitigation.
         Return in professional Markdown with clear headings."""
 
-        message = client.messages.create(
+        message = anthropic_client.messages.create(
             model="claude-3-5-sonnet-20241022",
             max_tokens=4000,
             messages=[{"role": "user", "content": prompt}]
