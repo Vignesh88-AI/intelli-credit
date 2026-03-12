@@ -2,7 +2,6 @@ from fastapi import APIRouter, HTTPException, Form, Response
 from typing import Optional
 import os
 import json
-import anthropic
 from groq import Groq
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -11,7 +10,6 @@ from reportlab.lib import colors
 import io
 
 router = APIRouter(prefix="/api")
-anthropic_client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 @router.post("/research")
@@ -24,7 +22,6 @@ async def perform_research(
     if not groq_client:
         raise HTTPException(status_code=500, detail="Groq client not initialized. Check GROQ_API_KEY.")
     try:
-        # Using groq_client initialized at module level (from env var)
         response = groq_client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
@@ -51,8 +48,8 @@ async def generate_report(data: str = Form(...)):
         payload = json.loads(data)
         entity_name = payload.get('entity', {}).get('companyName', 'Entity')
         
-        # Call Claude for professional CAM content
-        data_context = str(data)[:15000] # Standard slicing to ensure Pyre is happy
+        # Call Groq for professional CAM content (Replacing Claude)
+        data_context = str(data)[:15000]
         prompt = f"""You are a Lead Credit Officer at a top-tier Indian bank (SBI/HDFC/ICICI). 
         Generate a professional Credit Appraisal Memo (CAM) for: {entity_name}
         Sector: {payload.get('entity', {}).get('sector', 'General')}
@@ -62,13 +59,17 @@ async def generate_report(data: str = Form(...)):
         Focus on: Debt Serviceability, Promoter Pedigree, Sectoral Tailwinds, and Risk Mitigation.
         Return in professional Markdown with clear headings."""
 
-        message = anthropic_client.messages.create(
-            model="claude-3-5-sonnet-20241022",
+        response = groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
             max_tokens=4000,
-            messages=[{"role": "user", "content": prompt}]
+            messages=[
+                {"role": "system", "content": "You are a senior credit officer expert in Indian corporate lending. Generate formal CAM reports in Markdown."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.5
         )
         
-        cam_markdown = message.content[0].text
+        cam_markdown = response.choices[0].message.content
         
         # Generate Styled PDF with ReportLab
         buffer = io.BytesIO()

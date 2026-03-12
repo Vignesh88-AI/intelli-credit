@@ -2,12 +2,11 @@ from fastapi import APIRouter, HTTPException, Form
 import os
 import pdfplumber
 import json
-import anthropic
-# from pydantic import BaseModel # Removed for simplicity in this draft
+from groq import Groq
 from typing import List, Dict, Any
 
 router = APIRouter(prefix="/api")
-client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 SYSTEM_PROMPT = """You are a financial document parser. Extract ALL financial data from this document and return ONLY valid JSON. No explanation, no markdown, just raw JSON."""
 
@@ -26,7 +25,6 @@ async def extract_data(file_paths: List[str] = Form(...), doc_types: List[str] =
                     with pdfplumber.open(path) as pdf:
                         for page in pdf.pages:
                             text += page.extract_text() or ""
-                
                 
                 if not text.strip():
                     results.append({
@@ -69,20 +67,21 @@ async def extract_data(file_paths: List[str] = Form(...), doc_types: List[str] =
                 }}
 
                 If a field is not found, omit it or set to null. 
-                Document text:
-                {text[:20000]}"""
+                Document text (truncated):
+                {text[:15000]}"""
 
-                # Call Claude
-                message = client.messages.create(
-                    model="claude-3-5-sonnet-20240620",
-                    max_tokens=2000,
-                    system=SYSTEM_PROMPT,
+                # Call Groq
+                response = client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
                     messages=[
+                        {"role": "system", "content": SYSTEM_PROMPT},
                         {"role": "user", "content": user_msg}
-                    ]
+                    ],
+                    max_tokens=2000,
+                    temperature=0.1
                 )
                 
-                response_text = message.content[0].text
+                response_text = response.choices[0].message.content
 
                 # Parse JSON response safely
                 extracted_json = {}
