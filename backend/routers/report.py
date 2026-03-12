@@ -17,66 +17,63 @@ router = APIRouter(prefix="/api")
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 tavily_client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
 
-def calculate_5cs_score(data):
-    # Extract or default scores
-    character = min(20, int(data.get('character_score', 14)))
-    capacity = min(25, int(data.get('capacity_score', 18)))
-    capital = min(20, int(data.get('capital_score', 14)))
-    collateral = min(20, int(data.get('collateral_score', 14)))
-    conditions = min(15, int(data.get('conditions_score', 11)))
-    total = character + capacity + capital + collateral + conditions
-    
-    if total >= 80: grade = "A"; decision = "APPROVE"
-    elif total >= 65: grade = "B"; decision = "APPROVE WITH CONDITIONS"
-    elif total >= 50: grade = "C"; decision = "REFER TO CREDIT COMMITTEE"
-    else: grade = "D"; decision = "REJECT"
-    
-    return total, grade, decision
-
 @router.post("/research")
-async def perform_research(
-    company_name: str = Form(...), 
-    sector: str = Form(...),
-    is_deep_research: Optional[str] = Form(None)
-):
-    print(f"Researching: {company_name}")
-    if not groq_client:
-        raise HTTPException(status_code=500, detail="Groq client not initialized. Check GROQ_API_KEY.")
-    
+async def perform_research(company_name: str = Form(...), sector: str = Form(...)):
     try:
-        # 1. Fetch real-time data using Tavily
-        search_results = tavily_client.search(
-            query=f"{company_name} India financial data headquarters revenue 2024",
+        from tavily import TavilyClient
+        tavily = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
+        
+        results = tavily.search(
+            query=f"{company_name} India headquarters revenue financials credit risk 2024",
             max_results=3,
             search_depth="basic"
         )
-        context = str(search_results)
         
-        # 2. Use Groq to structure and score
-        response = groq_client.chat.completions.create(
+        context = "\n".join([r.get("content", "") for r in results.get("results", [])])
+        
+        from groq import Groq
+        groq = Groq(api_key=os.getenv("GROQ_API_KEY"))
+        
+        response = groq.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
-                {"role": "system", "content": "You are a credit analyst. Extract data from the provided search results and return ONLY a JSON object. Fields: company_name, sector, headquarters, founded_year, revenue, pat, total_debt, net_worth, de_ratio, roe, positive_signals (array), risk_flags (array), latest_news (array), sector_outlook, research_summary, character_score (out of 20), capacity_score (out of 25), capital_score (out of 20), collateral_score (out of 20), conditions_score (out of 15). No markdown, no backticks."},
-                {"role": "user", "content": f"Search results: {context}\n\nStructure this into JSON for: {company_name}"}
+                {"role": "system", "content": """You are a credit analyst. 
+                Based on the search results, return ONLY this exact JSON:
+                {
+                  "company_name": "",
+                  "headquarters": "",
+                  "founded_year": "",
+                  "sector": "",
+                  "revenue": "",
+                  "pat": "",
+                  "total_debt": "",
+                  "net_worth": "",
+                  "de_ratio": "",
+                  "roe": "",
+                  "revenue_growth": "",
+                  "credit_decision": "APPROVE or REJECT or REFER TO COMMITTEE",
+                  "risk_level": "LOW or MEDIUM or HIGH",
+                  "positive_signals": ["point1", "point2", "point3"],
+                  "risk_flags": ["flag1", "flag2"],
+                  "latest_news": ["news1", "news2"],
+                  "sector_outlook": "one sentence",
+                  "research_summary": "two sentences"
+                }
+                Use ONLY data from search results. No markdown. No backticks."""},
+                {"role": "user", "content": f"Company: {company_name}\n\nSearch data:\n{context[:3000]}"}
             ],
-            max_tokens=2000,
-            temperature=0.2
+            max_tokens=1500,
+            temperature=0.1
         )
         
+        import re, json
         text = response.choices[0].message.content
-        import re
+        print("GROQ:", text[:300])
         match = re.search(r'\{.*\}', text, re.DOTALL)
         if match:
-            data = json.loads(match.group())
-            
-            # 3. Apply 5 Cs Scoring
-            total, grade, decision = calculate_5cs_score(data)
-            data['total_score'] = total
-            data['credit_grade'] = grade
-            data['credit_decision'] = decision
-            
-            return data
-        raise HTTPException(status_code=500, detail="No JSON found in AI response")
+            return json.loads(match.group())
+        return {"error": "parsing failed", "raw": text[:500]}
+        
     except Exception as e:
         print(f"ERROR: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
