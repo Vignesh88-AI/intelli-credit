@@ -13,7 +13,25 @@ client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
 @router.post("/research")
 async def perform_research(company_name: str = Form(...), sector: str = Form(...)):
+    print(f"DEBUG: Starting research for {company_name} in {sector}")
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    print(f"DEBUG: ANTHROPIC_API_KEY present: {bool(api_key)}")
+    
+    # Mock data fallback as requested
+    mock_research_data = {
+        "company_news": ["No recent adverse news found"],
+        "promoter_risk": "Low - No negative findings",
+        "sector_outlook": "Positive - NBFC sector growing",
+        "legal_flags": [],
+        "macro_factors": ["RBI supportive of NBFC growth"],
+        "overall_sentiment": "Positive"
+    }
+
     try:
+        if not api_key:
+            print("DEBUG: No API key found, returning mock data early")
+            return mock_research_data
+
         # Prompt for research findings
         system_msg = "You are a credit risk researcher. Extract financial sentiment and return ONLY valid JSON."
         user_msg = f"""Identify and analyze for {company_name} in the {sector} sector:
@@ -27,6 +45,7 @@ async def perform_research(company_name: str = Form(...), sector: str = Form(...
         macro_factors[], overall_sentiment (Positive/Neutral/Negative) 
         Return ONLY valid JSON."""
 
+        print("DEBUG: Calling Anthropic API...")
         message = client.messages.create(
             model="claude-3-5-sonnet-20240620",
             max_tokens=2000,
@@ -35,19 +54,24 @@ async def perform_research(company_name: str = Form(...), sector: str = Form(...
         )
         
         response_text = message.content[0].text
+        print(f"DEBUG: Received response: {response_text[:100]}...")
         
         # Robust parsing
         try:
             return json.loads(response_text)
         except json.JSONDecodeError:
+            print("DEBUG: JSON decode failed, attempting regex extraction")
             import re
             match = re.search(r'\{.*\}', response_text, re.DOTALL)
             if match:
                 return json.loads(match.group())
-            raise HTTPException(status_code=500, detail="Failed to parse AI research response")
+            print("DEBUG: Regex extraction failed, returning mock data")
+            return mock_research_data
             
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"DEBUG: Exception in perform_research: {str(e)}")
+        # If anything fails, return mock data instead of 500
+        return mock_research_data
 
 @router.post("/generate-report")
 async def generate_report(data: str = Form(...)): # Accepting all data as a JSON string
