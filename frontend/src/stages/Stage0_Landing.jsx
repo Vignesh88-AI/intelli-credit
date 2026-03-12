@@ -1,263 +1,260 @@
-import React from 'react';
-import { Shield, Search, FileText, ArrowRight, Zap } from 'lucide-react';
+import { useState, useEffect, useRef } from "react";
 
-const STYLES = {
-  container: {
-    minHeight: "100vh",
-    background: "radial-gradient(circle at center, #1a2a44 0%, #0a1628 100%)",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "40px 20px 60px 20px", // Increased bottom padding
-    position: "relative",
-    overflow: "hidden",
-    textAlign: "center",
-  },
-  animatedBg: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    background: "url('https://www.transparenttextures.com/patterns/carbon-fibre.png')",
-    opacity: 0.1,
-    zIndex: 0,
-  },
-  glow: {
-    position: "absolute",
-    width: "600px",
-    height: "600px",
-    background: "rgba(240, 165, 0, 0.05)",
-    filter: "blur(100px)",
-    borderRadius: "50%",
-    top: "50%",
-    left: "50%",
-    transform: "translate(-50%, -50%)",
-    zIndex: 0,
-  },
-  content: {
-    position: "relative",
-    zIndex: 1,
-    maxWidth: "1000px",
-    width: "100%",
-  },
-  logo: {
-    fontSize: "48px",
-    fontWeight: "900",
-    color: "#f0a500",
-    letterSpacing: "4px",
-    marginBottom: "16px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "12px",
-    textShadow: "0 0 20px rgba(240, 165, 0, 0.3)",
-  },
-  tagline: {
-    fontSize: "36px",
-    fontWeight: "800",
-    color: "white",
-    marginBottom: "16px",
-    lineHeight: "1.2",
-  },
-  subtitle: {
-    fontSize: "18px",
-    color: "rgba(255, 255, 255, 0.6)",
-    marginBottom: "48px",
-    maxWidth: "700px",
-    margin: "0 auto 48px auto",
-    lineHeight: "1.6",
-  },
-  cardGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-    gap: "24px",
-    marginBottom: "80px", // Increased spacing before buttons
-    width: "100%",
-  },
-  card: {
-    background: "rgba(255, 255, 255, 0.03)",
-    backdropFilter: "blur(10px)",
-    border: "1px solid rgba(255, 255, 255, 0.1)",
-    borderRadius: "20px",
-    padding: "32px",
-    transition: "transform 0.3s ease, border-color 0.3s ease",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    textAlign: "center",
-  },
-  cardIcon: {
-    width: "48px",
-    height: "48px",
-    background: "rgba(240, 165, 0, 0.1)",
-    borderRadius: "12px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    color: "#f0a500",
-    marginBottom: "20px",
-  },
-  cardTitle: {
-    fontSize: "18px",
-    fontWeight: "700",
-    color: "white",
-    marginBottom: "12px",
-  },
-  cardText: {
-    fontSize: "14px",
-    color: "rgba(255, 255, 255, 0.5)",
-    lineHeight: "1.5",
-  },
-  button: {
-    background: "#f0a500",
-    color: "#0a1628",
-    padding: "20px 48px",
-    borderRadius: "50px",
-    fontSize: "18px",
-    fontWeight: "800",
-    border: "none",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    transition: "all 0.3s ease",
-    boxShadow: "0 10px 30px rgba(240, 165, 0, 0.2)",
-    marginBottom: "32px",
-  },
-  footer: {
-    fontSize: "14px",
-    color: "rgba(255, 255, 255, 0.4)",
-    fontWeight: "500",
-    letterSpacing: "1px",
-    textTransform: "uppercase",
-  }
-};
+const TAGLINES = [
+  "From raw documents to credit decisions in 5 minutes.",
+  "AI-powered. India-specific. Bank-grade.",
+  "Smarter lending decisions. Zero manual effort.",
+  "The future of corporate credit appraisal.",
+];
 
-const Stage0_Landing = ({ onStart, onResearch }) => {
-  // Generate 20 random floating particles
-  const particles = Array.from({ length: 20 }).map((_, i) => ({
-    id: i,
-    size: Math.random() * 4 + 2 + "px",
-    left: Math.random() * 100 + "%",
-    top: Math.random() * 100 + "%",
-    delay: Math.random() * 8 + "s",
-    duration: Math.random() * 4 + 4 + "s",
-    anim: i % 2 === 0 ? "float1" : "float2"
-  }));
+const STATS = [
+  { val: "5 min", label: "Full Appraisal" },
+  { val: "5 Cs", label: "Credit Framework" },
+  { val: "360°", label: "Web Research" },
+  { val: "100%", label: "Explainable AI" },
+];
+
+const FEATURES = [
+  { icon: "🏢", title: "Entity Onboarding", desc: "CIN, PAN, sector validation with real-time MCA lookup" },
+  { icon: "📄", title: "Document Intelligence", desc: "ALM, Shareholding, Borrowing, Annual Reports, Portfolio" },
+  { icon: "🤖", title: "AI Extraction + Human Loop", desc: "Claude extracts 10+ financial metrics. You approve." },
+  { icon: "📊", title: "Credit Report + CAM", desc: "APPROVE/REJECT verdict with full PDF CAM download" },
+  { icon: "🔍", title: "Company Research Engine", desc: "Type any company — live web research in seconds" },
+  { icon: "⚡", title: "Early Warning Signals", desc: "GSTR reconciliation, NCLT flags, promoter risk alerts" },
+];
+
+function BlobCursor() {
+  const blobRef = useRef(null);
+  const mouse = useRef({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+  const pos = useRef({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+  const size = useRef(40);
+  const targetSize = useRef(40);
+  const raf = useRef(null);
+
+  useEffect(() => {
+    const onMove = (e) => {
+      mouse.current = { x: e.clientX, y: e.clientY };
+    };
+
+    const onEnterLink = () => { targetSize.current = 80; };
+    const onLeaveLink = () => { targetSize.current = 40; };
+
+    const addHoverListeners = () => {
+      document.querySelectorAll("button, a, [data-hover]").forEach(el => {
+        el.addEventListener("mouseenter", onEnterLink);
+        el.addEventListener("mouseleave", onLeaveLink);
+      });
+    };
+
+    window.addEventListener("mousemove", onMove);
+    addHoverListeners();
+    const interval = setInterval(addHoverListeners, 1000);
+
+    const animate = () => {
+      pos.current.x += (mouse.current.x - pos.current.x) * 0.1;
+      pos.current.y += (mouse.current.y - pos.current.y) * 0.1;
+      size.current += (targetSize.current - size.current) * 0.12;
+
+      if (blobRef.current) {
+        blobRef.current.style.transform = `translate(${pos.current.x - size.current / 2}px, ${pos.current.y - size.current / 2}px)`;
+        blobRef.current.style.width = `${size.current}px`;
+        blobRef.current.style.height = `${size.current}px`;
+      }
+      raf.current = requestAnimationFrame(animate);
+    };
+    animate();
+
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      clearInterval(interval);
+      cancelAnimationFrame(raf.current);
+    };
+  }, []);
 
   return (
-    <div style={STYLES.container}>
+    <div ref={blobRef} style={{
+      position: "fixed", top: 0, left: 0,
+      pointerEvents: "none", zIndex: 99999,
+      borderRadius: "50%",
+      background: "radial-gradient(circle, #f0a50066 0%, #f0a50022 60%, transparent 70%)",
+      border: "1.5px solid #f0a50088",
+      backdropFilter: "blur(2px)",
+      transition: "background 0.3s",
+      mixBlendMode: "screen",
+    }} />
+  );
+}
+
+const Stage0_Landing = ({ onStart, onResearch }) => {
+  const [taglineIdx, setTaglineIdx] = useState(0);
+  const [displayed, setDisplayed] = useState("");
+  const [typing, setTyping] = useState(true);
+
+  useEffect(() => {
+    const text = TAGLINES[taglineIdx];
+    let i = 0; setDisplayed(""); setTyping(true);
+    const t = setInterval(() => { if (i < text.length) setDisplayed(text.slice(0, ++i)); else { setTyping(false); clearInterval(t); } }, 42);
+    return () => clearInterval(t);
+  }, [taglineIdx]);
+
+  useEffect(() => {
+    if (!typing) { const t = setTimeout(() => setTaglineIdx(i => (i + 1) % TAGLINES.length), 2200); return () => clearTimeout(t); }
+  }, [typing]);
+
+  return (
+    <div style={{ minHeight: "100vh", background: "radial-gradient(ellipse at 20% 20%, #0d2040 0%, #060d1a 55%, #070e1c 100%)", fontFamily: "'Segoe UI', system-ui, sans-serif", color: "#e2e8f0", overflowX: "hidden", cursor: "none" }}>
       <style>{`
-        @keyframes float1 { 
-          0%,100% { transform: translate(0,0); opacity:0.3; }
-          50% { transform: translate(20px,-30px); opacity:0.8; }
-        }
-        @keyframes float2 {
-          0%,100% { transform: translate(0,0); opacity:0.2; }
-          50% { transform: translate(-15px,25px); opacity:0.6; }
-        }
-        @keyframes fadeInUp {
-          from { opacity:0; transform:translateY(30px); }
-          to { opacity:1; transform:translateY(0); }
-        }
+        * { cursor: none !important; }
+        @keyframes fadeUp { from{opacity:0;transform:translateY(36px)}to{opacity:1;transform:translateY(0)} }
+        @keyframes glow { 0%,100%{text-shadow:0 0 20px #f0a50055}50%{text-shadow:0 0 60px #f0a500bb,0 0 100px #f0a50033} }
+        @keyframes pulse { 0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.6);opacity:0.6} }
+        @keyframes float { 0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)} }
+        .feat:hover{transform:translateY(-6px)!important;border-color:#f0a500!important;box-shadow:0 16px 40px #f0a50022!important}
+        .pill:hover{background:#f0a50018!important;border-color:#f0a500!important;color:#f0a500!important}
+        .tech:hover{transform:translateY(-4px)!important;border-color:#f0a500!important}
+        .step:hover{transform:translateY(-4px)!important}
       `}</style>
 
-      {/* Floating Particles */}
-      {particles.map(p => (
-        <div key={p.id} style={{
-          position: "absolute",
-          width: p.size,
-          height: p.size,
-          background: "#f0a500",
-          borderRadius: "50%",
-          left: p.left,
-          top: p.top,
-          opacity: 0.4,
-          zIndex: 0,
-          animation: `${p.anim} ${p.duration} ease-in-out ${p.delay} infinite`
-        }} />
-      ))}
+      <BlobCursor />
 
-      <div style={STYLES.animatedBg} />
-      <div style={STYLES.glow} />
-      
-      <div style={STYLES.content}>
-        <div style={{ ...STYLES.logo, animation: "fadeInUp 0.8s ease 0.2s both" }}>
-          <Zap size={40} fill="#f0a500" /> INTELLI-CREDIT
-        </div>
-        
-        <h1 style={{ ...STYLES.tagline, animation: "fadeInUp 0.8s ease 0.2s both" }}>
-          AI-Powered Corporate Credit Appraisal
+      {/* Hero Section */}
+      <section style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "100px 32px 60px", textAlign: "center" }}>
+        <h1 style={{ animation: "fadeUp 0.7s ease 0.25s both", fontSize: "clamp(56px,9vw,100px)", fontWeight: "900", lineHeight: 0.95, marginBottom: "16px", letterSpacing: "-2px" }}>
+          <span style={{ color: "#fff" }}>INTELLI</span>
+          <span style={{ color: "#f0a500", animation: "glow 3s infinite", display: "inline-block" }}>—</span>
+          <br />
+          <span style={{ color: "#fff" }}>CREDIT</span>
         </h1>
-        <p style={{ ...STYLES.subtitle, animation: "fadeInUp 0.8s ease 0.4s both" }}>
-          From raw financial documents to a complete 
-          Credit Appraisal Memo in under 5 minutes.
-        </p>
-        
-        <div style={{ ...STYLES.cardGrid, animation: "fadeInUp 0.8s ease 0.6s both" }}>
-          <div style={STYLES.card}>
-            <div style={STYLES.cardIcon}><Shield size={24} /></div>
-            <h3 style={STYLES.cardTitle}>AI Document Analysis</h3>
-            <p style={STYLES.cardText}>Extract financial data instantly with high precision transformer models.</p>
-          </div>
-          
-          <div style={STYLES.card}>
-            <div style={STYLES.cardIcon}><Search size={24} /></div>
-            <h3 style={STYLES.cardTitle}>360° Research</h3>
-            <p style={STYLES.cardText}>Real-time web intelligence on company, promoters, and sector outlook.</p>
-          </div>
-          
-          <div style={STYLES.card}>
-            <div style={STYLES.cardIcon}><FileText size={24} /></div>
-            <h3 style={STYLES.cardTitle}>CAM Report</h3>
-            <p style={STYLES.cardText}>Automated bank-grade credit memo generation in one click.</p>
-          </div>
+        <div style={{ animation: "fadeUp 0.7s ease 0.4s both", fontSize: "13px", color: "#f0a500", letterSpacing: "5px", marginBottom: "28px", fontWeight: "600" }}>
+          AI-POWERED CORPORATE CREDIT APPRAISAL ENGINE
         </div>
-        
-        <div style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: "20px",
-          marginTop: "48px",
-          marginBottom: "48px",
-          animation: "fadeInUp 0.8s ease 0.8s both"
-        }}>
-          <button onClick={() => onStart()} style={{
-            padding: "18px 64px",
-            background: "#f0a500",
-            color: "#0a1628",
-            border: "none",
-            borderRadius: "50px",
-            fontSize: "18px",
-            fontWeight: "800",
-            cursor: "pointer",
-            display: "block"
-          }}>
-            Start Full Appraisal →
+        <div style={{ animation: "fadeUp 0.7s ease 0.55s both", height: "28px", fontSize: "16px", color: "#94a3b8", marginBottom: "48px" }}>
+          {displayed}<span style={{ color: "#f0a500", opacity: typing ? 1 : 0, transition: "opacity 0.3s" }}>|</span>
+        </div>
+        <div style={{ animation: "fadeUp 0.7s ease 0.7s both", display: "flex", gap: "56px", marginBottom: "56px", flexWrap: "wrap", justifyContent: "center" }}>
+          {STATS.map((s, i) => (
+            <div key={i} style={{ textAlign: "center" }}>
+              <div style={{ fontSize: "36px", fontWeight: "900", color: "#f0a500", lineHeight: 1 }}>{s.val}</div>
+              <div style={{ fontSize: "11px", color: "#475569", letterSpacing: "2px", marginTop: "6px" }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ animation: "fadeUp 0.7s ease 0.85s both", display: "flex", flexDirection: "column", alignItems: "center", gap: "14px" }}>
+          <button 
+            data-hover 
+            onClick={onStart}
+            style={{ padding: "18px 56px", background: "linear-gradient(135deg,#f0a500,#d97706)", color: "#0a1628", border: "none", borderRadius: "50px", fontSize: "16px", fontWeight: "800", cursor: "pointer", boxShadow: "0 4px 30px #f0a50055", transition: "all 0.3s" }}
+            onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.05)"; e.currentTarget.style.boxShadow = "0 8px 50px #f0a50077"; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 4px 30px #f0a50055"; }}>
+            🚀 Start Full Appraisal
           </button>
-          
-          <button onClick={() => onResearch()} style={{
-            padding: "16px 48px",
-            background: "transparent",
-            color: "#f0a500",
-            border: "2px solid #f0a500",
-            borderRadius: "50px",
-            fontSize: "16px",
-            fontWeight: "700",
-            cursor: "pointer",
-            display: "block"
-          }}>
+          <button 
+            data-hover 
+            onClick={onResearch}
+            style={{ padding: "16px 48px", background: "transparent", color: "#f0a500", border: "2px solid #f0a50055", borderRadius: "50px", fontSize: "15px", fontWeight: "700", cursor: "pointer", transition: "all 0.3s" }}
+            onMouseEnter={e => { e.currentTarget.style.background = "#f0a50011"; e.currentTarget.style.borderColor = "#f0a500"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "#f0a50055"; }}>
             🔍 Quick Company Research
           </button>
         </div>
-        
-        <div style={STYLES.footer}>
-          Trusted by credit analysts | Powered by Claude AI
+        <div style={{ marginTop: "56px", animation: "float 2.5s ease infinite", color: "#334155", fontSize: "11px", letterSpacing: "3px" }}>↓ SCROLL</div>
+      </section>
+
+      {/* Pipeline Section */}
+      <section style={{ padding: "80px 48px", maxWidth: "1100px", margin: "0 auto" }}>
+        <div style={{ textAlign: "center", marginBottom: "56px" }}>
+          <div style={{ fontSize: "11px", color: "#f0a500", letterSpacing: "4px", marginBottom: "10px" }}>THE PIPELINE</div>
+          <h2 style={{ fontSize: "40px", fontWeight: "900" }}>4-Stage Credit Intelligence</h2>
+          <p style={{ color: "#475569", marginTop: "10px" }}>From entity onboarding to bank-grade CAM report</p>
         </div>
-      </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: "8px" }}>
+          {[
+            { num: "01", title: "Entity Onboarding", desc: "CIN · PAN · Sector", color: "#f0a500" },
+            { num: "02", title: "Document Upload", desc: "5 financial doc types", color: "#60a5fa" },
+            { num: "03", title: "AI Extraction", desc: "Claude + Human loop", color: "#a78bfa" },
+            { num: "04", title: "Credit Report", desc: "APPROVE / REJECT", color: "#34d399" },
+          ].map((s, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center" }}>
+              <div className="step" data-hover style={{ textAlign: "center", padding: "24px 20px", background: "#0a1628", border: `1px solid ${s.color}33`, borderRadius: "14px", minWidth: "155px", transition: "all 0.3s" }}>
+                <div style={{ fontSize: "11px", color: s.color, letterSpacing: "2px", marginBottom: "8px" }}>{s.num}</div>
+                <div style={{ fontWeight: "800", fontSize: "14px", marginBottom: "4px" }}>{s.title}</div>
+                <div style={{ fontSize: "11px", color: "#475569" }}>{s.desc}</div>
+              </div>
+              {i < 3 && <div style={{ width: "36px", height: "1px", background: `linear-gradient(90deg,${["#f0a500","#60a5fa","#a78bfa"][i]}88,#1e3a5f)`, flexShrink: 0 }} />}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section style={{ padding: "60px 48px", maxWidth: "1100px", margin: "0 auto" }}>
+        <div style={{ textAlign: "center", marginBottom: "48px" }}>
+          <div style={{ fontSize: "11px", color: "#f0a500", letterSpacing: "4px", marginBottom: "10px" }}>CAPABILITIES</div>
+          <h2 style={{ fontSize: "38px", fontWeight: "900" }}>Everything a Credit Manager Needs</h2>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "18px" }}>
+          {FEATURES.map((f, i) => (
+            <div key={i} className="feat" data-hover style={{ background: "#0a1628", border: "1px solid #1e3a5f", borderRadius: "16px", padding: "28px", transition: "all 0.3s" }}>
+              <div style={{ fontSize: "30px", marginBottom: "12px" }}>{f.icon}</div>
+              <div style={{ fontWeight: "800", fontSize: "15px", marginBottom: "8px" }}>{f.title}</div>
+              <div style={{ fontSize: "13px", color: "#475569", lineHeight: "1.6" }}>{f.desc}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* India Specific Section */}
+      <section style={{ padding: "80px 48px", background: "#0a162866", borderTop: "1px solid #1e3a5f" }}>
+        <div style={{ maxWidth: "900px", margin: "0 auto", textAlign: "center" }}>
+          <div style={{ fontSize: "11px", color: "#f0a500", letterSpacing: "4px", marginBottom: "10px" }}>BUILT FOR INDIA</div>
+          <h2 style={{ fontSize: "36px", fontWeight: "900", marginBottom: "40px" }}>India-Specific Intelligence</h2>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "12px" }}>
+            {["GSTR-2A vs 3B Reconciliation","CIBIL Commercial Score Signals","MCA & NCLT Filing Detection","RBI Regulatory Compliance","Reports in Crores & Lakhs","Five Cs per RBI Guidelines"].map((item,i) => (
+              <div key={i} className="pill" data-hover style={{ padding: "14px 18px", background: "#0a1628", border: "1px solid #1e3a5f", borderRadius: "10px", fontSize: "13px", color: "#94a3b8", display: "flex", alignItems: "center", gap: "8px", transition: "all 0.3s", textAlign: "left" }}>
+                <span style={{ color: "#f0a500", fontWeight: "700" }}>✓</span> {item}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Tech Stack Section */}
+      <section style={{ padding: "80px 48px", maxWidth: "900px", margin: "0 auto", textAlign: "center" }}>
+        <div style={{ fontSize: "11px", color: "#f0a500", letterSpacing: "4px", marginBottom: "10px" }}>POWERED BY</div>
+        <h2 style={{ fontSize: "36px", fontWeight: "900", marginBottom: "40px" }}>Best-in-Class Tech Stack</h2>
+        <div style={{ display: "flex", gap: "14px", flexWrap: "wrap", justifyContent: "center" }}>
+          {[
+            { name: "Claude Sonnet", role: "AI Engine", color: "#f0a500" },
+            { name: "FastAPI", role: "Backend", color: "#60a5fa" },
+            { name: "React + Vite", role: "Frontend", color: "#34d399" },
+            { name: "pdfplumber", role: "PDF Parsing", color: "#a78bfa" },
+            { name: "ReportLab", role: "CAM PDF", color: "#fb923c" },
+            { name: "Render + Vercel", role: "Cloud", color: "#38bdf8" },
+          ].map((t,i) => (
+            <div key={i} className="tech" data-hover style={{ padding: "16px 24px", background: "#0a1628", border: `1px solid ${t.color}44`, borderRadius: "12px", minWidth: "140px", transition: "all 0.3s" }}>
+              <div style={{ fontWeight: "800", color: t.color, marginBottom: "4px", fontSize: "14px" }}>{t.name}</div>
+              <div style={{ fontSize: "11px", color: "#475569" }}>{t.role}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Final CTA Section */}
+      <section style={{ padding: "100px 48px", textAlign: "center", borderTop: "1px solid #1e3a5f", background: "radial-gradient(ellipse at center,#0d2040 0%,#060d1a 70%)" }}>
+        <div style={{ fontSize: "11px", color: "#f0a500", letterSpacing: "4px", marginBottom: "16px" }}>READY TO APPRAISE?</div>
+        <h2 style={{ fontSize: "clamp(36px,6vw,60px)", fontWeight: "900", marginBottom: "16px", animation: "glow 3s infinite" }}>
+          3 Weeks → <span style={{ color: "#f0a500" }}>5 Minutes</span>
+        </h2>
+        <p style={{ color: "#475569", fontSize: "17px", marginBottom: "48px" }}>From manual chaos to AI-powered credit intelligence.</p>
+        <button 
+          data-hover 
+          onClick={onStart}
+          style={{ padding: "20px 72px", background: "linear-gradient(135deg,#f0a500,#d97706)", color: "#0a1628", border: "none", borderRadius: "50px", fontSize: "18px", fontWeight: "900", cursor: "pointer", boxShadow: "0 4px 50px #f0a50055", transition: "all 0.3s", letterSpacing: "2px" }}
+          onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.05)"; e.currentTarget.style.boxShadow = "0 8px 60px #f0a50088"; }}
+          onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 4px 50px #f0a50055"; }}>
+          ⚡ LAUNCH INTELLI-CREDIT
+        </button>
+      </section>
     </div>
   );
 };
