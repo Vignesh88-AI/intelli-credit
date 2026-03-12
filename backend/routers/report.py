@@ -46,8 +46,9 @@ async def perform_research(
     try:
         # 1. Fetch real-time data using Tavily
         search_results = tavily_client.search(
-            query=f"{company_name} India revenue financials 2024 headquarters promoter background",
-            max_results=5
+            query=f"{company_name} India financial data headquarters revenue 2024",
+            max_results=3,
+            search_depth="basic"
         )
         context = str(search_results)
         
