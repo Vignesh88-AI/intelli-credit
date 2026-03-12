@@ -117,6 +117,18 @@ const Stage0_Landing = ({ onStart, onResearch }) => {
 
       <BlobCursor />
 
+      {/* Navbar */}
+      <nav style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 200, height: "60px", padding: "0 48px", display: "flex", alignItems: "center", justifyContent: "space-between", background: "#060d1acc", backdropFilter: "blur(16px)", borderBottom: "1px solid #1e3a5f55" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <span style={{ fontSize: "22px" }}>⚡</span>
+          <span style={{ fontWeight: "900", fontSize: "16px", color: "#f0a500", letterSpacing: "3px" }}>INTELLI-CREDIT</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <div style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#22c55e", animation: "pulse 2s infinite" }} />
+          <span style={{ fontSize: "11px", color: "#22c55e", letterSpacing: "2px" }}>LIVE</span>
+        </div>
+      </nav>
+
       {/* Hero Section */}
       <section style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "100px 32px 60px", textAlign: "center" }}>
         <h1 style={{ animation: "fadeUp 0.7s ease 0.25s both", fontSize: "clamp(56px,9vw,100px)", fontWeight: "900", lineHeight: 0.95, marginBottom: "16px", letterSpacing: "-2px" }}>
@@ -151,9 +163,19 @@ const Stage0_Landing = ({ onStart, onResearch }) => {
           <button 
             data-hover 
             onClick={onResearch}
-            style={{ padding: "16px 48px", background: "transparent", color: "#f0a500", border: "2px solid #f0a50055", borderRadius: "50px", fontSize: "15px", fontWeight: "700", cursor: "pointer", transition: "all 0.3s" }}
+            style={{ 
+              padding: "16px 48px", 
+              background: "transparent", 
+              color: "#f0a500", 
+              border: "2px solid #f0a500", 
+              borderRadius: "50px", 
+              fontSize: "15px", 
+              fontWeight: "700", 
+              cursor: "pointer", 
+              transition: "all 0.3s" 
+            }}
             onMouseEnter={e => { e.currentTarget.style.background = "#f0a50011"; e.currentTarget.style.borderColor = "#f0a500"; }}
-            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "#f0a50055"; }}>
+            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "#f0a500"; }}>
             🔍 Quick Company Research
           </button>
         </div>
