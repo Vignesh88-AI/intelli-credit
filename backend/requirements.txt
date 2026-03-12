@@ -10,3 +10,4 @@ groq
 tavily-python
 pytesseract
 python-docx
+anthropic

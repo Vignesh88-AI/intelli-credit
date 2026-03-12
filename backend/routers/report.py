@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Form, Response
 from typing import Optional
 import os
 import json
+import anthropic
 from groq import Groq
 from tavily import TavilyClient
 from reportlab.lib.pagesizes import letter
@@ -16,6 +17,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 router = APIRouter(prefix="/api")
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 tavily_client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
+anthropic_client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
 @router.post("/research")
 async def perform_research(company_name: str = Form(...), sector: str = Form(...)):
@@ -39,25 +41,28 @@ async def perform_research(company_name: str = Form(...), sector: str = Form(...
             messages=[
                 {"role": "system", "content": """You are a senior credit analyst. 
                 Based on the search results, return ONLY this exact JSON format. 
-                IMPORTANT: All financial values (revenue, pat, total_debt, net_worth) MUST be numeric strings representing amount in **INR Crores**. 
-                Example: If revenue is 50 billion, return "5000". If 6900 Cr, return "6900".
+                
+                CRITICAL: All financial values (revenue, pat, total_debt, net_worth) MUST be PURE numeric strings representing amount in **INR Crores**. 
+                - DO NOT include the year (e.g., "2024") inside these value fields.
+                - DO NOT include words like "Cr", "Billion", or "Crores".
+                - Example: If revenue is 50 billion (~5000 Cr), return "5000". If it is 200 Cr, return "200".
                 
                 {
                   "company_name": "",
                   "headquarters": "",
                   "founded_year": "",
                   "sector": "",
-                  "revenue": "numeric string in Cr",
-                  "pat": "numeric string in Cr",
-                  "total_debt": "numeric string in Cr",
-                  "net_worth": "numeric string in Cr",
+                  "revenue": "pure number string",
+                  "pat": "pure number string",
+                  "total_debt": "pure number string",
+                  "net_worth": "pure number string",
                   "de_ratio": "",
                   "roe": "",
                   "revenue_growth": "percentage",
                   "revenue_history": [
-                    {"year": "2024", "revenue_cr": ""},
-                    {"year": "2023", "revenue_cr": ""},
-                    {"year": "2022", "revenue_cr": ""}
+                    {"year": "2024", "revenue_cr": "pure number string"},
+                    {"year": "2023", "revenue_cr": "pure number string"},
+                    {"year": "2022", "revenue_cr": "pure number string"}
                   ],
                   "credit_decision": "APPROVE or REJECT or REFER TO COMMITTEE",
                   "risk_level": "LOW or MEDIUM or HIGH",
@@ -92,28 +97,43 @@ async def generate_report(data: str = Form(...)):
         payload = json.loads(data)
         entity_name = payload.get('entity', {}).get('companyName', 'Entity')
         
-        # Call Groq for professional CAM content (Replacing Claude)
+        # Fetch Web Intelligence Findings
+        web_data = tavily_client.search(
+            query=f"{entity_name} India news legal NCLT court case 2024 2025",
+            max_results=3,
+            search_depth="basic"
+        )
+        web_findings = "\n".join([
+            r.get("content", "")[:200] 
+            for r in web_data.get("results", [])
+        ])
+
+        # Call Anthropic for professional CAM content
         data_context = str(data)[:15000]
         prompt = f"""You are a Lead Credit Officer at a top-tier Indian bank (SBI/HDFC/ICICI). 
         Generate a professional Credit Appraisal Memo (CAM) for: {entity_name}
         Sector: {payload.get('entity', {}).get('sector', 'General')}
         Data Summary: {data_context}
         
+        Web Intelligence Findings:
+        {web_findings}
+        
         The report must be formal, detailed, and analytical. 
         Focus on: Debt Serviceability, Promoter Pedigree, Sectoral Tailwinds, and Risk Mitigation.
+        Populate the "Web Intelligence Findings" section using the provided web data.
         Return in professional Markdown with clear headings."""
 
-        response = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+        response = anthropic_client.messages.create(
+            model="claude-3-5-sonnet-20241022",
             max_tokens=4000,
+            system="You are a senior credit officer expert in Indian corporate lending. Generate formal CAM reports in Markdown.",
             messages=[
-                {"role": "system", "content": "You are a senior credit officer expert in Indian corporate lending. Generate formal CAM reports in Markdown."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.5
         )
         
-        cam_markdown = response.choices[0].message.content
+        cam_markdown = response.content[0].text
         
         # Generate DOCX with python-docx
         doc = Document()

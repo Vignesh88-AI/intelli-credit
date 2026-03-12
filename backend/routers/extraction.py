@@ -86,10 +86,10 @@ async def extract_data(file_paths: List[str] = Form(...), doc_types: List[str] =
                 response = client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
                     messages=[
-                        {"role": "system", "content": SYSTEM_PROMPT},
-                        {"role": "user", "content": user_msg}
+                        {"role": "system", "content": "You are a financial document analyst. Extract key metrics from the document text and return as JSON with fields: revenue, pat, total_debt, net_worth, gross_npa, car, revenue_growth, document_type"},
+                        {"role": "user", "content": f"Extract financial data from this document:\n\n{text[:4000]}"}
                     ],
-                    max_tokens=2000,
+                    max_tokens=1000,
                     temperature=0.1
                 )
                 
@@ -100,7 +100,6 @@ async def extract_data(file_paths: List[str] = Form(...), doc_types: List[str] =
                 try:
                     extracted_json = json.loads(response_text)
                 except json.JSONDecodeError:
-                    # Attempt to find JSON block if AI included markdown
                     import re
                     match = re.search(r'\{.*\}', response_text, re.DOTALL)
                     if match:
@@ -110,7 +109,7 @@ async def extract_data(file_paths: List[str] = Form(...), doc_types: List[str] =
                     "file_path": path,
                     "original_type": doc_types[i],
                     "detected_type": extracted_json.get("document_type", "Unknown"),
-                    "fields": extracted_json.get("fields", {}),
+                    "fields": extracted_json,
                     "status": "success"
                 })
                 

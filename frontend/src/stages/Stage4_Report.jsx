@@ -404,7 +404,7 @@ const Stage4_Report = ({ onBack, entityData }) => {
       <div style={STYLES.glassCard}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
             <h3 style={{ ...STYLES.sectionTitle, margin: 0 }}>
-              <Globe size={20} /> Web Intelligence Findings
+              Web Intelligence Findings
             </h3>
             <span style={{ fontSize: "11px", fontWeight: "700", color: "rgba(255,255,255,0.3)" }}>{research?.sources_analyzed || 5} SOURCES ANALYZED</span>
           </div>
@@ -423,7 +423,7 @@ const Stage4_Report = ({ onBack, entityData }) => {
       {/* 6. RECOMMENDED STRUCTURE */}
       <div style={{ ...STYLES.glassCard, background: "rgba(240, 165, 0, 0.08)", border: "1px solid rgba(240, 165, 0, 0.3)" }}>
           <h3 style={STYLES.sectionTitle}>
-            <Zap size={20} /> Proposed Loan Terms
+            Proposed Loan Terms
           </h3>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "40px" }}>
              <div>
