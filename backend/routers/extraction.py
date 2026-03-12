@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Form
 import os
 import pdfplumber
 import json
+import pytesseract
 from groq import Groq
 from typing import List, Dict, Any
 
@@ -25,6 +26,17 @@ async def extract_data(file_paths: List[str] = Form(...), doc_types: List[str] =
                     with pdfplumber.open(path) as pdf:
                         for page in pdf.pages:
                             text += page.extract_text() or ""
+                
+                if not text.strip():
+                    # Fallback to OCR
+                    print(f"pdfplumber failed for {path}, trying OCR fallback...")
+                    import pdfplumber
+                    from PIL import Image
+                    with pdfplumber.open(path) as pdf:
+                        for page in pdf.pages:
+                            # Convert page to image and OCR
+                            im = page.to_image(resolution=300).original
+                            text += pytesseract.image_to_string(im)
                 
                 if not text.strip():
                     results.append({

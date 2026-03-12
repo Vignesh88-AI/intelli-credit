@@ -3,9 +3,9 @@ import axios from "axios";
 
 const ScoreRing = ({ score, size = 120 }) => {
   const r = 44, circ = 2 * Math.PI * r;
-  const color = score >= 75 ? "#22c55e" : score >= 55 ? "#f0a500" : "#ef4444";
+  const color = score >= 80 ? "#22c55e" : score >= 65 ? "#f0a500" : score >= 50 ? "#f97316" : "#ef4444";
   const grade = score >= 80 ? "A" : score >= 65 ? "B" : score >= 50 ? "C" : "D";
-  const decision = score >= 80 ? "APPROVE" : score >= 65 ? "APPROVE WITH CONDITIONS" : score >= 50 ? "REFER TO COMMITTEE" : "REJECT";
+  const decision = score >= 80 ? "APPROVE" : score >= 65 ? "APPROVE WITH CONDITIONS" : score >= 50 ? "REFER TO CREDIT COMMITTEE" : "REJECT";
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
       <div style={{ position: "relative", width: size, height: size }}>
@@ -234,7 +234,7 @@ export default function CompanyResearch({ onBack }) {
             </span>
           </h1>
           <p style={{ color: "#475569", fontSize: "16px", marginBottom: "36px" }}>
-            Type any Indian company — VERIDEX AI searches the web and generates a full credit appraisal in seconds
+            Type any Indian company — AI searches the web and generates a full credit appraisal in seconds
           </p>
 
           <div style={{ display: "flex", gap: "12px", maxWidth: "640px", margin: "0 auto" }}>
@@ -333,12 +333,12 @@ export default function CompanyResearch({ onBack }) {
                 }}>
                   <div style={{ fontSize: "10px", color: "#64748b", letterSpacing: "2px", marginBottom: "6px" }}>CREDIT DECISION</div>
                   <div style={{ fontSize: "15px", fontWeight: "900", color: vc.text, marginBottom: "12px" }}>
-                    {result.total_score >= 80 ? "APPROVE" :
+                    {result.credit_decision || (result.total_score >= 80 ? "APPROVE" :
                       result.total_score >= 65 ? "APPROVE WITH CONDITIONS" :
-                        result.total_score >= 50 ? "REFER TO COMMITTEE" : "REJECT"}
+                        result.total_score >= 50 ? "REFER TO CREDIT COMMITTEE" : "REJECT")}
                   </div>
                   <div style={{ fontSize: "11px", color: "#64748b" }}>
-                    Risk Level: <strong style={{ color: vc.text }}>{result.risk_level}</strong>
+                    Risk Level: <strong style={{ color: vc.text }}>{result.credit_grade || (result.total_score >= 80 ? "A" : result.total_score >= 65 ? "B" : "C")}</strong>
                   </div>
                 </div>
               </div>

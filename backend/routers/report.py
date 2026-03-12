@@ -3,14 +3,35 @@ from typing import Optional
 import os
 import json
 from groq import Groq
+from tavily import TavilyClient
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 import io
+from docx import Document
+from docx.shared import Inches, Pt
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 router = APIRouter(prefix="/api")
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+tavily_client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
+
+def calculate_5cs_score(data):
+    # Extract or default scores
+    character = min(20, int(data.get('character_score', 14)))
+    capacity = min(25, int(data.get('capacity_score', 18)))
+    capital = min(20, int(data.get('capital_score', 14)))
+    collateral = min(20, int(data.get('collateral_score', 14)))
+    conditions = min(15, int(data.get('conditions_score', 11)))
+    total = character + capacity + capital + collateral + conditions
+    
+    if total >= 80: grade = "A"; decision = "APPROVE"
+    elif total >= 65: grade = "B"; decision = "APPROVE WITH CONDITIONS"
+    elif total >= 50: grade = "C"; decision = "REFER TO CREDIT COMMITTEE"
+    else: grade = "D"; decision = "REJECT"
+    
+    return total, grade, decision
 
 @router.post("/research")
 async def perform_research(
@@ -21,23 +42,40 @@ async def perform_research(
     print(f"Researching: {company_name}")
     if not groq_client:
         raise HTTPException(status_code=500, detail="Groq client not initialized. Check GROQ_API_KEY.")
+    
     try:
+        # 1. Fetch real-time data using Tavily
+        search_results = tavily_client.search(
+            query=f"{company_name} India revenue financials 2024 headquarters promoter background",
+            max_results=5
+        )
+        context = str(search_results)
+        
+        # 2. Use Groq to structure and score
         response = groq_client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
-                {"role": "system", "content": "You are a credit analyst. Return ONLY a JSON object with these fields filled with real data about the company: company_name, sector, headquarters, founded_year, revenue, pat, total_debt, net_worth, revenue_growth, de_ratio, roe, credit_decision (APPROVE/REJECT/REFER TO COMMITTEE), risk_level (LOW/MEDIUM/HIGH), positive_signals (array), risk_flags (array), latest_news (array), sector_outlook, research_summary. No markdown, no backticks, just JSON."},
-                {"role": "user", "content": f"Research Indian company: {company_name}"}
+                {"role": "system", "content": "You are a credit analyst. Extract data from the provided search results and return ONLY a JSON object. Fields: company_name, sector, headquarters, founded_year, revenue, pat, total_debt, net_worth, de_ratio, roe, positive_signals (array), risk_flags (array), latest_news (array), sector_outlook, research_summary, character_score (out of 20), capacity_score (out of 25), capital_score (out of 20), collateral_score (out of 20), conditions_score (out of 15). No markdown, no backticks."},
+                {"role": "user", "content": f"Search results: {context}\n\nStructure this into JSON for: {company_name}"}
             ],
             max_tokens=2000,
-            temperature=0.3
+            temperature=0.2
         )
+        
         text = response.choices[0].message.content
-        print("GROQ RESPONSE:", text[:300])
         import re
         match = re.search(r'\{.*\}', text, re.DOTALL)
         if match:
-            return json.loads(match.group())
-        raise HTTPException(status_code=500, detail="No JSON found")
+            data = json.loads(match.group())
+            
+            # 3. Apply 5 Cs Scoring
+            total, grade, decision = calculate_5cs_score(data)
+            data['total_score'] = total
+            data['credit_grade'] = grade
+            data['credit_decision'] = decision
+            
+            return data
+        raise HTTPException(status_code=500, detail="No JSON found in AI response")
     except Exception as e:
         print(f"ERROR: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -71,53 +109,48 @@ async def generate_report(data: str = Form(...)):
         
         cam_markdown = response.choices[0].message.content
         
-        # Generate Styled PDF with ReportLab
-        buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=letter)
-        styles = getSampleStyleSheet()
+        # Generate DOCX with python-docx
+        doc = Document()
         
-        # Custom Styles for Premium Look
-        title_style = ParagraphStyle(
-            'GoldTitle',
-            parent=styles['Title'],
-            textColor=colors.HexColor("#f0a500"),
-            fontSize=24,
-            spaceAfter=30
-        )
-        body_style = styles['Normal']
-        h1_style = ParagraphStyle(
-            'H1',
-            parent=styles['Heading1'],
-            textColor=colors.HexColor("#0a1628"),
-            fontSize=16,
-            spaceBefore=12,
-            spaceAfter=12
-        )
+        # Add a professional header
+        section = doc.sections[0]
+        header = section.header
+        header_para = header.paragraphs[0]
+        header_para.text = "VERIDEX® PRIVATE APPRAISAL - CONFIDENTIAL"
+        header_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
 
-        elements = []
-        elements.append(Paragraph("VERIDEX® PRIVATE APPRAISAL", title_style))
-        elements.append(Paragraph(f"Company: {entity_name}", styles['Heading2']))
-        elements.append(Spacer(1, 24))
-        
-        # Parse markdown into ReportLab
+        # Title
+        title = doc.add_heading("Credit Appraisal Memo (CAM)", 0)
+        title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+        doc.add_paragraph(f"Target Entity: {entity_name}")
+        doc.add_paragraph(f"Report Date: {os.popen('date /t').read().strip() if os.name == 'nt' else os.popen('date').read().strip()}")
+        doc.add_page_break()
+
+        # Parse markdown-ish content from Groq into DOCX
         for line in cam_markdown.split('\n'):
             line = line.strip()
-            if not line:
-                continue
-            if line.startswith('#'):
-                clean_h = line.replace('#', '').strip()
-                elements.append(Paragraph(clean_h, h1_style))
-            else:
-                elements.append(Paragraph(line, body_style))
-                elements.append(Spacer(1, 8))
+            if not line: continue
             
-        doc.build(elements)
+            if line.startswith('###'):
+                doc.add_heading(line.replace('###', '').strip(), level=3)
+            elif line.startswith('##'):
+                doc.add_heading(line.replace('##', '').strip(), level=2)
+            elif line.startswith('#'):
+                doc.add_heading(line.replace('#', '').strip(), level=1)
+            elif line.startswith('- ') or line.startswith('* '):
+                doc.add_paragraph(line[2:], style='List Bullet')
+            else:
+                doc.add_paragraph(line)
+
+        buffer = io.BytesIO()
+        doc.save(buffer)
         buffer.seek(0)
         
         return Response(
             content=buffer.getvalue(), 
-            media_type="application/pdf",
-            headers={"Content-Disposition": f"attachment; filename=CAM_{entity_name.replace(' ', '_')}.pdf"}
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": f"attachment; filename=CAM_{entity_name.replace(' ', '_')}.docx"}
         )
         
     except Exception as e:
