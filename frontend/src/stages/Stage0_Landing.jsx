@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import FluidCursor from '../components/FluidCursor';
 
 const TAGLINES = [
   "From raw documents to credit decisions in 5 minutes.",
@@ -22,69 +23,6 @@ const FEATURES = [
   { icon: "🔍", title: "Company Research Engine", desc: "Type any company — live web research in seconds" },
   { icon: "⚡", title: "Early Warning Signals", desc: "GSTR reconciliation, NCLT flags, promoter risk alerts" },
 ];
-
-function BlobCursor() {
-  const blobRef = useRef(null);
-  const mouse = useRef({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
-  const pos = useRef({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
-  const size = useRef(40);
-  const targetSize = useRef(40);
-  const raf = useRef(null);
-
-  useEffect(() => {
-    const onMove = (e) => {
-      mouse.current = { x: e.clientX, y: e.clientY };
-    };
-
-    const onEnterLink = () => { targetSize.current = 80; };
-    const onLeaveLink = () => { targetSize.current = 40; };
-
-    const addHoverListeners = () => {
-      document.querySelectorAll("button, a, [data-hover]").forEach(el => {
-        el.addEventListener("mouseenter", onEnterLink);
-        el.addEventListener("mouseleave", onLeaveLink);
-      });
-    };
-
-    window.addEventListener("mousemove", onMove);
-    addHoverListeners();
-    const interval = setInterval(addHoverListeners, 1000);
-
-    const animate = () => {
-      pos.current.x += (mouse.current.x - pos.current.x) * 0.1;
-      pos.current.y += (mouse.current.y - pos.current.y) * 0.1;
-      size.current += (targetSize.current - size.current) * 0.12;
-
-      if (blobRef.current) {
-        blobRef.current.style.transform = `translate(${pos.current.x - size.current / 2}px, ${pos.current.y - size.current / 2}px)`;
-        blobRef.current.style.width = `${size.current}px`;
-        blobRef.current.style.height = `${size.current}px`;
-      }
-      raf.current = requestAnimationFrame(animate);
-    };
-    animate();
-
-    return () => {
-      window.removeEventListener("mousemove", onMove);
-      clearInterval(interval);
-      cancelAnimationFrame(raf.current);
-    };
-  }, []);
-
-  return (
-    <div ref={blobRef} style={{
-      position: "fixed", top: 0, left: 0,
-      pointerEvents: "none", zIndex: 99999,
-      borderRadius: "50%",
-      background: "radial-gradient(circle, #f0a50066 0%, #f0a50022 60%, transparent 70%)",
-      border: "1.5px solid #f0a50088",
-      backdropFilter: "blur(2px)",
-      transition: "background 0.3s",
-      mixBlendMode: "screen",
-    }} />
-  );
-}
-
 const Stage0_Landing = ({ onStart, onResearch }) => {
   const [taglineIdx, setTaglineIdx] = useState(0);
   const [displayed, setDisplayed] = useState("");
@@ -114,8 +52,7 @@ const Stage0_Landing = ({ onStart, onResearch }) => {
         .tech:hover{transform:translateY(-4px)!important;border-color:#f0a500!important}
         .step:hover{transform:translateY(-4px)!important}
       `}</style>
-
-      <BlobCursor />
+      <FluidCursor />
 
       {/* Navbar */}
       <nav style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 200, height: "60px", padding: "0 48px", display: "flex", alignItems: "center", justifyContent: "space-between", background: "#060d1acc", backdropFilter: "blur(16px)", borderBottom: "1px solid #1e3a5f55" }}>
