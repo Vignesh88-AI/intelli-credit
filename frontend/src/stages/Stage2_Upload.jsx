@@ -55,10 +55,10 @@ const Stage2_Upload = ({ onNext, entityData }) => {
   const [uploads, setUploads] = useState([]);
 
   const docTypes = [
-    { type: 'ALM Statement', description: 'Asset-Liability Management, maturity buckets, liquidity ratios.', mandatory: true },
-    { type: 'Shareholding Pattern', description: 'Promoter %, FII %, Public %, Pledge details.', mandatory: true },
-    { type: 'Borrowing Profile', description: 'Lender-wise breakup, repayment schedule, total debt.', mandatory: true },
-    { type: 'Annual Reports', description: 'P&L, Balance Sheet, Cashflow (last 3 years).', mandatory: true },
+    { type: 'ALM Statement', description: 'Asset-Liability Management, maturity buckets, liquidity ratios.', mandatory: false },
+    { type: 'Shareholding Pattern', description: 'Promoter %, FII %, Public %, Pledge details.', mandatory: false },
+    { type: 'Borrowing Profile', description: 'Lender-wise breakup, repayment schedule, total debt.', mandatory: false },
+    { type: 'Annual Reports', description: 'P&L, Balance Sheet, Cashflow (last 3 years).', mandatory: false },
     { type: 'Portfolio Cuts', description: 'NPA %, collection efficiency, vintage analysis.', mandatory: false }
   ];
 
@@ -71,8 +71,7 @@ const Stage2_Upload = ({ onNext, entityData }) => {
   };
 
   const isMandatoryUploaded = () => {
-    const uploadedTypes = uploads.map(u => u.docType);
-    return docTypes.filter(d => d.mandatory).every(d => uploadedTypes.includes(d.type));
+    return uploads.length >= 1;
   };
 
   const handleProceed = async () => {
@@ -133,7 +132,7 @@ const Stage2_Upload = ({ onNext, entityData }) => {
     <div style={STYLES.container}>
       <div style={STYLES.header}>
         <h1 style={STYLES.title}>Document Repository</h1>
-        <p style={STYLES.subtitle}>Please upload the mandatory financial records for {entityData?.entity?.companyName || "the entity"}.</p>
+        <p style={STYLES.subtitle}>Please upload financial records for {entityData?.entity?.companyName || "the entity"} (minimum 1 required).</p>
       </div>
 
       {error && (
@@ -185,7 +184,7 @@ const Stage2_Upload = ({ onNext, entityData }) => {
 
       <div style={STYLES.footer}>
         <div style={{ color: "rgba(255,255,255,0.4)", fontSize: "14px", fontWeight: "500" }}>
-          {uploads.length} of {docTypes.length} files uploaded
+          {uploads.length} documents uploaded (minimum 1 required)
         </div>
         
         <button 
