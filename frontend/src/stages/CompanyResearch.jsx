@@ -209,7 +209,10 @@ export default function CompanyResearch({ onBack }) {
         <button onClick={onBack} style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", marginRight: "20px", display: "flex", alignItems: "center", gap: "5px" }}>
             ← Back
         </button>
-        <span style={{ fontSize: "22px", color: "#f0a500", marginRight: "10px" }}>⚡</span>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "10px" }}>
+          <rect x="4" y="4" width="16" height="16" stroke="#c9a84c" strokeWidth="1.5" transform="rotate(45 12 12)" fill="none"/>
+          <rect x="8" y="8" width="8" height="8" fill="#c9a84c" transform="rotate(45 12 12)"/>
+        </svg>
         <span style={{ fontWeight: "800", color: "#f0a500", letterSpacing: "2px", fontSize: "16px" }}>VERIDEX</span>
         <span style={{ color: "#334155", margin: "0 12px" }}>|</span>
         <span style={{ color: "#64748b", fontSize: "13px" }}>Company Research Engine</span>

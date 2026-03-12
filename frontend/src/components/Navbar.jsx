@@ -10,10 +10,13 @@ const Navbar = ({ currentStage }) => {
 
   return (
     <nav className="fixed top-0 left-0 w-full h-[60px] bg-[#0a1628]/95 backdrop-blur-[10px] border-b border-[#f0a500]/20 z-[1000] flex items-center justify-between px-8">
-      {/* LEFT: LOGO */}
-      <div className="flex items-center">
+      <div className="flex items-center gap-3">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="4" width="16" height="16" stroke="#c9a84c" strokeWidth="1.5" transform="rotate(45 12 12)" fill="none"/>
+          <rect x="8" y="8" width="8" height="8" fill="#c9a84c" transform="rotate(45 12 12)"/>
+        </svg>
         <span className="text-[#f0a500] text-xl font-black tracking-tighter">
-          ⚡ VERIDEX
+          VERIDEX
         </span>
       </div>
 

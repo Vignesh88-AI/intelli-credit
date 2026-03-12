@@ -40,8 +40,12 @@ export default function App() {
           
           <div style={{display:"flex", alignItems:"center", gap:"20px"}}>
             <div style={{fontSize:"20px",fontWeight:"700",
-              color:"#f0a500",letterSpacing:"2px", cursor: "pointer"}} onClick={() => setStage(0)}>
-              ⚡ VERIDEX
+              color:"#f0a500",letterSpacing:"2px", cursor: "pointer", display: "flex", alignItems: "center", gap: "10px"}} onClick={() => setStage(0)}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="4" y="4" width="16" height="16" stroke="#c9a84c" strokeWidth="1.5" transform="rotate(45 12 12)" fill="none"/>
+                <rect x="8" y="8" width="8" height="8" fill="#c9a84c" transform="rotate(45 12 12)"/>
+              </svg>
+              VERIDEX
             </div>
             
             <button 

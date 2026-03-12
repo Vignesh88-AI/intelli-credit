@@ -45,6 +45,8 @@ async def perform_research(company_name: str = Form(...), sector: str = Form(...
                 
                 IMPORTANT: You must use web search to find REAL, ACCURATE data. Never hallucinate or estimate. If data is not found, use "Not Available". 
                 
+                Return ONLY a valid JSON object. No markdown. No backticks. No explanation. Just the JSON.
+                
                 Return findings as JSON:
                 {{
                   "company_name": "{company_name}",
@@ -67,18 +69,20 @@ async def perform_research(company_name: str = Form(...), sector: str = Form(...
         )
         
         # Extract text from response blocks
-        text_blocks = []
+        full_text = ""
         for block in response.content:
-            text_val = getattr(block, 'text', '')
-            if text_val:
-                text_blocks.append(str(text_val))
-        full_text = "".join(text_blocks)
+            if hasattr(block, 'text'):
+                full_text += block.text
         
         # Parse JSON from response
         import re
-        json_match = re.search(r'\{.*\}', full_text, re.DOTALL)
+        # Look for the first '{' and the last '}' to handle potential preamble or postamble
+        json_match = re.search(r'(\{.*\})', full_text, re.DOTALL)
         if json_match:
-            return json.loads(json_match.group())
+            try:
+                return json.loads(json_match.group(1))
+            except json.JSONDecodeError as je:
+                print(f"DEBUG: JSONDecodeError: {str(je)} for text: {json_match.group(1)}")
         
         return {
             "company_news": [f"Research completed for {company_name}"],
