@@ -50,11 +50,18 @@ const MiniBar = ({ label, score, max }) => {
 const RevenueChart = ({ data, growth }) => {
   if (!data || !data.length) return null;
   
+  const cleanGrowth = String(growth || "0").replace('%', '').trim();
+
   if (data.length < 3) {
     const latestValue = data[0]?.val || 0;
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100px", color: "#94a3b8", fontSize: "14px", textAlign: "center" }}>
-        Revenue data: ₹{latestValue} Cr ({growth || 0}% YoY growth)
+      <div style={{ 
+        display: "flex", alignItems: "center", justifyContent: "center", 
+        height: "100px", color: "#94a3b8", fontSize: "13px", 
+        textAlign: "center", border: "1px dashed #1e3a5f", borderRadius: "8px",
+        padding: "0 20px", background: "#0a162888"
+      }}>
+        Revenue data: ₹{latestValue} Cr ({cleanGrowth}% YoY growth)
       </div>
     );
   }
@@ -146,9 +153,9 @@ export default function CompanyResearch({ onBack }) {
             roe: data.roe || "N/A",
             gnpa: "Not Available"
           },
-          revenue_trend: [
-            {label: "Latest", val: parseFloat(String(data.revenue).replace(/[^0-9.]/g, '')) || 0}
-          ],
+          revenue_trend: data.revenue_history?.length > 0 
+            ? data.revenue_history.map(h => ({ label: h.year, val: parseFloat(String(h.revenue_cr).replace(/[^0-9.]/g, '')) || 0 }))
+            : [{label: "Latest", val: parseFloat(String(data.revenue).replace(/[^0-9.]/g, '')) || 0}],
           five_cs: {
             character: {score: data.character_score || 18, max: 20, note: "Promoter background checked"},
             capacity: {score: data.capacity_score || 20, max: 25, note: "Interest coverage assessed"},
@@ -385,10 +392,10 @@ export default function CompanyResearch({ onBack }) {
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px" }}>
               {[
-                { label: "Revenue", val: result.financials.revenue ? `₹${String(result.financials.revenue).replace('₹','').trim()} Cr` : 'N/A', sub: `↑${result.financials.revenue_growth} YoY`, color: "#22c55e" },
-                { label: "PAT", val: result.financials.pat ? `₹${String(result.financials.pat).replace('₹','').trim()} Cr` : 'N/A', sub: "Profit After Tax", color: "#22c55e" },
-                { label: "Total Debt", val: result.financials.total_debt ? `₹${String(result.financials.total_debt).replace('₹','').trim()} Cr` : 'N/A', sub: `D/E: ${result.financials.debt_equity}`, color: "#f59e0b" },
-                { label: "Net Worth", val: result.financials.net_worth ? `₹${String(result.financials.net_worth).replace('₹','').trim()} Cr` : 'N/A', sub: `ROE: ${result.financials.roe}`, color: "#60a5fa" },
+                { label: "Revenue", val: result.financials.revenue ? `₹${String(result.financials.revenue).replace(/[₹a-zA-Z]/g,'').trim()} Cr` : 'N/A', sub: `↑${result.financials.revenue_growth} YoY`, color: "#22c55e" },
+                { label: "PAT", val: result.financials.pat ? `₹${String(result.financials.pat).replace(/[₹a-zA-Z]/g,'').trim()} Cr` : 'N/A', sub: "Profit After Tax", color: "#22c55e" },
+                { label: "Total Debt", val: result.financials.total_debt ? `₹${String(result.financials.total_debt).replace(/[₹a-zA-Z]/g,'').trim()} Cr` : 'N/A', sub: `D/E: ${result.financials.debt_equity}`, color: "#f59e0b" },
+                { label: "Net Worth", val: result.financials.net_worth ? `₹${String(result.financials.net_worth).replace(/[₹a-zA-Z]/g,'').trim()} Cr` : 'N/A', sub: `ROE: ${result.financials.roe}`, color: "#60a5fa" },
               ].map((m, i) => (
                 <div key={i} style={{ background: "#0a1628", border: "1px solid #1e3a5f", borderRadius: "14px", padding: "18px" }}>
                   <div style={{ fontSize: "11px", color: "#64748b", marginBottom: "8px", letterSpacing: "1px" }}>{m.label.toUpperCase()}</div>

@@ -37,20 +37,28 @@ async def perform_research(company_name: str = Form(...), sector: str = Form(...
         response = groq.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
-                {"role": "system", "content": """You are a credit analyst. 
-                Based on the search results, return ONLY this exact JSON:
+                {"role": "system", "content": """You are a senior credit analyst. 
+                Based on the search results, return ONLY this exact JSON format. 
+                IMPORTANT: All financial values (revenue, pat, total_debt, net_worth) MUST be numeric strings representing amount in **INR Crores**. 
+                Example: If revenue is 50 billion, return "5000". If 6900 Cr, return "6900".
+                
                 {
                   "company_name": "",
                   "headquarters": "",
                   "founded_year": "",
                   "sector": "",
-                  "revenue": "",
-                  "pat": "",
-                  "total_debt": "",
-                  "net_worth": "",
+                  "revenue": "numeric string in Cr",
+                  "pat": "numeric string in Cr",
+                  "total_debt": "numeric string in Cr",
+                  "net_worth": "numeric string in Cr",
                   "de_ratio": "",
                   "roe": "",
-                  "revenue_growth": "",
+                  "revenue_growth": "percentage",
+                  "revenue_history": [
+                    {"year": "2024", "revenue_cr": ""},
+                    {"year": "2023", "revenue_cr": ""},
+                    {"year": "2022", "revenue_cr": ""}
+                  ],
                   "credit_decision": "APPROVE or REJECT or REFER TO COMMITTEE",
                   "risk_level": "LOW or MEDIUM or HIGH",
                   "positive_signals": ["point1", "point2", "point3"],
@@ -59,7 +67,7 @@ async def perform_research(company_name: str = Form(...), sector: str = Form(...
                   "sector_outlook": "one sentence",
                   "research_summary": "two sentences"
                 }
-                Use ONLY data from search results. No markdown. No backticks."""},
+                Find at least 3 years of revenue history if possible. Use ONLY data from search results. No markdown."""},
                 {"role": "user", "content": f"Company: {company_name}\n\nSearch data:\n{context[:3000]}"}
             ],
             max_tokens=1500,
