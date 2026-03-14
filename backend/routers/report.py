@@ -17,179 +17,396 @@ router = APIRouter(prefix="/api")
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 tavily_client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
 
-def calculate_recommended_terms(score: int, requested_amount: float, requested_rate: float, requested_tenure: int) -> dict:
-    
-    if score >= 70:
-        # Approve full amount, standard rate
-        recommended_amount = requested_amount
-        rate_premium = 0.0
-        decision = "APPROVE WITH CONDITIONS"
-    elif score >= 55:
-        # Approve 75% of requested, add 1% premium
-        recommended_amount = round(requested_amount * 0.75, 2)
-        rate_premium = 1.0
-        decision = "CONDITIONAL — ENHANCED DUE DILIGENCE REQUIRED"
-    elif score >= 40:
-        # Approve 50% of requested, add 2.5% premium
-        recommended_amount = round(requested_amount * 0.50, 2)
-        rate_premium = 2.5
-        decision = "CONDITIONAL — HIGH RISK TERMS"
-    else:
-        # Reject — recommend zero
-        recommended_amount = 0
-        rate_premium = 0
-        decision = "REJECT"
-    
-    # Build interest rate string
-    if recommended_amount == 0:
-        recommended_rate = "N/A — Loan Rejected"
-    elif rate_premium == 0:
-        recommended_rate = f"Base + {round(requested_rate, 1)}%"
-    else:
-        recommended_rate = f"Base + {round(requested_rate + rate_premium, 1)}% (incl. {rate_premium}% risk premium)"
-    
-    return {
-        "decision": decision,
-        "recommended_amount": recommended_amount,
-        "recommended_rate": recommended_rate,
-        "tenure": requested_tenure
+def calculate_universal_score(
+    company_name: str,
+    extracted_docs: dict,
+    research_findings: list,
+    entity_data: dict
+) -> dict:
+
+    scores = {
+        "character": 20,
+        "capacity": 20,
+        "capital": 20,
+        "collateral": 20,
+        "conditions": 15,  # max 15 not 20
     }
-
-def apply_web_intelligence_penalties(base_score: int, research_findings: list) -> tuple:
-    penalty = 0
-    red_flags = []
-    
-    # Convert all findings to lowercase text for scanning
-    all_text = " ".join([
-        (f.get("title", "") + " " + f.get("snippet", "")).lower()
-        for f in research_findings
-    ])
-    
-    # Critical penalties
-    if any(word in all_text for word in ["downgraded", "rating downgrade", "bbb-", "d rated"]):
-        penalty += 15
-        red_flags.append("Credit rating downgraded by major agency")
-    
-    if any(word in all_text for word in ["breach", "breached", "covenant violation", "default"]):
-        penalty += 20
-        red_flags.append("Loan covenant breach / NCD default detected")
-    
-    if any(word in all_text for word in ["liquidity crisis", "stressed asset sale", "sell majority stake", "survival"]):
-        penalty += 15
-        red_flags.append("Liquidity stress — stressed asset sale reported")
-    
-    if any(word in all_text for word in ["fraud", "sebi penalty", "rbi penalty", "nclt insolvency"]):
-        penalty += 20
-        red_flags.append("Regulatory action / fraud allegation detected")
-    
-    if any(word in all_text for word in ["loss", "recorded a loss", "net loss", "profits to peril"]):
-        penalty += 10
-        red_flags.append("Company recorded net loss in recent fiscal year")
-    
-    # Moderate penalties
-    if any(word in all_text for word in ["watch negative", "negative outlook", "under watch"]):
-        penalty += 8
-        red_flags.append("Rating placed on Watch Negative")
-    
-    if any(word in all_text for word in ["npa", "asset quality worsened", "overdue"]):
-        penalty += 5
-        red_flags.append("Asset quality deterioration flagged in news")
-    
-    final_score = max(base_score - penalty, 10)  # floor at 10
-    
-    # Determine decision based on final score
-    if final_score >= 70:
-        decision = "APPROVE WITH CONDITIONS"
-    elif final_score >= 50:
-        decision = "CONDITIONAL — ENHANCED DUE DILIGENCE REQUIRED"
-    else:
-        decision = "REJECT"
-    
-    return final_score, decision, red_flags
-
-def score_from_extracted_data(extracted_docs: dict) -> tuple:
-    base_score = 72  # neutral starting point
+    notes = {
+        "character": "",
+        "capacity": "",
+        "capital": "",
+        "collateral": "",
+        "conditions": "",
+    }
     red_flags = []
     green_flags = []
 
-    # ── Annual Report signals ──
-    annual = extracted_docs.get("annual_report", {})
-    gnpa = float(annual.get("gnpa_percent") or 0)
-    car  = float(annual.get("car_percent") or 15)
-    de_ratio = float(annual.get("debt_equity_ratio") or 0)
-    pat  = float(annual.get("pat") or 0)
+    # ═══════════════════════════════════════
+    # 1. CHARACTER (max 20)
+    # Promoter background, pledges, governance
+    # ═══════════════════════════════════════
+    shareholding = extracted_docs.get("shareholding_pattern", {})
+    borrowing    = extracted_docs.get("borrowing_profile", {})
 
-    if gnpa > 5:
-        base_score -= 15
-        red_flags.append(f"Gross NPA critical at {gnpa}% (>5% threshold)")
-    elif gnpa > 3:
-        base_score -= 8
-        red_flags.append(f"Gross NPA elevated at {gnpa}% (>3%)")
-    elif gnpa < 2:
-        base_score += 3
-        green_flags.append(f"Gross NPA healthy at {gnpa}% (below 2%)")
+    try:
+        pledged = float(str(shareholding.get("pledged_shares") or "0")
+                       .replace("%","").replace("N/A","0").strip())
+    except:
+        pledged = 0
 
-    if car < 15:
-        base_score -= 12
-        red_flags.append(f"CAR below RBI minimum: {car}%")
-    elif car > 18:
-        base_score += 3
-        green_flags.append(f"Strong CAR at {car}% (well above 15% minimum)")
-
-    if pat > 0:
-        green_flags.append(f"Profitable entity — PAT ₹{pat} Cr")
+    if pledged > 50:
+        scores["character"] -= 10
+        red_flags.append(f"Critical: Promoter pledge extremely high at {pledged}%")
+        notes["character"] += f"Promoter shares {pledged}% pledged — very high risk. "
+    elif pledged > 25:
+        scores["character"] -= 6
+        red_flags.append(f"Promoter pledge elevated at {pledged}%")
+        notes["character"] += f"Promoter pledge {pledged}% is concerning. "
+    elif pledged > 0:
+        scores["character"] -= 2
+        notes["character"] += f"Minor promoter pledge of {pledged}%. "
     else:
-        base_score -= 10
-        red_flags.append("Entity recorded net loss")
+        green_flags.append("Zero promoter pledge — clean ownership structure")
+        notes["character"] += "No promoter pledge detected. "
 
-    # ── Borrowing Profile signals ──
-    borrowing = extracted_docs.get("borrowing_profile", {})
+    promoter_pct = float(str(shareholding.get("promoter_holding") or "0")
+                        .replace("%","").strip() or "0")
+    if promoter_pct > 0:
+        notes["character"] += f"Promoter holding: {promoter_pct}%. "
+
+    # Rating outlook from borrowing profile affects character
     outlook = str(borrowing.get("rating_outlook") or "").lower()
     rating  = str(borrowing.get("credit_rating_long_term") or "").lower()
 
+    if any(x in rating for x in ["d rated", " d ", "care d", "icra d"]):
+        scores["character"] -= 12
+        red_flags.append("DEFAULT rating assigned — entity has defaulted on obligations")
+        notes["character"] += "CRITICAL: Default rating detected. "
+    elif any(x in rating for x in ["bbb-", "bb", "c rated"]):
+        scores["character"] -= 6
+        red_flags.append(f"Sub-investment grade rating: {rating.upper()}")
+        notes["character"] += f"Sub-investment grade: {rating.upper()}. "
+    elif any(x in rating for x in ["bbb"]):
+        scores["character"] -= 3
+        notes["character"] += f"BBB category rating — moderate risk. "
+    elif any(x in rating for x in ["aa", "aaa", "a+"]):
+        scores["character"] += 0  # already at max
+        green_flags.append(f"Strong rating: {rating.upper()}")
+        notes["character"] += f"Strong credit rating: {rating.upper()}. "
+
     if "watch negative" in outlook or "watch-" in outlook:
-        base_score -= 12
-        red_flags.append("Credit rating on Watch Negative — imminent downgrade risk")
-    if "negative" in outlook and "watch" not in outlook:
-        base_score -= 8
-        red_flags.append("Negative rating outlook from credit agency")
-    if "bbb" in rating and ("negative" in outlook or "watch" in outlook):
-        base_score -= 8
-        red_flags.append("Rating downgraded to BBB category with negative outlook")
-    if "stable" in outlook and ("aa" in rating or "a+" in rating):
-        base_score += 5
-        green_flags.append(f"Strong credit rating: {rating.upper()} with stable outlook")
+        scores["character"] -= 5
+        red_flags.append("Rating on Watch Negative — downgrade imminent")
+        notes["character"] += "Rating under Watch Negative review. "
+    elif "negative" in outlook:
+        scores["character"] -= 3
+        red_flags.append("Negative rating outlook")
+        notes["character"] += "Negative outlook. "
+    elif "stable" in outlook:
+        green_flags.append("Stable rating outlook")
+        notes["character"] += "Stable outlook. "
+    elif "positive" in outlook:
+        scores["character"] += 1
+        green_flags.append("Positive rating outlook — potential upgrade")
+        notes["character"] += "Positive outlook — upgrade possible. "
 
-    # ── Portfolio Cuts signals ──
+    scores["character"] = max(min(scores["character"], 20), 0)
+
+    # ═══════════════════════════════════════
+    # 2. CAPACITY (max 20)
+    # Revenue, PAT, growth, collection efficiency
+    # ═══════════════════════════════════════
+    annual    = extracted_docs.get("annual_report", {})
     portfolio = extracted_docs.get("portfolio_cuts", {})
-    coll_eff = float(portfolio.get("collection_efficiency") or 97)
-    par30    = float(portfolio.get("ptp_30_plus") or portfolio.get("par_30") or 0)
 
-    if coll_eff < 95:
-        base_score -= 8
-        red_flags.append(f"Collection efficiency below 95%: {coll_eff}%")
-    elif coll_eff > 98:
-        base_score += 3
-        green_flags.append(f"Excellent collection efficiency: {coll_eff}%")
-
-    if par30 > 5:
-        base_score -= 10
-        red_flags.append(f"High PAR-30 delinquency: {par30}%")
-
-    # ── Shareholding signals ──
-    shareholding = extracted_docs.get("shareholding_pattern", {})
-    pledged = str(shareholding.get("pledged_shares") or "0").replace("%","")
     try:
-        pledged_pct = float(pledged)
-        if pledged_pct > 20:
-            base_score -= 10
-            red_flags.append(f"High promoter pledge: {pledged_pct}%")
-        elif pledged_pct == 0:
-            green_flags.append("Zero promoter pledge — clean ownership structure")
+        pat = float(str(annual.get("pat") or "0").replace(",",""))
+    except:
+        pat = 0
+    try:
+        revenue = float(str(annual.get("revenue") or "0").replace(",",""))
+    except:
+        revenue = 0
+    try:
+        gnpa = float(str(annual.get("gnpa_percent") or
+                        portfolio.get("gnpa_percent") or "2").replace("%",""))
+    except:
+        gnpa = 2
+    try:
+        coll_eff = float(str(portfolio.get("collection_efficiency") or "97")
+                        .replace("%",""))
+    except:
+        coll_eff = 97
+
+    # PAT
+    if pat <= 0:
+        scores["capacity"] -= 8
+        red_flags.append("Company recorded net loss — negative PAT")
+        notes["capacity"] += "Net loss recorded. "
+    elif pat > 0:
+        green_flags.append(f"Profitable — PAT ₹{pat} Cr")
+        notes["capacity"] += f"PAT ₹{pat} Cr. "
+
+    # GNPA
+    if gnpa > 7:
+        scores["capacity"] -= 10
+        red_flags.append(f"GNPA critical at {gnpa}% — far above safe threshold")
+        notes["capacity"] += f"GNPA {gnpa}% — critical. "
+    elif gnpa > 5:
+        scores["capacity"] -= 7
+        red_flags.append(f"GNPA very high at {gnpa}%")
+        notes["capacity"] += f"GNPA {gnpa}% — very high. "
+    elif gnpa > 3:
+        scores["capacity"] -= 4
+        red_flags.append(f"GNPA elevated at {gnpa}%")
+        notes["capacity"] += f"GNPA {gnpa}% — elevated. "
+    elif gnpa > 0:
+        green_flags.append(f"GNPA healthy at {gnpa}% (below 3%)")
+        notes["capacity"] += f"GNPA {gnpa}% — healthy. "
+
+    # Collection efficiency
+    if coll_eff < 90:
+        scores["capacity"] -= 6
+        red_flags.append(f"Collection efficiency critically low: {coll_eff}%")
+        notes["capacity"] += f"Collection efficiency {coll_eff}% — critical. "
+    elif coll_eff < 95:
+        scores["capacity"] -= 3
+        red_flags.append(f"Collection efficiency below benchmark: {coll_eff}%")
+        notes["capacity"] += f"Collection efficiency {coll_eff}% — below 95% benchmark. "
+    elif coll_eff >= 98:
+        scores["capacity"] += 1
+        green_flags.append(f"Excellent collection efficiency: {coll_eff}%")
+        notes["capacity"] += f"Collection efficiency {coll_eff}% — excellent. "
+    else:
+        notes["capacity"] += f"Collection efficiency {coll_eff}%. "
+
+    scores["capacity"] = max(min(scores["capacity"], 20), 0)
+
+    # ═══════════════════════════════════════
+    # 3. CAPITAL (max 20)
+    # CAR, D/E ratio, net worth
+    # ═══════════════════════════════════════
+    try:
+        car = float(str(annual.get("car_percent") or "15").replace("%",""))
+    except:
+        car = 15
+    try:
+        net_worth = float(str(annual.get("net_worth") or "0").replace(",",""))
+    except:
+        net_worth = 0
+    try:
+        total_debt = float(str(annual.get("total_debt") or
+                              borrowing.get("total_debt") or "0").replace(",",""))
+    except:
+        total_debt = 0
+
+    de_ratio = round(total_debt / net_worth, 2) if net_worth > 0 else 99
+
+    # CAR
+    if car < 12:
+        scores["capital"] -= 12
+        red_flags.append(f"CAR critically below RBI minimum: {car}%")
+        notes["capital"] += f"CAR {car}% — critical breach of 15% minimum. "
+    elif car < 15:
+        scores["capital"] -= 7
+        red_flags.append(f"CAR below RBI minimum 15%: currently {car}%")
+        notes["capital"] += f"CAR {car}% — below RBI minimum. "
+    elif car < 18:
+        notes["capital"] += f"CAR {car}% — adequate. "
+    else:
+        scores["capital"] += 1
+        green_flags.append(f"Strong CAR at {car}% (well above 15% minimum)")
+        notes["capital"] += f"CAR {car}% — strong. "
+
+    # D/E ratio
+    if de_ratio > 6:
+        scores["capital"] -= 8
+        red_flags.append(f"Debt-to-Equity critically high at {de_ratio}x")
+        notes["capital"] += f"D/E {de_ratio}x — dangerously high. "
+    elif de_ratio > 4:
+        scores["capital"] -= 5
+        red_flags.append(f"Debt-to-Equity above NBFC norm at {de_ratio}x")
+        notes["capital"] += f"D/E {de_ratio}x — above 4x NBFC ceiling. "
+    elif de_ratio > 3:
+        scores["capital"] -= 2
+        notes["capital"] += f"D/E {de_ratio}x — approaching ceiling. "
+    elif de_ratio > 0:
+        green_flags.append(f"Healthy leverage ratio D/E: {de_ratio}x")
+        notes["capital"] += f"D/E {de_ratio}x — healthy. "
+
+    scores["capital"] = max(min(scores["capital"], 20), 0)
+
+    # ═══════════════════════════════════════
+    # 4. COLLATERAL (max 20)
+    # Asset coverage, secured vs unsecured
+    # ═══════════════════════════════════════
+    alm = extracted_docs.get("alm_statement", {})
+
+    try:
+        total_assets = float(str(alm.get("total_assets") or "0").replace(",",""))
+    except:
+        total_assets = 0
+    try:
+        total_liabilities = float(str(alm.get("total_liabilities") or "0").replace(",",""))
+    except:
+        total_liabilities = 0
+
+    # Asset coverage ratio
+    if total_assets > 0 and total_liabilities > 0:
+        coverage = round(total_assets / total_liabilities, 2)
+        if coverage < 1.0:
+            scores["collateral"] -= 10
+            red_flags.append(f"Assets do not cover liabilities — coverage ratio {coverage}x")
+            notes["collateral"] += f"Asset coverage {coverage}x — insufficient. "
+        elif coverage < 1.1:
+            scores["collateral"] -= 5
+            red_flags.append(f"Thin asset coverage ratio: {coverage}x")
+            notes["collateral"] += f"Asset coverage {coverage}x — thin margin. "
+        elif coverage < 1.2:
+            scores["collateral"] -= 2
+            notes["collateral"] += f"Asset coverage {coverage}x — adequate. "
+        else:
+            scores["collateral"] += 0
+            green_flags.append(f"Good asset coverage ratio: {coverage}x")
+            notes["collateral"] += f"Asset coverage {coverage}x — good. "
+    else:
+        notes["collateral"] += "Asset coverage data not available from ALM. "
+
+    try:
+        liquidity_gap = float(str(alm.get("liquidity_gap") or "0").replace(",",""))
+        if liquidity_gap < 0:
+            scores["collateral"] -= 5
+            red_flags.append(f"Negative liquidity gap: ₹{liquidity_gap} Cr")
+            notes["collateral"] += f"Negative liquidity gap ₹{liquidity_gap} Cr. "
+        elif liquidity_gap > 500:
+            green_flags.append(f"Strong liquidity buffer: ₹{liquidity_gap} Cr")
+            notes["collateral"] += f"Healthy liquidity gap ₹{liquidity_gap} Cr. "
     except:
         pass
 
-    return max(min(base_score, 100), 10), red_flags, green_flags
+    scores["collateral"] = max(min(scores["collateral"], 20), 0)
+
+    # ═══════════════════════════════════════
+    # 5. CONDITIONS (max 15)
+    # Web intelligence, sector, macro signals
+    # ═══════════════════════════════════════
+    all_text = " ".join([
+        (f.get("title","") + " " + f.get("snippet","")).lower()
+        for f in research_findings
+    ])
+
+    # Default conditions score based on sector
+    sector = str(entity_data.get("sector","")).lower()
+    if "nbfc" in sector or "finance" in sector:
+        notes["conditions"] += "NBFC sector faces RBI regulatory scrutiny. "
+        scores["conditions"] -= 1  # slight sector headwind
+
+    # Web intelligence penalties on conditions
+    if any(x in all_text for x in ["default", "care d", "icra d", " d rated"]):
+        scores["conditions"] -= 10
+        red_flags.append("DEFAULT event detected in web intelligence")
+        notes["conditions"] += "DEFAULT detected in news. "
+    elif any(x in all_text for x in ["breach", "breached covenant", "loan terms breached"]):
+        scores["conditions"] -= 6
+        red_flags.append("Loan covenant breach reported in news")
+        notes["conditions"] += "Covenant breach reported. "
+
+    if any(x in all_text for x in ["liquidity crisis", "stressed asset", "sell stake", "survival", "peril"]):
+        scores["conditions"] -= 5
+        red_flags.append("Severe financial distress signals in news")
+        notes["conditions"] += "Distress signals in media. "
+
+    if any(x in all_text for x in ["downgraded", "rating downgrade", "downgrade"]):
+        scores["conditions"] -= 3
+        if "Credit rating downgraded by major agency" not in red_flags:
+            red_flags.append("Credit rating downgraded — news confirmed")
+        notes["conditions"] += "Downgrade confirmed in news. "
+
+    if any(x in all_text for x in ["fraud", "sebi action", "rbi penalty", "scam", "arrested"]):
+        scores["conditions"] -= 8
+        red_flags.append("Fraud/regulatory action detected in news")
+        notes["conditions"] += "Regulatory/fraud risk in news. "
+
+    # Positive web signals
+    if any(x in all_text for x in ["upgrade", "rating upgrade", "improved rating"]):
+        scores["conditions"] += 3
+        green_flags.append("Rating upgrade signal detected in news")
+        notes["conditions"] += "Rating upgrade news found. "
+
+    if any(x in all_text for x in ["award", "recognition", "best nbfc", "top lender"]):
+        scores["conditions"] += 1
+        green_flags.append("Industry recognition / awards noted")
+
+    scores["conditions"] = max(min(scores["conditions"], 15), 0)
+
+    # ═══════════════════════════════════════
+    # FINAL SCORE & DECISION
+    # ═══════════════════════════════════════
+    final_score = (
+        scores["character"] +
+        scores["capacity"] +
+        scores["capital"] +
+        scores["collateral"] +
+        scores["conditions"]
+    )
+
+    if final_score >= 75:
+        decision = "APPROVE"
+        recommended_amount = float(entity_data.get("loan_amount") or 0)
+        rate_premium = 0.0
+    elif final_score >= 60:
+        decision = "APPROVE WITH CONDITIONS"
+        recommended_amount = round(float(entity_data.get("loan_amount") or 0) * 0.90, 2)
+        rate_premium = 0.5
+    elif final_score >= 45:
+        decision = "CONDITIONAL — ENHANCED DUE DILIGENCE REQUIRED"
+        recommended_amount = round(float(entity_data.get("loan_amount") or 0) * 0.75, 2)
+        rate_premium = 1.5
+    elif final_score >= 30:
+        decision = "CONDITIONAL — HIGH RISK TERMS"
+        recommended_amount = round(float(entity_data.get("loan_amount") or 0) * 0.50, 2)
+        rate_premium = 3.0
+    else:
+        decision = "REJECT"
+        recommended_amount = 0
+        rate_premium = 0
+
+    base_rate = float(entity_data.get("interest_rate") or 11.5)
+    if recommended_amount == 0:
+        recommended_rate = "N/A — Loan Rejected"
+    elif rate_premium == 0:
+        recommended_rate = f"Base + {base_rate}%"
+    else:
+        recommended_rate = f"Base + {round(base_rate + rate_premium, 1)}% (incl. {rate_premium}% risk premium)"
+
+    reasoning = (
+        f"{company_name} scored {final_score}/95 across the Five Cs framework. "
+        f"Character: {scores['character']}/20 — {notes['character'].split('.')[0]}. "
+        f"Capacity: {scores['capacity']}/20 — {notes['capacity'].split('.')[0]}. "
+        f"Capital: {scores['capital']}/20 — {notes['capital'].split('.')[0]}. "
+        f"Collateral: {scores['collateral']}/20 — {notes['collateral'].split('.')[0]}. "
+        f"Conditions: {scores['conditions']}/15 — {notes['conditions'].split('.')[0]}. "
+        f"Decision: {decision}."
+    )
+
+    return {
+        "score": final_score,
+        "decision": decision,
+        "recommended_amount": recommended_amount,
+        "recommended_rate": recommended_rate,
+        "tenure": entity_data.get("tenure", 36),
+        "reasoning": reasoning,
+        "red_flags": list(dict.fromkeys(red_flags)),   # deduplicate
+        "green_flags": list(dict.fromkeys(green_flags)),
+        "five_cs": {
+            "character":  {"score": scores["character"],  "notes": notes["character"]},
+            "capacity":   {"score": scores["capacity"],   "notes": notes["capacity"]},
+            "capital":    {"score": scores["capital"],    "notes": notes["capital"]},
+            "collateral": {"score": scores["collateral"], "notes": notes["collateral"]},
+            "conditions": {"score": scores["conditions"], "notes": notes["conditions"]},
+        },
+        "swot": generate_swot(company_name, extracted_docs, research_findings)
+    }
 
 def generate_swot(company_name: str, extracted_docs: dict, research_findings: list) -> dict:
     try:
@@ -266,37 +483,24 @@ async def perform_research(data: dict):
         
         context = "Relevant Web Findings:\n" + "\n".join([f"Title: {f['title']}\nSnippet: {f['snippet']}" for f in findings])
         
-        # --- MULTI-SIGNAL SCORING ---
-        base_score, doc_red_flags, doc_green_flags = score_from_extracted_data(extracted_docs)
-        final_score, decision_label, web_red_flags = apply_web_intelligence_penalties(base_score, findings)
-        
-        # Combine flags
-        total_red_flags = list(set(doc_red_flags + web_red_flags))
-        
-        # Recommended Loan Terms logic
+        # --- UNIVERSAL SCORING ---
         entity_req = data.get("entity", {})
-        requested_amount = float(entity_req.get("loan_amount", 50))
-        requested_rate = float(entity_req.get("interest_rate", 1.5))
-        requested_tenure = int(entity_req.get("tenure", 36))
-        
-        rec_terms = calculate_recommended_terms(final_score, requested_amount, requested_rate, requested_tenure)
-        
-        # Dynamic SWOT
-        swot_data = generate_swot(company_name, extracted_docs, findings)
+        scoring_data = calculate_universal_score(company_name, extracted_docs, findings, entity_req)
 
         response_payload = {
             "company_name": company_name,
-            "score": final_score,
-            "credit_decision": rec_terms["decision"],
-            "recommended_amount": rec_terms["recommended_amount"],
-            "recommended_rate": rec_terms["recommended_rate"],
-            "tenure": rec_terms["tenure"],
-            "red_flags": total_red_flags,
-            "green_flags": doc_green_flags,
-            "swot": swot_data,
+            "score": scoring_data["score"],
+            "credit_decision": scoring_data["decision"],
+            "recommended_amount": scoring_data["recommended_amount"],
+            "recommended_rate": scoring_data["recommended_rate"],
+            "tenure": scoring_data["tenure"],
+            "red_flags": scoring_data["red_flags"],
+            "green_flags": scoring_data["green_flags"],
+            "five_cs": scoring_data["five_cs"],
+            "swot": scoring_data["swot"],
             "findings": findings,
             "sources_analyzed": len(findings),
-            "reasoning_engine": f"Triangulated {len(findings)} web sources with extracted document metrics. Score of {final_score}/100 reflect the {rec_terms['decision']} verdict based on risk parameters."
+            "reasoning_engine": scoring_data["reasoning"]
         }
         
         return response_payload
@@ -339,13 +543,13 @@ async def generate_report(data: str = Form(...)):
             "reasoning": research_data.get("reasoning_engine", "Analysis based on submitted documents."),
             "red_flags": research_data.get("red_flags", ["Debt-to-Equity (3.8x) nearing industry cap", "Limited operating track record since 2019"]),
             "green_flags": research_data.get("green_flags", ["Strong institutional backing", "Diversified lending portfolio"]),
-            "five_cs": {
+            "five_cs": research_data.get("five_cs", {
                 "character": {"score": score_data.get("breakdown", {}).get("character", 16), "notes": "Promoter history verified. No adverse legal flags found in primary search."},
                 "capacity": {"score": score_data.get("breakdown", {}).get("capacity", 18), "notes": f"Revenue ₹{extracted_docs.get('annual_report', {}).get('revenue', 'N/A')} Cr. GNPA within healthy limits."},
                 "capital": {"score": score_data.get("breakdown", {}).get("capital", 14), "notes": f"Net worth ₹{extracted_docs.get('annual_report', {}).get('net_worth', 'N/A')} Cr. Leverage nearing sector cap."},
                 "collateral": {"score": score_data.get("breakdown", {}).get("collateral", 14), "notes": "Asset coverage adequate based on total debt vs portfolio cuts."},
                 "conditions": {"score": score_data.get("breakdown", {}).get("conditions", 10), "notes": "NBFC sector faces RBI regulatory tightening but showing growth resilience."}
-            },
+            }),
             "swot": research_data.get("swot", {
                 "strengths": ["Strong capitalization", "Proven management"],
                 "weaknesses": ["High leverage", "Asset concentration"],
