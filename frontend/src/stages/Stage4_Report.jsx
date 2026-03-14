@@ -261,7 +261,7 @@ const Stage4_Report = ({ onBack, entityData }) => {
   const barData = {
     labels: revenueHistory.map(d => d.year),
     datasets: [{
-      label: 'Revenue (₹ Cr)',
+      label: 'Revenue (INR Cr)',
       data: revenueHistory.map(d => d.value),
       backgroundColor: '#f0a500',
       borderRadius: 6,
@@ -271,8 +271,8 @@ const Stage4_Report = ({ onBack, entityData }) => {
 
   const pieData = {
     labels: [
-      `Total Debt: ₹3180 Cr (79%)`,
-      `Net Worth: ₹832 Cr (21%)`
+      `Total Debt: INR 3180 Cr (79%)`,
+      `Net Worth: INR 832 Cr (21%)`
     ],
     datasets: [{
       data: [3180, 832],
@@ -300,7 +300,8 @@ const Stage4_Report = ({ onBack, entityData }) => {
         beginAtZero: true, 
         grid: { color: 'rgba(255,255,255,0.05)' }, 
         ticks: { color: 'rgba(255,255,255,0.4)' },
-        title: { display: true, text: 'Revenue (₹ Cr)', color: 'rgba(255,255,255,0.6)' }
+        title: { display: true, text: 'Revenue (INR Cr)',
+ color: 'rgba(255,255,255,0.6)' }
       },
       x: { grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.4)' } }
     } : {}
@@ -455,25 +456,25 @@ const Stage4_Report = ({ onBack, entityData }) => {
              <div style={{ padding: "16px", background: "rgba(34, 197, 94, 0.05)", borderRadius: "12px", border: "1px solid rgba(34, 197, 94, 0.1)" }}>
                 <div style={{ color: "#22c55e", fontSize: "11px", fontWeight: "900", marginBottom: "8px" }}>STRENGTHS</div>
                 <ul style={{ padding: 0, margin: 0, listStyle: "none", fontSize: "13px", color: "rgba(255,255,255,0.6)" }}>
-                  {research?.swot?.strengths?.map((s, i) => <li key={i} style={{ marginBottom: "4px" }}>• {s}</li>)}
+                  {research?.swot?.strengths?.map((s, i) => <li key={i} style={{ marginBottom: "4px" }}>- {s}</li>)}
                 </ul>
              </div>
              <div style={{ padding: "16px", background: "rgba(239, 68, 68, 0.05)", borderRadius: "12px", border: "1px solid rgba(239, 68, 68, 0.1)" }}>
                 <div style={{ color: "#ef4444", fontSize: "11px", fontWeight: "900", marginBottom: "8px" }}>WEAKNESSES</div>
                 <ul style={{ padding: 0, margin: 0, listStyle: "none", fontSize: "13px", color: "rgba(255,255,255,0.6)" }}>
-                  {research?.swot?.weaknesses?.map((s, i) => <li key={i} style={{ marginBottom: "4px" }}>• {s}</li>)}
+                  {research?.swot?.weaknesses?.map((s, i) => <li key={i} style={{ marginBottom: "4px" }}>- {s}</li>)}
                 </ul>
              </div>
              <div style={{ padding: "16px", background: "rgba(240, 165, 0, 0.05)", borderRadius: "12px", border: "1px solid rgba(240, 165, 0, 0.1)" }}>
                 <div style={{ color: "#f0a500", fontSize: "11px", fontWeight: "900", marginBottom: "8px" }}>OPPORTUNITIES</div>
                 <ul style={{ padding: 0, margin: 0, listStyle: "none", fontSize: "13px", color: "rgba(255,255,255,0.6)" }}>
-                  {research?.swot?.opportunities?.map((s, i) => <li key={i} style={{ marginBottom: "4px" }}>• {s}</li>)}
+                  {research?.swot?.opportunities?.map((s, i) => <li key={i} style={{ marginBottom: "4px" }}>- {s}</li>)}
                 </ul>
              </div>
              <div style={{ padding: "16px", background: "rgba(255, 255, 255, 0.02)", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.05)" }}>
                 <div style={{ color: "rgba(255,255,255,0.4)", fontSize: "11px", fontWeight: "900", marginBottom: "8px" }}>THREATS</div>
                 <ul style={{ padding: 0, margin: 0, listStyle: "none", fontSize: "13px", color: "rgba(255,255,255,0.6)" }}>
-                  {research?.swot?.threats?.map((s, i) => <li key={i} style={{ marginBottom: "4px" }}>• {s}</li>)}
+                  {research?.swot?.threats?.map((s, i) => <li key={i} style={{ marginBottom: "4px" }}>- {s}</li>)}
                 </ul>
              </div>
           </div>
@@ -526,7 +527,8 @@ const Stage4_Report = ({ onBack, entityData }) => {
              </div>
              <div>
                 <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", marginBottom: "6px", textTransform: "uppercase" }}>Tenor Profile</div>
-                <div style={{ fontSize: "24px", fontWeight: "900" }}>{research?.tenure || entityData?.loan?.tenure || '—'} Months</div>
+                <div style={{ fontSize: "24px", fontWeight: "900" }}>{research?.tenure || entityData?.loan?.tenure || '-'} Months
+</div>
              </div>
           </div>
       </div>

@@ -61,7 +61,7 @@ const RevenueChart = ({ data, growth }) => {
         textAlign: "center", border: "1px dashed #1e3a5f", borderRadius: "8px",
         padding: "0 20px", background: "#0a162888"
       }}>
-        Revenue data: ₹{latestValue} Cr ({cleanGrowth}% YoY growth)
+        Revenue data: INR {latestValue} Cr ({cleanGrowth}% YoY growth)
       </div>
     );
   }
@@ -71,7 +71,7 @@ const RevenueChart = ({ data, growth }) => {
     <div style={{ display: "flex", alignItems: "flex-end", gap: "10px", height: "100px", padding: "0 8px" }}>
       {data.map((d, i) => (
         <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}>
-          <span style={{ fontSize: "10px", color: "#94a3b8" }}>₹{d.val}Cr</span>
+          <span style={{ fontSize: "10px", color: "#94a3b8" }}>INR {d.val}Cr</span>
           <div style={{
             width: "100%", background: "linear-gradient(180deg, #f0a500, #d97706)",
             height: `${(d.val / max) * 75}px`, borderRadius: "4px 4px 0 0",
@@ -266,7 +266,7 @@ export default function CompanyResearch({ onBack }) {
             </span>
           </h1>
           <p style={{ color: "#475569", fontSize: "16px", marginBottom: "36px" }}>
-            Type any Indian company — AI searches the web and generates a full credit appraisal in seconds
+            Type any Indian company — searching the web and generates a full credit appraisal in seconds
           </p>
 
           <div style={{ display: "flex", gap: "12px", maxWidth: "640px", margin: "0 auto" }}>
@@ -404,7 +404,7 @@ export default function CompanyResearch({ onBack }) {
               ].map((m, i) => {
                 const rawVal = result.financials[m.field];
                 const cleanVal = extractNumeric(rawVal);
-                const displayVal = cleanVal ? `₹${Number(cleanVal).toLocaleString('en-IN')} Cr` : "N/A";
+                const displayVal = cleanVal ? `INR ${Number(cleanVal).toLocaleString('en-IN')} Cr` : "N/A";
                 
                 return (
                   <div key={i} style={{ background: "#0a1628", border: "1px solid #1e3a5f", borderRadius: "14px", padding: "18px" }}>
