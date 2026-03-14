@@ -350,7 +350,7 @@ const Stage4_Report = ({ onBack, entityData }) => {
       <div style={{ display: "flex", gap: "24px", width: "100%" }}>
          <div style={{ ...STYLES.glassCard, flex: 1 }}>
             <h4 style={{ fontSize: "13px", fontWeight: "700", marginBottom: "20px", color: "rgba(255,255,255,0.4)", display: "flex", alignItems: "center", gap: "8px" }}>
-              <BarChart3 size={16} color="#f0a500" /> Revenue Trajectory (₹ Cr)
+              <BarChart3 size={16} color="#f0a500" /> Revenue Trajectory (INR Cr)
             </h4>
             <div style={{ height: "300px", position: "relative" }}>
                <Bar data={barData} options={chartOptions('bar')} />
@@ -421,11 +421,11 @@ const Stage4_Report = ({ onBack, entityData }) => {
             <ul style={{ padding: 0, margin: 0, listStyle: "none", fontSize: "13px", color: "rgba(255,255,255,0.6)", lineHeight: "1.6" }}>
                {scoreData.red_flags?.length > 0 ? scoreData.red_flags.map((f, i) => (
                  <li key={i} style={{ marginBottom: "10px", display: "flex", gap: "8px" }}>
-                   <span style={{ color: "#ef4444" }}>●</span> {f}
+                   <span style={{ color: "#ef4444" }}>-</span> {f}
                  </li>
                )) : (
                  <li style={{ marginBottom: "10px", display: "flex", gap: "8px" }}>
-                   <span style={{ color: "#ef4444" }}>●</span> No critical risk alerts identified.
+                   <span style={{ color: "#ef4444" }}>-</span> No critical risk alerts identified.
                  </li>
                )}
             </ul>
@@ -437,11 +437,11 @@ const Stage4_Report = ({ onBack, entityData }) => {
             <ul style={{ padding: 0, margin: 0, listStyle: "none", fontSize: "13px", color: "rgba(255,255,255,0.6)", lineHeight: "1.6" }}>
                {scoreData.green_flags?.length > 0 ? scoreData.green_flags.map((f, i) => (
                  <li key={i} style={{ marginBottom: "10px", display: "flex", gap: "8px" }}>
-                   <span style={{ color: "#22c55e" }}>●</span> {f}
+                   <span style={{ color: "#22c55e" }}>-</span> {f}
                  </li>
                )) : (
                  <li style={{ marginBottom: "10px", display: "flex", gap: "8px" }}>
-                   <span style={{ color: "#22c55e" }}>●</span> Standard industry benchmarks met.
+                   <span style={{ color: "#22c55e" }}>-</span> Standard industry benchmarks met.
                  </li>
                )}
             </ul>
@@ -517,11 +517,12 @@ const Stage4_Report = ({ onBack, entityData }) => {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "40px" }}>
              <div>
                 <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", marginBottom: "6px", textTransform: "uppercase" }}>Recommended Limit</div>
-                <div style={{ fontSize: "24px", fontWeight: "900", color: "#f0a500" }}>₹{research?.recommended_amount !== undefined ? research.recommended_amount : (entityData?.loan?.amount || '—')} Cr</div>
+                <div style={{ fontSize: "24px", fontWeight: "900", color: "#f0a500" }}>INR {result.scoring?.recommended_amount} Cr
+</div>
              </div>
              <div>
                 <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", marginBottom: "6px", textTransform: "uppercase" }}>Interest Spread</div>
-                <div style={{ fontSize: "24px", fontWeight: "900" }}>{research?.recommended_rate || `Base + ${entityData?.loan?.rate || '—'}%`}</div>
+                <div style={{ fontSize: "24px", fontWeight: "900" }}>{research?.recommended_rate || `Base + ${entityData?.loan?.rate || '-'}%`}</div>
              </div>
              <div>
                 <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", marginBottom: "6px", textTransform: "uppercase" }}>Tenor Profile</div>

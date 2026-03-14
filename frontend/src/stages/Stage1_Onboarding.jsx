@@ -182,7 +182,7 @@ const Stage1_Onboarding = ({ onNext }) => {
               </select>
             </div>
             <div style={{ textAlign: "left" }}>
-              <label style={STYLES.label}>Amount (₹ Crores) *</label>
+              <label style={STYLES.label}>Amount (INR Crores) *</label>
               <input style={STYLES.input} type="number" value={localData.loan.amount || ""} onChange={(e) => handleChange('loan', 'amount', e.target.value)} />
             </div>
             <div style={{ textAlign: "left" }}>

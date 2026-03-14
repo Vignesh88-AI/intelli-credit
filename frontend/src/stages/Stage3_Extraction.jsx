@@ -121,10 +121,10 @@ const Stage3_Extraction = ({ onNext, entityData }) => {
   };
 
   const metrics = [
-    { label: "REVENUE", icon: <TrendingUp size={20} />, key: ["revenue", "Revenue", "total_income"], color: "#22c55e", sub: "↑28.5%", unit: "₹", suffix: " Cr" },
-    { label: "NET PROFIT (PAT)", icon: <Activity size={20} />, key: ["pat", "net_profit", "Net Profit", "Profit After Tax"], color: "#22c55e", sub: "↑38.7%", unit: "₹", suffix: " Cr" },
-    { label: "TOTAL DEBT", icon: <AlertCircle size={20} />, key: ["total_debt", "Total Debt", "borrowings"], color: "#f0a500", sub: "Manageable", unit: "₹", suffix: " Cr" },
-    { label: "NET WORTH", icon: <Shield size={20} />, key: ["net_worth", "Net Worth", "equity"], color: "#22c55e", sub: "Robust", unit: "₹", suffix: " Cr" },
+    { label: "REVENUE", icon: <TrendingUp size={20} />, key: ["revenue", "Revenue", "total_income"], color: "#22c55e", sub: "UP 28.5%", unit: "INR", suffix: " Cr" },
+    { label: "NET PROFIT (PAT)", icon: <Activity size={20} />, key: ["pat", "net_profit", "Net Profit", "Profit After Tax"], color: "#22c55e", sub: "UP 38.7%", unit: "INR", suffix: " Cr" },
+    { label: "TOTAL DEBT", icon: <AlertCircle size={20} />, key: ["total_debt", "Total Debt", "borrowings"], color: "#f0a500", sub: "Manageable", unit: "INR", suffix: " Cr" },
+    { label: "NET WORTH", icon: <Shield size={20} />, key: ["net_worth", "Net Worth", "equity"], color: "#22c55e", sub: "Robust", unit: "INR", suffix: " Cr" },
     { label: "GROSS NPA", icon: <Activity size={20} />, key: ["gnpa_percent", "gnpa", "Gross NPA"], color: "#22c55e", sub: "Below 2%", suffix: " %" },
   ];
 
@@ -215,7 +215,7 @@ const Stage3_Extraction = ({ onNext, entityData }) => {
                                 style={STYLES.iconButton}
                                 onClick={() => setEditingId(`${idx}-${key}`)}
                               >
-                                <Edit2 size={16} />
+                                Edit
                               </button>
                             )}
                           </td>

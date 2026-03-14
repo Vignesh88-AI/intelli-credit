@@ -23,7 +23,7 @@ const FEATURES = [
   { num: "06", title: "Early Warning Signals", desc: "GSTR reconciliation gaps, NCLT filing detection, promoter pledge alerts." },
 ];
 
-export default function Stage0_Landing({ onStart, onResearch }) {
+export default function Stage0_Landing({ onStart, onResearch, onQuick }) {
   const [taglineIdx, setTaglineIdx] = useState(0);
   const [displayed, setDisplayed] = useState("");
   const [typing, setTyping] = useState(true);
@@ -410,10 +410,16 @@ export default function Stage0_Landing({ onStart, onResearch }) {
           flexWrap: "wrap", justifyContent: "center",
         }}>
           <button className="btn-primary" onClick={onStart}>
-            <span>Begin Appraisal</span>
+            <span>BEGIN APPRAISAL</span>
+          </button>
+          <button className="btn-secondary btn-highlight" onClick={onQuick} style={{
+            borderColor: 'var(--gold)',
+            boxShadow: '0 0 15px rgba(201, 168, 76, 0.2)'
+          }}>
+            <span>QUICK APPRAISAL</span>
           </button>
           <button className="btn-secondary" onClick={onResearch}>
-            <span>Research Engine</span>
+            <span>RESEARCH ENGINE</span>
           </button>
         </div>
 
@@ -448,7 +454,7 @@ export default function Stage0_Landing({ onStart, onResearch }) {
             { num: "01", title: "Entity Onboarding", desc: "CIN, PAN, sector classification", sub: "Real-time MCA validation" },
             { num: "02", title: "Document Upload", desc: "Five financial document types", sub: "ALM, Shareholding, Borrowing, Annual, Portfolio" },
             { num: "03", title: "AI Extraction", desc: "Claude intelligence with human approval", sub: "10+ metrics, editable, fully transparent" },
-            { num: "04", title: "Credit Report", desc: "Full CAM with verdict", sub: "APPROVE / REJECT / REFER — with PDF download" },
+            { num: "04", title: "Credit Report", desc: "Full CAM with verdict", sub: "APPROVE / REJECT / REFER - with PDF download" },
           ].map((s, i) => (
             <div key={i} className="step-row" style={{
               display: "flex", alignItems: "flex-start", gap: "32px",
@@ -612,10 +618,13 @@ export default function Stage0_Landing({ onStart, onResearch }) {
         <div className="divider" style={{ margin: "32px auto" }} />
         <div style={{ display: "flex", gap: "16px", justifyContent: "center", flexWrap: "wrap" }}>
           <button className="btn-primary" onClick={onStart}>
-            <span>Launch Platform</span>
+            <span>LAUNCH PLATFORM</span>
+          </button>
+          <button className="btn-secondary" onClick={onQuick}>
+            <span>QUICK APPRAISAL</span>
           </button>
           <button className="btn-secondary" onClick={onResearch}>
-            <span>Research Engine</span>
+            <span>RESEARCH ENGINE</span>
           </button>
         </div>
         <div style={{

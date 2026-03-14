@@ -5,6 +5,7 @@ import Stage2_Upload from "./stages/Stage2_Upload"
 import Stage3_Extraction from "./stages/Stage3_Extraction"
 import Stage4_Report from "./stages/Stage4_Report"
 import CompanyResearch from "./stages/CompanyResearch"
+import QuickAppraisal from "./stages/QuickAppraisal"
 
 const STAGES = ["Entity", "Documents", "Extraction", "Report"]
 
@@ -76,10 +77,10 @@ export default function App() {
                   <div style={{width:"32px",height:"32px",borderRadius:"50%",
                     display:"flex",alignItems:"center",justifyContent:"center",
                     fontSize:"13px",fontWeight:"600",
-                    background: stage>i+1?"#22c55e":stage===i+1?"#f0a500":"transparent",
+                      background: stage>i+1?"#22c55e":stage===i+1?"#f0a500":"transparent",
                     border: stage>i+1?"2px solid #22c55e":stage===i+1?"2px solid #f0a500":"2px solid #4a5568",
                     color: stage>=i+1?"#0a1628":"#4a5568"}}>
-                    {stage>i+1?"✓":i+1}
+                    {stage>i+1?"Done":i+1}
                   </div>
                   <span style={{fontSize:"10px",
                     color:stage===i+1?"#f0a500":stage>i+1?"#22c55e":"#4a5568",
@@ -110,13 +111,14 @@ export default function App() {
       )}
 
       {/* MAIN CONTENT */}
-      <div style={{paddingTop: (stage === 0 || stage === 5) ? "0" : "80px"}}>
-        {stage===0&&<Stage0_Landing onStart={() => setStage(1)} onResearch={() => setStage(5)}/>}
+      <div style={{paddingTop: (stage === 0 || stage === 5 || stage === 6) ? "0" : "80px"}}>
+        {stage===0&&<Stage0_Landing onStart={() => setStage(1)} onResearch={() => setStage(5)} onQuick={() => setStage(6)}/>}
         {stage===1&&<Stage1_Onboarding onNext={next}/>}
         {stage===2&&<Stage2_Upload onNext={next} entityData={data}/>}
         {stage===3&&<Stage3_Extraction onNext={next} entityData={data}/>}
         {stage===4&&<Stage4_Report entityData={data}/>}
         {stage===5&&<CompanyResearch onBack={() => setStage(0)}/>}
+        {stage===6&&<QuickAppraisal onBack={() => setStage(0)}/>}
       </div>
     </div>
   )

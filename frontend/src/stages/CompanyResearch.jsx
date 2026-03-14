@@ -239,7 +239,7 @@ export default function CompanyResearch({ onBack }) {
         height: "60px", position: "fixed", top: 0, left: 0, right: 0, zIndex: 100
       }}>
         <button onClick={onBack} style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", marginRight: "20px", display: "flex", alignItems: "center", gap: "5px" }}>
-            ← Back
+            Back
         </button>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: "10px" }}>
           <rect x="4" y="4" width="16" height="16" stroke="#c9a84c" strokeWidth="1.5" transform="rotate(45 12 12)" fill="none"/>
@@ -397,7 +397,7 @@ export default function CompanyResearch({ onBack }) {
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px" }}>
               {[
-                { label: "Revenue", field: 'revenue', color: "#22c55e", sub: `↑${result.financials.revenue_growth} YoY` },
+                { label: "Revenue", field: 'revenue', color: "#22c55e", sub: `UP ${result.financials.revenue_growth} YoY` },
                 { label: "PAT", field: 'pat', color: "#22c55e", sub: "Profit After Tax" },
                 { label: "Total Debt", field: 'total_debt', color: "#f59e0b", sub: `D/E: ${result.financials.debt_equity}` },
                 { label: "Net Worth", field: 'net_worth', color: "#60a5fa", sub: `ROE: ${result.financials.roe}` },
@@ -469,7 +469,7 @@ export default function CompanyResearch({ onBack }) {
               }}
                 onMouseEnter={e => { e.target.style.borderColor = "#f0a500"; e.target.style.color = "#f0a500"; }}
                 onMouseLeave={e => { e.target.style.borderColor = "#1e3a5f"; e.target.style.color = "#64748b"; }}
-              >🔄 Analyze Another Company</button>
+              >Analyze Another Company</button>
             </div>
 
           </div>

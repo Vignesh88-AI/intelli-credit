@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from routers import upload, extraction, report
+from routers import upload, extraction, report, quick
 
 app = FastAPI(title="VERIDEX API")
 
@@ -22,6 +22,7 @@ app.add_middleware(
 app.include_router(upload.router)
 app.include_router(extraction.router)
 app.include_router(report.router)
+app.include_router(quick.router)
 
 @app.get("/")
 async def root():
