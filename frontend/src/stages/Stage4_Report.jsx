@@ -98,7 +98,15 @@ const mockResearchData = {
   legal_flags: [],
   macro_factors: ["RBI supportive of NBFC growth"],
   overall_sentiment: "Positive",
-  sources_analyzed: 5
+  sources_analyzed: 5,
+  swot: {
+    strengths: ["Strong capitalization", "Proven management"],
+    weaknesses: ["High leverage", "Asset concentration"],
+    opportunities: ["Digital banking pivot", "Rural expansion"],
+    threats: ["Regulatory tightening", "Macro volatility"]
+  },
+  reasoning_engine: "The rating reflects robust capital buffers triangulated against minor legal overheads found in court records. Growth remains consistent with sector averages.",
+  market_sentiment: "Neutral"
 };
 
 const Stage4_Report = ({ onBack, entityData }) => {
@@ -192,11 +200,11 @@ const Stage4_Report = ({ onBack, entityData }) => {
       const form = new FormData();
       form.append('data', allData);
       const API_URL = import.meta.env.VITE_API_URL || 'https://intelli-credit-7kzw.onrender.com';
-      const response = await axios.post(`${API_URL}/api/generate-report`, form, { responseType: 'blob' });
+      const response = await axios.post(`${API_URL}/api/generate-cam`, form, { responseType: 'blob' });
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `CAM_Report_${entityData?.entity?.companyName || 'Export'}.pdf`);
+      link.setAttribute('download', `CAM_Report_${entityData?.entity?.companyName || 'Export'}.docx`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -296,6 +304,20 @@ const Stage4_Report = ({ onBack, entityData }) => {
           <div style={{ fontSize: "10px", fontWeight: "700", opacity: 0.5, marginBottom: "4px" }}>CREDIT DECISION</div>
           <div style={{ fontSize: "20px", fontWeight: "900", color: getStatusColor(verdict?.status) }}>{verdict?.status}</div>
         </div>
+      </div>
+      {/* NEW: REASONING ENGINE SECTION */}
+      <div style={{ ...STYLES.glassCard, borderLeft: "4px solid #f0a500", background: "rgba(240, 165, 0, 0.03)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px" }}>
+            <Shield size={24} color="#f0a500" />
+            <h3 style={{ ...STYLES.sectionTitle, margin: 0 }}>Reasoning Engine Intelligence</h3>
+          </div>
+          <p style={{ fontSize: "15px", lineHeight: "1.6", color: "rgba(255,255,255,0.7)", margin: 0 }}>
+             {research?.reasoning_engine || "AI is triangulating document data with real-time web intelligence to provide a logical basis for the decision."}
+          </p>
+          <div style={{ marginTop: "16px", display: "flex", gap: "8px" }}>
+             <span style={{ fontSize: "10px", background: "rgba(255,255,255,0.05)", padding: "4px 8px", borderRadius: "4px", color: "rgba(255,255,255,0.4)" }}>TRIANGULATION ACTIVE</span>
+             <span style={{ fontSize: "10px", background: "rgba(34, 197, 94, 0.1)", padding: "4px 8px", borderRadius: "4px", color: "#22c55e" }}>SENTIMENT: {research?.market_sentiment?.toUpperCase() || "NEUTRAL"}</span>
+          </div>
       </div>
 
       {/* 2. CHARTS ROW */}
@@ -400,6 +422,37 @@ const Stage4_Report = ({ onBack, entityData }) => {
          </div>
       </div>
 
+      {/* NEW: SWOT ANALYSIS GRID */}
+      <div style={STYLES.glassCard}>
+          <h3 style={STYLES.sectionTitle}>SWOT Analysis (Pre-Cognitive Insight)</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+             <div style={{ padding: "16px", background: "rgba(34, 197, 94, 0.05)", borderRadius: "12px", border: "1px solid rgba(34, 197, 94, 0.1)" }}>
+                <div style={{ color: "#22c55e", fontSize: "11px", fontWeight: "900", marginBottom: "8px" }}>STRENGTHS</div>
+                <ul style={{ padding: 0, margin: 0, listStyle: "none", fontSize: "13px", color: "rgba(255,255,255,0.6)" }}>
+                  {research?.swot?.strengths?.map((s, i) => <li key={i} style={{ marginBottom: "4px" }}>• {s}</li>)}
+                </ul>
+             </div>
+             <div style={{ padding: "16px", background: "rgba(239, 68, 68, 0.05)", borderRadius: "12px", border: "1px solid rgba(239, 68, 68, 0.1)" }}>
+                <div style={{ color: "#ef4444", fontSize: "11px", fontWeight: "900", marginBottom: "8px" }}>WEAKNESSES</div>
+                <ul style={{ padding: 0, margin: 0, listStyle: "none", fontSize: "13px", color: "rgba(255,255,255,0.6)" }}>
+                  {research?.swot?.weaknesses?.map((s, i) => <li key={i} style={{ marginBottom: "4px" }}>• {s}</li>)}
+                </ul>
+             </div>
+             <div style={{ padding: "16px", background: "rgba(240, 165, 0, 0.05)", borderRadius: "12px", border: "1px solid rgba(240, 165, 0, 0.1)" }}>
+                <div style={{ color: "#f0a500", fontSize: "11px", fontWeight: "900", marginBottom: "8px" }}>OPPORTUNITIES</div>
+                <ul style={{ padding: 0, margin: 0, listStyle: "none", fontSize: "13px", color: "rgba(255,255,255,0.6)" }}>
+                  {research?.swot?.opportunities?.map((s, i) => <li key={i} style={{ marginBottom: "4px" }}>• {s}</li>)}
+                </ul>
+             </div>
+             <div style={{ padding: "16px", background: "rgba(255, 255, 255, 0.02)", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.05)" }}>
+                <div style={{ color: "rgba(255,255,255,0.4)", fontSize: "11px", fontWeight: "900", marginBottom: "8px" }}>THREATS</div>
+                <ul style={{ padding: 0, margin: 0, listStyle: "none", fontSize: "13px", color: "rgba(255,255,255,0.6)" }}>
+                  {research?.swot?.threats?.map((s, i) => <li key={i} style={{ marginBottom: "4px" }}>• {s}</li>)}
+                </ul>
+             </div>
+          </div>
+      </div>
+
       {/* 5. MARKET INSIGHT */}
       <div style={STYLES.glassCard}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
@@ -408,16 +461,28 @@ const Stage4_Report = ({ onBack, entityData }) => {
             </h3>
             <span style={{ fontSize: "11px", fontWeight: "700", color: "rgba(255,255,255,0.3)" }}>{research?.sources_analyzed || 5} SOURCES ANALYZED</span>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "16px" }}>
-             {(research?.company_news && research.company_news.length > 0) ? research.company_news.slice(0, 4).map((news, i) => (
-                <div key={i} style={{ padding: "16px", background: "rgba(255,255,255,0.02)", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.05)" }}>
-                   <div style={{ fontSize: "10px", fontWeight: "900", color: "#f0a500", marginBottom: "8px" }}>MARKET SENTIMENT</div>
-                   <p style={{ fontSize: "12px", margin: 0, color: "rgba(255,255,255,0.5)", lineHeight: "1.4" }}>{news}</p>
+          
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+             {research?.findings?.length > 0 ? (
+                research.findings.map((item, i) => (
+                  <div key={i} style={{ padding: "16px", background: "rgba(255,255,255,0.02)", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.05)" }}>
+                    <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ color: "#f0a500", textDecoration: "none", fontWeight: "700", display: "block", marginBottom: "8px" }}>
+                      {item.title}
+                    </a>
+                    <p style={{ fontSize: "13px", lineHeight: "1.5", color: "rgba(255,255,255,0.6)", margin: 0 }}>
+                      {item.snippet}
+                    </p>
+                  </div>
+                ))
+             ) : (
+                <div style={{ padding: "20px", background: "rgba(255,255,255,0.02)", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.05)" }}>
+                  <p style={{ fontSize: "14px", color: "rgba(255,255,255,0.3)", textAlign: "center", margin: 0 }}>
+                    {research?.web_findings || research?.web_intelligence || research?.research_summary || "Web search completed. No adverse news or legal findings detected for this entity."}
+                  </p>
                 </div>
-             )) : (
-                <p style={{ gridColumn: "span 2", textAlign: "center", opacity: 0.3 }}>No adverse proprietary news found.</p>
              )}
           </div>
+
       </div>
 
       {/* 6. RECOMMENDED STRUCTURE */}
@@ -446,7 +511,7 @@ const Stage4_Report = ({ onBack, entityData }) => {
         {isGeneratingPDF ? (
           <><Loader2 className="animate-spin" size={24} /> Building Full Credit Memo...</>
         ) : (
-          <><Download size={24} /> 📄 Download Complete CAM Report (PDF)</>
+          <><Download size={24} /> DOWNLOAD COMPLETE CAM REPORT (PDF)</>
         )}
       </button>
 

@@ -93,6 +93,13 @@ const LOADING_STAGES = [
   "Generating credit appraisal memo...",
 ];
 
+const extractNumeric = (val) => {
+  if (!val || val === "N/A") return "";
+  // Extract pure number, ignoring subsequent words/years
+  const match = String(val).replace(/,/g, '').match(/[\d.]+/);
+  return match ? match[0] : "";
+};
+
 export default function CompanyResearch({ onBack }) {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
@@ -121,12 +128,10 @@ export default function CompanyResearch({ onBack }) {
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'https://intelli-credit-7kzw.onrender.com';
       
-      const formData = new FormData();
-      formData.append('company_name', query);
-      formData.append('sector', 'General');
-      formData.append('is_deep_research', 'true');
-
-      const response = await axios.post(`${API_URL}/api/research`, formData);
+      const response = await axios.post(`${API_URL}/api/research`, {
+        company_name: query,
+        sector: 'General'
+      });
       
       clearInterval(stageInt);
       clearInterval(progressInt);
@@ -154,8 +159,8 @@ export default function CompanyResearch({ onBack }) {
             gnpa: "Not Available"
           },
           revenue_trend: data.revenue_history?.length > 0 
-            ? data.revenue_history.map(h => ({ label: h.year, val: parseFloat(String(h.revenue_cr).replace(/[^0-9.]/g, '')) || 0 }))
-            : [{label: "Latest", val: parseFloat(String(data.revenue).replace(/[^0-9.]/g, '')) || 0}],
+            ? data.revenue_history.map(h => ({ label: h.year, val: parseFloat(extractNumeric(h.revenue_cr)) || 0 }))
+            : [{label: "Latest", val: parseFloat(extractNumeric(data.revenue)) || 0}],
           five_cs: {
             character: {score: data.character_score || 18, max: 20, note: "Promoter background checked"},
             capacity: {score: data.capacity_score || 20, max: 25, note: "Interest coverage assessed"},
@@ -392,17 +397,23 @@ export default function CompanyResearch({ onBack }) {
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px" }}>
               {[
-                { label: "Revenue", val: result.financials.revenue ? `₹${String(result.financials.revenue).replace(/[₹a-zA-Z]/g,'').trim()} Cr` : 'N/A', sub: `↑${result.financials.revenue_growth} YoY`, color: "#22c55e" },
-                { label: "PAT", val: result.financials.pat ? `₹${String(result.financials.pat).replace(/[₹a-zA-Z]/g,'').trim()} Cr` : 'N/A', sub: "Profit After Tax", color: "#22c55e" },
-                { label: "Total Debt", val: result.financials.total_debt ? `₹${String(result.financials.total_debt).replace(/[₹a-zA-Z]/g,'').trim()} Cr` : 'N/A', sub: `D/E: ${result.financials.debt_equity}`, color: "#f59e0b" },
-                { label: "Net Worth", val: result.financials.net_worth ? `₹${String(result.financials.net_worth).replace(/[₹a-zA-Z]/g,'').trim()} Cr` : 'N/A', sub: `ROE: ${result.financials.roe}`, color: "#60a5fa" },
-              ].map((m, i) => (
-                <div key={i} style={{ background: "#0a1628", border: "1px solid #1e3a5f", borderRadius: "14px", padding: "18px" }}>
-                  <div style={{ fontSize: "11px", color: "#64748b", marginBottom: "8px", letterSpacing: "1px" }}>{m.label.toUpperCase()}</div>
-                  <div style={{ fontSize: "20px", fontWeight: "800", color: m.color }}>{m.val}</div>
-                  <div style={{ fontSize: "11px", color: "#64748b", marginTop: "4px" }}>{m.sub}</div>
-                </div>
-              ))}
+                { label: "Revenue", field: 'revenue', color: "#22c55e", sub: `↑${result.financials.revenue_growth} YoY` },
+                { label: "PAT", field: 'pat', color: "#22c55e", sub: "Profit After Tax" },
+                { label: "Total Debt", field: 'total_debt', color: "#f59e0b", sub: `D/E: ${result.financials.debt_equity}` },
+                { label: "Net Worth", field: 'net_worth', color: "#60a5fa", sub: `ROE: ${result.financials.roe}` },
+              ].map((m, i) => {
+                const rawVal = result.financials[m.field];
+                const cleanVal = extractNumeric(rawVal);
+                const displayVal = cleanVal ? `₹${Number(cleanVal).toLocaleString('en-IN')} Cr` : "N/A";
+                
+                return (
+                  <div key={i} style={{ background: "#0a1628", border: "1px solid #1e3a5f", borderRadius: "14px", padding: "18px" }}>
+                    <div style={{ fontSize: "11px", color: "#64748b", marginBottom: "8px", letterSpacing: "1px" }}>{m.label.toUpperCase()}</div>
+                    <div style={{ fontSize: "20px", fontWeight: "800", color: m.color }}>{displayVal}</div>
+                    <div style={{ fontSize: "11px", color: "#64748b", marginTop: "4px" }}>{m.sub}</div>
+                  </div>
+                );
+              })}
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>

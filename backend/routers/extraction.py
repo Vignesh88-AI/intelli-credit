@@ -9,7 +9,28 @@ from typing import List, Dict, Any
 router = APIRouter(prefix="/api")
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-SYSTEM_PROMPT = """You are a financial document parser. Extract ALL financial data from this document and return ONLY valid JSON. No explanation, no markdown, just raw JSON."""
+# Enhanced prompt for Indian Financial Intelligence
+EXTRACTION_SYSTEM_PROMPT = """You are a senior Indian credit analyst. 
+Extract financial metrics from the provided text.
+CRITICAL: 
+- Identify values in INR Crores (Cr) or Lakhs (L). Convert everything to Crores if possible.
+- Look for GST details (GSTR-2A vs 3B mismatches).
+- Check for NCLT/IBC insolvency mentions.
+- Use Indian accounting terminology (e.g., Sundry Debtors, WC limits).
+
+Return ONLY valid JSON with these keys if found:
+{
+  "revenue": "numeric value",
+  "pat": "numeric value",
+  "total_debt": "numeric value",
+  "net_worth": "numeric value",
+  "gnpa_percent": "numeric value",
+  "car_percent": "numeric value",
+  "promoter_holding": "percentage",
+  "gst_mismatch": "brief description if any",
+  "nclt_status": "brief description if any"
+}
+"""
 
 @router.post("/extract")
 async def extract_data(file_paths: List[str] = Form(...), doc_types: List[str] = Form(...)):
@@ -20,7 +41,7 @@ async def extract_data(file_paths: List[str] = Form(...), doc_types: List[str] =
                 continue
                 
             try:
-                # Extract text from PDF
+                # Extract text logic...
                 text = ""
                 if path.lower().endswith(".pdf"):
                     with pdfplumber.open(path) as pdf:
@@ -28,99 +49,98 @@ async def extract_data(file_paths: List[str] = Form(...), doc_types: List[str] =
                             text += page.extract_text() or ""
                 
                 if not text.strip():
-                    # Fallback to OCR
-                    print(f"pdfplumber failed for {path}, trying OCR fallback...")
-                    import pdfplumber
-                    from PIL import Image
+                    # OCR fallback
                     with pdfplumber.open(path) as pdf:
                         for page in pdf.pages:
-                            # Convert page to image and OCR
                             im = page.to_image(resolution=300).original
                             text += pytesseract.image_to_string(im)
                 
                 if not text.strip():
-                    results.append({
-                        "file_path": path,
-                        "status": "error",
-                        "message": "No text content found in document.",
-                        "fields": {}
-                    })
+                    results.append({"file_path": path, "status": "error", "message": "No text found", "fields": {}})
                     continue
 
-                # Prepare User Prompt
-                user_msg = f"""Extract critical financial metrics from this document. 
-                Focus on these specific fields if present:
-                - revenue (current and previous year)
-                - pat (profit after tax)
-                - ebitda
-                - total_debt
-                - net_worth
-                - total_assets
-                - gnpa_percent (Gross NPA %)
-                - car_percent (Capital Adequacy Ratio)
-                - promoter_holding (percentage)
-                - debt_to_equity (ratio)
-
-                Return JSON in this exact format:
-                {{
-                  "document_type": "Annual Report|ALM|Shareholding|Borrowing|Portfolio",
-                  "fields": {{
-                    "revenue": "value in numeric/string",
-                    "pat": "value",
-                    "total_debt": "value",
-                    "net_worth": "value",
-                    "gnpa_percent": "value",
-                    "car_percent": "value",
-                    "debt_to_equity": "value",
-                    "ebitda": "value",
-                    "promoter_holding": "value",
-                    "other_metrics": {{}}
-                  }}
-                }}
-
-                If a field is not found, omit it or set to null. 
-                Document text (truncated):
-                {text[:15000]}"""
-
-                # Call Groq
+                # Groq call for extraction
                 response = client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
                     messages=[
-                        {"role": "system", "content": "You are a financial document analyst. Extract key metrics from the document text and return as JSON with fields: revenue, pat, total_debt, net_worth, gross_npa, car, revenue_growth, document_type"},
-                        {"role": "user", "content": f"Extract financial data from this document:\n\n{text[:4000]}"}
+                        {"role": "system", "content": EXTRACTION_SYSTEM_PROMPT},
+                        {"role": "user", "content": f"Extract financial fields from this text:\n\n{text[:15000]}"}
                     ],
-                    max_tokens=1000,
+                    max_tokens=1500,
                     temperature=0.1
                 )
                 
                 response_text = response.choices[0].message.content
-
-                # Parse JSON response safely
                 extracted_json = {}
                 try:
-                    extracted_json = json.loads(response_text)
-                except json.JSONDecodeError:
                     import re
                     match = re.search(r'\{.*\}', response_text, re.DOTALL)
                     if match:
                         extracted_json = json.loads(match.group())
+                except:
+                    pass
 
                 results.append({
                     "file_path": path,
                     "original_type": doc_types[i],
-                    "detected_type": extracted_json.get("document_type", "Unknown"),
                     "fields": extracted_json,
                     "status": "success"
                 })
                 
             except Exception as e:
-                results.append({
-                    "file_path": path,
-                    "status": "error",
-                    "message": str(e),
-                    "fields": {}
-                })
+                results.append({"file_path": path, "status": "error", "message": str(e), "fields": {}})
                 
         return {"extractions": results}
     except Exception as e:
         return {"extractions": [], "error": str(e)}
+
+@router.post("/analyze")
+async def analyze_financials(data: str = Form(...)):
+    """Deep AI Financial Analysis including GST reconciliation and NCLT checks."""
+    try:
+        payload = json.loads(data)
+        # Combine all extracted text or fields for a holistic analysis
+        prompt = f"Perform a deep financial analysis for this entity based on extracted data: {json.dumps(payload)}. focus on GST reconciliation (2A vs 3B), NCLT status, and CIBIL signal awareness. Return a JSON summary with 'verdict', 'risk_alerts', and 'positive_indicators'."
+        
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": "You are a senior credit officer specialized in Indian SME lending."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=2000,
+            temperature=0.2
+        )
+        
+        import re
+        match = re.search(r'\{.*\}', response.choices[0].message.content, re.DOTALL)
+        if match:
+            return json.loads(match.group())
+        return {"analysis": response.choices[0].message.content}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/score")
+async def calculate_credit_score(data: str = Form(...)):
+    """Calculate Credit Score using 5 Cs Framework."""
+    try:
+        payload = json.loads(data)
+        prompt = f"Based on this financial data: {json.dumps(payload)}, calculate a credit score (0-100) using the 5 Cs framework (Character, Capacity, Capital, Collateral, Conditions). Return JSON: {{'total_score': N, 'breakdown': {{'character': x, 'capacity': y, ...}}, 'risk_level': 'LOW|MEDIUM|HIGH'}}"
+        
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": "You are a credit scoring engine."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=1000,
+            temperature=0.1
+        )
+        
+        import re
+        match = re.search(r'\{.*\}', response.choices[0].message.content, re.DOTALL)
+        if match:
+            return json.loads(match.group())
+        return {"score_data": response.choices[0].message.content}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

@@ -2,7 +2,6 @@ from fastapi import APIRouter, HTTPException, Form, Response
 from typing import Optional
 import os
 import json
-import anthropic
 from groq import Groq
 from tavily import TavilyClient
 from reportlab.lib.pagesizes import letter
@@ -17,63 +16,74 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 router = APIRouter(prefix="/api")
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 tavily_client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
-anthropic_client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
 @router.post("/research")
-async def perform_research(company_name: str = Form(...), sector: str = Form(...)):
+async def perform_research(data: dict):
     try:
-        from tavily import TavilyClient
-        tavily = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
+        company_name = data.get("company_name", "Unknown Entity")
+        sector = data.get("sector", "General")
         
-        results = tavily.search(
-            query=f"{company_name} India headquarters revenue financials credit risk 2024",
-            max_results=3,
-            search_depth="basic"
+        # Single query = 1 credit only
+        combined_query = f"{company_name} {sector} India litigation promoter fraud SEBI credit rating ICRA NCLT news 2024 2025"
+        
+        search_result = tavily_client.search(
+            query=combined_query,
+            max_results=10,
+            search_depth="advanced"
         )
         
-        context = "\n".join([r.get("content", "") for r in results.get("results", [])])
+        findings = [
+            {
+                "title": r.get("title", ""),
+                "snippet": r.get("content", "")[:300],
+                "url": r.get("url", "")
+            }
+            for r in search_result.get("results", [])
+        ]
         
-        from groq import Groq
-        groq = Groq(api_key=os.getenv("GROQ_API_KEY"))
+        context = "Relevant Web Findings:\n" + "\n".join([f"Title: {f['title']}\nSnippet: {f['snippet']}" for f in findings])
         
-        response = groq.chat.completions.create(
+        response = groq_client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
-                {"role": "system", "content": """You are a senior credit analyst. 
+                {"role": "system", "content": """You are a senior Indian credit analyst. 
                 Based on the search results, return ONLY this exact JSON format. 
                 
-                CRITICAL: All financial values (revenue, pat, total_debt, net_worth) MUST be PURE numeric strings representing amount in **INR Crores**. 
-                - DO NOT include the year (e.g., "2024") inside these value fields.
-                - DO NOT include words like "Cr", "Billion", or "Crores".
-                - Example: If revenue is 50 billion (~5000 Cr), return "5000". If it is 200 Cr, return "200".
+                CRITICAL for Financials: All financial values MUST be PURE numeric strings (INR Crores).
                 
                 {
                   "company_name": "",
                   "headquarters": "",
                   "founded_year": "",
                   "sector": "",
-                  "revenue": "pure number string",
-                  "pat": "pure number string",
-                  "total_debt": "pure number string",
-                  "net_worth": "pure number string",
+                  "revenue": "numeric string",
+                  "pat": "numeric string",
+                  "total_debt": "numeric string",
+                  "net_worth": "numeric string",
                   "de_ratio": "",
                   "roe": "",
-                  "revenue_growth": "percentage",
+                  "revenue_growth": "",
                   "revenue_history": [
-                    {"year": "2024", "revenue_cr": "pure number string"},
-                    {"year": "2023", "revenue_cr": "pure number string"},
-                    {"year": "2022", "revenue_cr": "pure number string"}
+                    {"year": "2024", "revenue_cr": ""},
+                    {"year": "2023", "revenue_cr": ""},
+                    {"year": "2022", "revenue_cr": ""}
                   ],
                   "credit_decision": "APPROVE or REJECT or REFER TO COMMITTEE",
                   "risk_level": "LOW or MEDIUM or HIGH",
-                  "positive_signals": ["point1", "point2", "point3"],
-                  "risk_flags": ["flag1", "flag2"],
-                  "latest_news": ["news1", "news2"],
+                  "reasoning_engine": "Provide a 3-sentence logical base explaining WHY the verdict was given, triangulating search data.",
+                  "swot": {
+                    "strengths": ["point1", "point2"],
+                    "weaknesses": ["point1", "point2"],
+                    "opportunities": ["point1", "point2"],
+                    "threats": ["point1", "point2"]
+                  },
+                  "market_sentiment": "Positive/Neutral/Cautious",
+                  "company_news": ["Headlines 1", "Headline 2", "Headline 3"],
                   "sector_outlook": "one sentence",
                   "research_summary": "two sentences"
                 }
-                Find at least 3 years of revenue history if possible. Use ONLY data from search results. No markdown."""},
-                {"role": "user", "content": f"Company: {company_name}\n\nSearch data:\n{context[:3000]}"}
+                Use ONLY data from search results. No markdown."""},
+                {"role": "user", "content": f"Company: {company_name}\n\nSearch data:\n{context[:4000]}"}
             ],
             max_tokens=1500,
             temperature=0.1
@@ -81,17 +91,22 @@ async def perform_research(company_name: str = Form(...), sector: str = Form(...
         
         import re, json
         text = response.choices[0].message.content
-        print("GROQ:", text[:300])
         match = re.search(r'\{.*\}', text, re.DOTALL)
         if match:
-            return json.loads(match.group())
+            final_data = json.loads(match.group())
+            # Inject raw findings for frontend to display links
+            final_data["findings"] = findings
+            final_data["sources_analyzed"] = len(findings)
+            return final_data
+            
         return {"error": "parsing failed", "raw": text[:500]}
+
         
     except Exception as e:
         print(f"ERROR: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/generate-report")
+@router.post("/generate-cam")
 async def generate_report(data: str = Form(...)):
     try:
         payload = json.loads(data)
@@ -108,32 +123,37 @@ async def generate_report(data: str = Form(...)):
             for r in web_data.get("results", [])
         ])
 
-        # Call Anthropic for professional CAM content
-        data_context = str(data)[:15000]
-        prompt = f"""You are a Lead Credit Officer at a top-tier Indian bank (SBI/HDFC/ICICI). 
-        Generate a professional Credit Appraisal Memo (CAM) for: {entity_name}
-        Sector: {payload.get('entity', {}).get('sector', 'General')}
-        Data Summary: {data_context}
-        
-        Web Intelligence Findings:
-        {web_findings}
-        
-        The report must be formal, detailed, and analytical. 
-        Focus on: Debt Serviceability, Promoter Pedigree, Sectoral Tailwinds, and Risk Mitigation.
-        Populate the "Web Intelligence Findings" section using the provided web data.
-        Return in professional Markdown with clear headings."""
+        # Call Groq for professional CAM content as JSON (Replacing Anthropic)
+        prompt = f"""Generate a comprehensive CAM report as JSON for: {payload.get('entity', {})}. 
+        Web findings: {web_findings}. 
+        Return JSON with exactly these fields: verdict, score, five_cs, risk_alerts, positive_indicators, web_intelligence, recommended_structure, reasoning.
+        Do not include markdown formatting or extra text."""
 
-        response = anthropic_client.messages.create(
-            model="claude-3-5-sonnet-20241022",
-            max_tokens=4000,
-            system="You are a senior credit officer expert in Indian corporate lending. Generate formal CAM reports in Markdown.",
+        response = groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
             messages=[
+                {"role": "system", "content": "You are a senior credit analyst. Generate a comprehensive CAM report as JSON."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.5
+            max_tokens=3000,
+            temperature=0.2
         )
         
-        cam_markdown = response.content[0].text
+        # Parse JSON response
+        try:
+            cam_data = json.loads(response.choices[0].message.content)
+            print("CAM RESPONSE FIELDS:", list(cam_data.keys()))
+            cam_markdown = f"# Credit Appraisal Memo: {entity_name}\n\n"
+            cam_markdown += f"## Verdict: {cam_data.get('verdict')}\n"
+            cam_markdown += f"## Score: {cam_data.get('score')}\n\n"
+            cam_markdown += "### Web Intelligence Findings\n" + cam_data.get('web_intelligence', 'No findings') + "\n\n"
+            cam_markdown += "### Reasoning\n" + cam_data.get('reasoning', '')
+        except Exception as e:
+            print(f"Error parsing Groq JSON: {e}")
+            cam_markdown = response.choices[0].message.content
+        print("CAM RESPONSE GENERATED. SYSTEM PROMPT USED: Senior Credit Officer Triangulation")
+        # Since it's markdown, we don't have keys, but we can log the input payload keys
+        print("CAM INPUT PAYLOAD FIELDS:", list(payload.keys()))
         
         # Generate DOCX with python-docx
         doc = Document()
