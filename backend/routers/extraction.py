@@ -2,6 +2,8 @@ from fastapi import APIRouter, HTTPException, Form
 import os
 import pdfplumber
 import json
+import re
+import time
 from groq import Groq
 from typing import List, Dict, Any
 import io
@@ -24,7 +26,75 @@ DOC_TYPE_LABELS = {
     "portfolio_cuts": "Portfolio Cuts"
 }
 
-MAX_PAGES = 15
+# --- HELPERS FOR ROBUSTNESS ---
+
+def robust_json_parser(text: str) -> dict:
+    """Strip markdown fences and parse JSON with regex fallback."""
+    if not text: return {}
+    # 1. Clean markdown fences
+    clean_text = text.replace("```json", "").replace("```", "").strip()
+    
+    # 2. Try direct load
+    try:
+        return json.loads(clean_text)
+    except:
+        pass
+        
+    # 3. Regex fallback
+    try:
+        match = re.search(r'\{.*\}', clean_text, re.DOTALL)
+        if match:
+            return json.loads(match.group())
+    except:
+        pass
+        
+    return {}
+
+def smart_page_sampling(total_pages: int, doc_type: str) -> List[int]:
+    """Sample pages based on doc type and length."""
+    if doc_type == "annual_report":
+        if total_pages <= 35:
+            return list(range(total_pages))
+        
+        # Start (1-20)
+        start_pages = list(range(20))
+        # End (last 15)
+        end_start = max(20, total_pages - 15)
+        end_pages = list(range(end_start, total_pages))
+        # Middle sampling (every 5th)
+        mid_pages = []
+        for p in range(20, end_start):
+            if (p - 20) % 5 == 0:
+                mid_pages.append(p)
+        
+        # Combine unique pages in order
+        return sorted(list(set(start_pages + mid_pages + end_pages)))
+    else:
+        # Other doc types up to 40 pages
+        return list(range(min(total_pages, 40)))
+
+def prioritize_text_sections(text_blocks: List[str], max_chars=28000) -> str:
+    """Prioritize chunks containing financial keywords."""
+    priority_keywords = [
+        "Statement of Profit", "Balance Sheet", "Financial Highlights", 
+        "Key Ratios", "Cash Flow", "Audit", "P&L", "Profit & Loss",
+        "Asset Quality", "Borrowings", "Liabilities", "Capital Adequacy"
+    ]
+    
+    priority_chunks = []
+    other_chunks = []
+    
+    for block in text_blocks:
+        if any(kw.lower() in block.lower() for kw in priority_keywords):
+            priority_chunks.append(block)
+        else:
+            other_chunks.append(block)
+            
+    # Combine priority first, then others
+    combined = "\n".join(priority_chunks + other_chunks)
+    return combined[:max_chars]
+
+# --- PROMPTS ---
 
 GENERAL_EXTRACTION_PROMPT = """You are a senior Indian credit analyst. Extract ALL financial metrics from this annual report / P&L / Balance Sheet.
 CRITICAL:
@@ -129,79 +199,75 @@ async def extract_data(file_paths: List[str] = Form(...), doc_types: List[str] =
                 continue
                 
             try:
-                # Extract text logic...
-                text = ""
+                raw_type = doc_types[i].lower()
+                detected_type = "general"
+                if "alm" in raw_type: detected_type = "alm"
+                elif "shareholding" in raw_type: detected_type = "shareholding"
+                elif "annual" in raw_type or "report" in raw_type: detected_type = "annual_report"
+                elif "borrowing" in raw_type: detected_type = "borrowing_profile"
+                elif "portfolio" in raw_type: detected_type = "portfolio_cuts"
+
+                text_blocks = []
                 if path.lower().endswith(".pdf"):
                     with pdfplumber.open(path) as pdf:
                         total_pages = len(pdf.pages)
-                        if total_pages > MAX_PAGES:
-                            text += f"[Note: Document has {total_pages} pages. Analyzing first {MAX_PAGES} only.]\n\n"
+                        page_indices = smart_page_sampling(total_pages, detected_type)
                         
-                        for page in pdf.pages[:MAX_PAGES]:
+                        if len(page_indices) < total_pages:
+                            text_blocks.append(f"[Note: Document has {total_pages} pages. Analyzing {len(page_indices)} sampled pages only.]")
+                        
+                        for idx in page_indices:
+                            page = pdf.pages[idx]
                             page_text = page.extract_text() or ""
                             if page_text and len(page_text.strip()) > 50:
-                                text += page_text + "\n"
+                                text_blocks.append(page_text)
                             elif OCR_AVAILABLE:
                                 try:
                                     img = page.to_image(resolution=150).original
                                     ocr_text = pytesseract.image_to_string(img)
-                                    text += ocr_text + "\n"
+                                    text_blocks.append(ocr_text)
                                 except:
-                                    text += "[Scanned page — OCR failed]\n"
+                                    text_blocks.append(f"[Page {idx+1}: Scanned page — OCR failed]")
                             else:
-                                text += "[Scanned page — OCR not available]\n"
+                                text_blocks.append(f"[Page {idx+1}: Scanned page — OCR not available]")
                 
-                if not text.strip():
-                    results.append({"file_path": path, "status": "error", "message": "No text found after extraction and OCR", "fields": {}})
+                final_text = prioritize_text_sections(text_blocks)
+                
+                if not final_text.strip():
+                    results.append({"file_path": path, "status": "error", "message": "No text found", "fields": {}})
                     continue
 
-                # Select prompt based on doc type
-                raw_type = doc_types[i].lower()
-                detected_type = "general"
-                
-                if "alm" in raw_type:
-                    detected_type = "alm"
-                elif "shareholding" in raw_type:
-                    detected_type = "shareholding"
-                elif "annual" in raw_type or "report" in raw_type:
-                    detected_type = "annual_report"
-                elif "borrowing" in raw_type:
-                    detected_type = "borrowing_profile"
-                elif "portfolio" in raw_type:
-                    detected_type = "portfolio_cuts"
-
                 system_prompt = GENERAL_EXTRACTION_PROMPT
-                if detected_type == "alm":
-                    system_prompt = ALM_PROMPT
-                elif detected_type == "shareholding":
-                    system_prompt = SHAREHOLDING_PROMPT
-                elif detected_type == "annual_report":
-                    system_prompt = GENERAL_EXTRACTION_PROMPT
-                elif detected_type == "borrowing_profile":
-                    system_prompt = BORROWING_PROMPT
-                elif detected_type == "portfolio_cuts":
-                    system_prompt = PORTFOLIO_CUTS_PROMPT
+                if detected_type == "alm": system_prompt = ALM_PROMPT
+                elif detected_type == "shareholding": system_prompt = SHAREHOLDING_PROMPT
+                elif detected_type == "borrowing_profile": system_prompt = BORROWING_PROMPT
+                elif detected_type == "portfolio_cuts": system_prompt = PORTFOLIO_CUTS_PROMPT
 
-                # Groq call for extraction
-                response = client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": f"Extract financial fields from this text:\n\n{text[:15000]}"}
-                    ],
-                    max_tokens=1500,
-                    temperature=0.1
-                )
-                
-                response_text = response.choices[0].message.content
+                # Groq call with Retry Logic (Up to 2 retries)
                 extracted_json = {}
-                try:
-                    import re
-                    match = re.search(r'\{.*\}', response_text, re.DOTALL)
-                    if match:
-                        extracted_json = json.loads(match.group())
-                except:
-                    pass
+                for attempt in range(3):
+                    try:
+                        current_prompt = system_prompt
+                        if attempt > 0:
+                            current_prompt += "\nSTRICT: Return ONLY the JSON object. No explanation. No extra text."
+                        
+                        response = client.chat.completions.create(
+                            model="llama-3.3-70b-versatile",
+                            messages=[
+                                {"role": "system", "content": current_prompt},
+                                {"role": "user", "content": f"Extract fields from this text:\n\n{final_text}"}
+                            ],
+                            max_tokens=2000,
+                            temperature=0.1 if attempt == 0 else 0.05
+                        )
+                        
+                        response_text = response.choices[0].message.content
+                        extracted_json = robust_json_parser(response_text)
+                        if extracted_json:
+                            break
+                    except Exception as ge:
+                        print(f"Groq Attempt {attempt+1} failed for {path}: {ge}")
+                        time.sleep(1)
 
                 results.append({
                     "file_path": path,
@@ -222,10 +288,8 @@ async def extract_data(file_paths: List[str] = Form(...), doc_types: List[str] =
 
 @router.post("/analyze")
 async def analyze_financials(data: str = Form(...)):
-    """Deep AI Financial Analysis including GST reconciliation and NCLT checks."""
     try:
         payload = json.loads(data)
-        # Combine all extracted text or fields for a holistic analysis
         prompt = f"Perform a deep financial analysis for this entity based on extracted data: {json.dumps(payload)}. focus on GST reconciliation (2A vs 3B), NCLT status, and CIBIL signal awareness. Return a JSON summary with 'verdict', 'risk_alerts', and 'positive_indicators'."
         
         response = client.chat.completions.create(
@@ -238,17 +302,12 @@ async def analyze_financials(data: str = Form(...)):
             temperature=0.2
         )
         
-        import re
-        match = re.search(r'\{.*\}', response.choices[0].message.content, re.DOTALL)
-        if match:
-            return json.loads(match.group())
-        return {"analysis": response.choices[0].message.content}
+        return robust_json_parser(response.choices[0].message.content)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/score")
 async def calculate_credit_score(data: str = Form(...)):
-    """Calculate Credit Score using 5 Cs Framework."""
     try:
         payload = json.loads(data)
         prompt = f"Based on this financial data: {json.dumps(payload)}, calculate a credit score (0-100) using the 5 Cs framework (Character, Capacity, Capital, Collateral, Conditions). Return JSON: {{'total_score': N, 'breakdown': {{'character': x, 'capacity': y, ...}}, 'risk_level': 'LOW|MEDIUM|HIGH'}}"
@@ -263,10 +322,6 @@ async def calculate_credit_score(data: str = Form(...)):
             temperature=0.1
         )
         
-        import re
-        match = re.search(r'\{.*\}', response.choices[0].message.content, re.DOTALL)
-        if match:
-            return json.loads(match.group())
-        return {"score_data": response.choices[0].message.content}
+        return robust_json_parser(response.choices[0].message.content)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
