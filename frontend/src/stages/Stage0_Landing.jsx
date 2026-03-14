@@ -11,7 +11,7 @@ const STATS = [
   { val: "5 min", label: "Full Appraisal" },
   { val: "5 Cs", label: "Credit Framework" },
   { val: "360", label: "Web Research" },
-  { val: "3 Modes", label: "Full / Quick / Research" },
+  { val: "100%", label: "Explainable AI" },
 ];
 
 const FEATURES = [
@@ -429,9 +429,6 @@ export default function Stage0_Landing({ onStart, onResearch, onQuick }) {
           <button className="btn-primary" onClick={onStart}>
             <span>BEGIN APPRAISAL</span>
           </button>
-          <button className="btn-quick" onClick={onQuick}>
-            <span>QUICK APPRAISAL</span>
-          </button>
           <button className="btn-secondary" onClick={onResearch}>
             <span>RESEARCH ENGINE</span>
           </button>
@@ -633,9 +630,6 @@ export default function Stage0_Landing({ onStart, onResearch, onQuick }) {
         <div style={{ display: "flex", gap: "16px", justifyContent: "center", flexWrap: "wrap" }}>
           <button className="btn-primary" onClick={onStart}>
             <span>LAUNCH PLATFORM</span>
-          </button>
-          <button className="btn-quick" onClick={onQuick}>
-            <span>QUICK APPRAISAL</span>
           </button>
           <button className="btn-secondary" onClick={onResearch}>
             <span>RESEARCH ENGINE</span>
