@@ -479,14 +479,40 @@ async def perform_research(data: dict):
     try:
         company_name = data.get("company_name", "Unknown Entity")
         sector = data.get("sector", "General")
-
-        results = tavily_client.search(
-            query=f"{company_name} India annual results revenue profit 2022 2023 2024 financials",
-            max_results=5,
-            search_depth="basic"
-        )
-
-        context = "\n".join([f"Source: {r.get('url')}\nContent: {r.get('content', '')}" for r in results.get("results", [])])
+        
+        import asyncio
+        loop = asyncio.get_event_loop()
+        
+        queries = [
+            f"{company_name} India financial results revenue profit 2024 2025",
+            f"{company_name} credit rating ICRA CARE India 2024 2025",
+            f"{company_name} India news RBI penalty legal case NCLT 2024 2025",
+            f"{sector} India NBFC sector outlook RBI regulation 2025"
+        ]
+        
+        async def fetch_search(query):
+            return await loop.run_in_executor(
+                None, 
+                lambda: tavily_client.search(query=query, max_results=3, search_depth="basic")
+            )
+            
+        search_responses = await asyncio.gather(*(fetch_search(q) for q in queries))
+        
+        # Deduplicate results by URL
+        unique_findings = {}
+        for resp in search_responses:
+            for r in resp.get("results", []):
+                url = r.get("url")
+                if url and url not in unique_findings:
+                    unique_findings[url] = {
+                        "title": r.get("title", "No Title"),
+                        "snippet": r.get("content", ""),
+                        "url": url
+                    }
+        
+        findings_list = list(unique_findings.values())
+        context = "\n".join([f"Source: {f['url']}\nContent: {f['snippet']}" for f in findings_list])
+        sources_list = list(unique_findings.keys())
 
         response = groq_client.chat.completions.create(
             model="llama-3.3-70b-versatile",
@@ -502,7 +528,8 @@ Follow these strict output rules:
    - Capital (max 20): Net worth, promoter stake, leverage.
    - Collateral (max 20): Asset quality, security, guarantees.
    - Conditions (max 15): Sector outlook, macro environment.
-3. Return ONLY valid JSON:
+
+Return ONLY valid JSON:
 {
   "company_name": "",
   "headquarters": "",
@@ -530,12 +557,17 @@ Follow these strict output rules:
   "risk_level": "LOW or MEDIUM or HIGH",
   "positive_signals": ["Detailed signal 1", "Detailed signal 2"],
   "risk_flags": ["Detailed risk 1", "Detailed risk 2"],
+  "rbi_regulatory_flags": ["Any RBI/regulatory issues found"],
+  "litigation_risk": "LOW/MEDIUM/HIGH - brief explanation",
+  "promoter_background": "Brief summary of promoter/founder news",
+  "sector_headwinds": ["Sector-specific risk 1", "Sector-specific risk 2"],
   "latest_news": ["Recent event 1", "Recent event 2"],
   "sector_outlook": "One summary sentence",
-  "research_summary": "Overall credit opinion in 3 sentences"
+  "research_summary": "Overall credit opinion in 3 sentences",
+  "data_sources": []
 }
 Use numerical values for financials where possible. No markdown."""},
-                {"role": "user", "content": f"Company: {company_name}\n\nWeb Data:\n{context[:6000]}"}
+                {"role": "user", "content": f"Company: {company_name}\n\nWeb Data:\n{context[:8000]}"}
             ],
             max_tokens=2000,
             temperature=0.1
@@ -545,7 +577,11 @@ Use numerical values for financials where possible. No markdown."""},
         print("GROQ:", text[:300])
         match = re.search(r'\{.*\}', text, re.DOTALL)
         if match:
-            return json.loads(match.group())
+            extracted_json = json.loads(match.group())
+            # Ensure data_sources is updated if missing
+            if not extracted_json.get("data_sources"):
+                extracted_json["data_sources"] = sources_list[:10]
+            return extracted_json
         return {"error": "parsing failed", "raw": text[:500]}
 
     except Exception as e:
