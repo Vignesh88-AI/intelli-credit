@@ -10,3 +10,5 @@ groq
 tavily-python
 pytesseract
 python-docx
+pdf2image
+Pillow

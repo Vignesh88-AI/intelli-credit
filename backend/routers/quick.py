@@ -9,18 +9,46 @@ from .report import calculate_universal_score, generate_swot
 # Actually, I should check report.py for helpers like do_research or similar.
 import sys
 from .report import tavily_client, groq_client
+import io
+
+try:
+    import pytesseract
+    from pdf2image import convert_from_bytes
+    OCR_AVAILABLE = True
+except ImportError:
+    OCR_AVAILABLE = False
 
 router = APIRouter()
 
 # Temporary in-memory storage for quick reports (would be Redis/DB in prod)
 quick_reports = {}
 
+MAX_PAGES = 15
+
 def extract_text_from_file(contents: bytes, filename: str) -> str:
     import io
     if filename.endswith('.pdf'):
         import pdfplumber
+        text = ""
         with pdfplumber.open(io.BytesIO(contents)) as pdf:
-            return "\n".join([page.extract_text() or "" for page in pdf.pages])
+            total_pages = len(pdf.pages)
+            if total_pages > MAX_PAGES:
+                text += f"[Note: Document has {total_pages} pages. Analyzing first {MAX_PAGES} only.]\n\n"
+            
+            for page in pdf.pages[:MAX_PAGES]:
+                page_text = page.extract_text() or ""
+                if page_text and len(page_text.strip()) > 50:
+                    text += page_text + "\n"
+                elif OCR_AVAILABLE:
+                    try:
+                        img = page.to_image(resolution=150).original
+                        ocr_text = pytesseract.image_to_string(img)
+                        text += ocr_text + "\n"
+                    except:
+                        text += "[Scanned page — OCR failed]\n"
+                else:
+                    text += "[Scanned page — OCR not available]\n"
+        return text.strip()
     elif filename.endswith('.docx'):
         from docx import Document
         doc = Document(io.BytesIO(contents))

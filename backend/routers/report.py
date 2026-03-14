@@ -408,6 +408,36 @@ def calculate_universal_score(
         "swot": generate_swot(company_name, extracted_docs, research_findings)
     }
 
+def generate_cam_narrative(company_name: str, extracted_docs: dict,
+                           scoring: dict, research: dict, groq_client) -> str:
+    annual = extracted_docs.get("annual_report", {})
+    prompt = f"""You are a senior credit analyst at an Indian bank.
+Write a formal Credit Appraisal Memo narrative for: {company_name}
+
+Financials: Revenue={annual.get('revenue')} Cr, PAT={annual.get('pat')} Cr, 
+Total Debt={annual.get('total_debt')} Cr, Net Worth={annual.get('net_worth')} Cr,
+GNPA={annual.get('gnpa_percent', '2')}%
+
+Credit Score: {scoring.get('score', 0)}/100 | Decision: {scoring.get('decision', 'N/A')}
+Red Flags: {', '.join(scoring.get('red_flags', [])[:3])}
+
+Write exactly these 5 sections in formal Indian banking language:
+1. BORROWER BACKGROUND (2-3 sentences)
+2. FINANCIAL ANALYSIS (revenue, profit, debt ratios, GNPA)
+3. RISK ASSESSMENT (red flags, web findings, rating outlook)
+4. CREDIT OPINION (professional assessment)
+5. RECOMMENDATION (approve/reject, amount, rate, conditions)
+
+Be specific. Use Crores. Reference actual numbers."""
+
+    response = groq_client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.3,
+        max_tokens=1500
+    )
+    return response.choices[0].message.content
+
 def generate_swot(company_name: str, extracted_docs: dict, research_findings: list) -> dict:
     try:
         research_text = "\n".join([f"- {f['title']}: {f['snippet']}" for f in research_findings[:5]])
@@ -683,8 +713,17 @@ async def generate_report(data: str = Form(...)):
             p = doc.add_paragraph(style='List Bullet')
             p.add_run(f"✓ {indicator}").font.color.rgb = RGBColor(0, 128, 0)
 
-        # 5. SWOT
-        add_heading('5. SWOT Analysis', 1)
+        # 5. DETAILED CREDIT ASSESSMENT (Narrative)
+        add_heading('5. Detailed Credit Assessment', 1)
+        try:
+            narrative = generate_cam_narrative(entity_data.get("companyName", "N/A"), extracted_docs, scoring_result, research_data, groq_client)
+        except Exception as e:
+            narrative = f"Narrative generation unavailable: {str(e)}"
+        
+        doc.add_paragraph(narrative)
+
+        # 6. SWOT
+        add_heading('6. SWOT Analysis', 1)
         swot = scoring_result.get("swot", {})
         swot_rows = [
             ["STRENGTHS", "WEAKNESSES"],
@@ -701,8 +740,8 @@ async def generate_report(data: str = Form(...)):
                 if i in [0, 2]:
                     row.cells[j].paragraphs[0].runs[0].bold = True
 
-        # 6. WEB INTELLIGENCE
-        add_heading('6. Secondary Research (Web Intelligence)', 1)
+        # 7. WEB INTELLIGENCE
+        add_heading('7. Secondary Research (Web Intelligence)', 1)
         if research_findings:
             for finding in research_findings[:5]:
                 p = doc.add_paragraph()

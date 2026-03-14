@@ -2,13 +2,31 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import os
+import httpx
+import asyncio
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 
 load_dotenv()
 
 from routers import upload, extraction, report, quick
 
-app = FastAPI(title="VERIDEX API")
+async def keep_alive():
+    while True:
+        await asyncio.sleep(600)  # every 10 minutes
+        try:
+            BACKEND_URL = os.getenv("RENDER_EXTERNAL_URL", "http://localhost:8000")
+            async with httpx.AsyncClient(timeout=10) as client:
+                await client.get(f"{BACKEND_URL}/api/health")
+        except:
+            pass
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    asyncio.create_task(keep_alive())
+    yield
+
+app = FastAPI(title="VERIDEX API", lifespan=lifespan)
 
 # Configure CORS
 app.add_middleware(
@@ -27,6 +45,10 @@ app.include_router(quick.router)
 @app.get("/")
 async def root():
     return {"message": "Welcome to VERIDEX API"}
+
+@app.get("/api/health")
+async def health_check():
+    return {"status": "ok"}
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))

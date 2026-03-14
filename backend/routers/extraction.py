@@ -2,9 +2,16 @@ from fastapi import APIRouter, HTTPException, Form
 import os
 import pdfplumber
 import json
-import pytesseract
 from groq import Groq
 from typing import List, Dict, Any
+import io
+
+try:
+    import pytesseract
+    from pdf2image import convert_from_bytes
+    OCR_AVAILABLE = True
+except ImportError:
+    OCR_AVAILABLE = False
 
 router = APIRouter(prefix="/api")
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
@@ -16,6 +23,8 @@ DOC_TYPE_LABELS = {
     "borrowing_profile": "Borrowing Profile",
     "portfolio_cuts": "Portfolio Cuts"
 }
+
+MAX_PAGES = 15
 
 GENERAL_EXTRACTION_PROMPT = """You are a senior Indian credit analyst. 
 Extract financial metrics from the provided text.
@@ -113,18 +122,26 @@ async def extract_data(file_paths: List[str] = Form(...), doc_types: List[str] =
                 text = ""
                 if path.lower().endswith(".pdf"):
                     with pdfplumber.open(path) as pdf:
-                        for page in pdf.pages:
-                            text += page.extract_text() or ""
+                        total_pages = len(pdf.pages)
+                        if total_pages > MAX_PAGES:
+                            text += f"[Note: Document has {total_pages} pages. Analyzing first {MAX_PAGES} only.]\n\n"
+                        
+                        for page in pdf.pages[:MAX_PAGES]:
+                            page_text = page.extract_text() or ""
+                            if page_text and len(page_text.strip()) > 50:
+                                text += page_text + "\n"
+                            elif OCR_AVAILABLE:
+                                try:
+                                    img = page.to_image(resolution=150).original
+                                    ocr_text = pytesseract.image_to_string(img)
+                                    text += ocr_text + "\n"
+                                except:
+                                    text += "[Scanned page — OCR failed]\n"
+                            else:
+                                text += "[Scanned page — OCR not available]\n"
                 
                 if not text.strip():
-                    # OCR fallback
-                    with pdfplumber.open(path) as pdf:
-                        for page in pdf.pages:
-                            im = page.to_image(resolution=300).original
-                            text += pytesseract.image_to_string(im)
-                
-                if not text.strip():
-                    results.append({"file_path": path, "status": "error", "message": "No text found", "fields": {}})
+                    results.append({"file_path": path, "status": "error", "message": "No text found after extraction and OCR", "fields": {}})
                     continue
 
                 # Select prompt based on doc type
