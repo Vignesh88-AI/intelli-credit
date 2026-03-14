@@ -67,7 +67,37 @@ Required fields:
   "total_shares": "total number of shares outstanding"
 }
 
+Note: If this is a private limited company with no public shareholders, 
+set public_holding to "0% (Private Company - No public float)".
 If a field is not found, use null.
+"""
+
+BORROWING_PROMPT = """Extract borrowing data. Return ONLY valid JSON.
+{
+  "total_debt": "total outstanding borrowings in Cr",
+  "ncd_outstanding": "NCD outstanding amount in Cr",
+  "bank_loans": "bank term loan outstanding in Cr",
+  "average_cost_of_funds": "weighted average interest rate %",
+  "credit_rating_long_term": "current long term credit rating e.g. ICRA A, CARE BBB+",
+  "rating_outlook": "rating outlook e.g. Stable, Negative, Watch Negative",
+  "gnpa_covenant_threshold": "maximum GNPA allowed per covenant %",
+  "debt_equity_ratio": "actual current debt to equity ratio"
+}
+NOTE: Do NOT put the covenant threshold value in gnpa_percent. 
+If a field is not found use null.
+"""
+
+PORTFOLIO_CUTS_PROMPT = """Extract loan portfolio performance data. Return ONLY valid JSON.
+{
+  "total_aum": "Total Assets Under Management in Cr",
+  "gnpa_percent": "Gross Non-Performing Assets percentage",
+  "nnpa_percent": "Net Non-Performing Assets percentage",
+  "collection_efficiency": "Average collection efficiency percentage",
+  "ptp_30_plus": "Portfolio at Risk (30+ DPD) percentage",
+  "ptp_90_plus": "Portfolio at Risk (90+ DPD) percentage",
+  "top_3_states_concentration": "Percentage of portfolio in top 3 states"
+}
+If a field is not found use null.
 """
 
 @router.post("/extract")
@@ -119,6 +149,10 @@ async def extract_data(file_paths: List[str] = Form(...), doc_types: List[str] =
                     system_prompt = SHAREHOLDING_PROMPT
                 elif detected_type == "annual_report":
                     system_prompt = GENERAL_EXTRACTION_PROMPT
+                elif detected_type == "borrowing_profile":
+                    system_prompt = BORROWING_PROMPT
+                elif detected_type == "portfolio_cuts":
+                    system_prompt = PORTFOLIO_CUTS_PROMPT
 
                 # Groq call for extraction
                 response = client.chat.completions.create(

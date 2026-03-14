@@ -144,7 +144,8 @@ const Stage4_Report = ({ onBack, entityData }) => {
         setResearch(researchData);
 
         // --- DYNAMIC SCORING LOGIC ---
-        let targetScore = 72;
+        // Use backend score if available (Intelligence Penalties)
+        let targetScore = researchData?.score || 72;
         let capacityScore = 18;
         
         const allExtractedFields = entityData?.extractedData?.reduce((acc, curr) => ({ ...acc, ...curr.fields }), {}) || {};
@@ -152,9 +153,12 @@ const Stage4_Report = ({ onBack, entityData }) => {
         if (entityData?.extractedData) {
           const revGrowth = allExtractedFields.revenue_growth || allExtractedFields['Revenue Growth'];
           if (revGrowth && parseFloat(revGrowth) > 20) capacityScore = 20;
-          const margin = allExtractedFields.net_profit_margin || allExtractedFields['Net Profit Margin'];
-          if (margin && parseFloat(margin) > 10) targetScore += 5;
-          targetScore = 16 + capacityScore + 14 + 14 + 10;
+          // If we didn't receive a backend score, calculate a base one
+          if (!researchData?.score) {
+            const margin = allExtractedFields.net_profit_margin || allExtractedFields['Net Profit Margin'];
+            if (margin && parseFloat(margin) > 10) targetScore += 5;
+            targetScore = 16 + capacityScore + 14 + 14 + 10;
+          }
         }
 
         setScoreData({
@@ -180,7 +184,7 @@ const Stage4_Report = ({ onBack, entityData }) => {
         }, 2000 / steps);
         
         setVerdict({
-          status: targetScore >= 80 ? 'APPROVE' : targetScore >= 70 ? 'APPROVE WITH CONDITIONS' : 'REJECT',
+          status: researchData?.credit_decision || (targetScore >= 80 ? 'APPROVE' : targetScore >= 70 ? 'APPROVE WITH CONDITIONS' : 'REJECT'),
         });
       } catch (error) {
         setResearch(mockResearchData);
@@ -234,7 +238,8 @@ const Stage4_Report = ({ onBack, entityData }) => {
   const getStatusColor = (status) => {
     if (status === 'APPROVE') return "#22c55e";
     if (status === 'APPROVE WITH CONDITIONS') return "#f0a500";
-    return "#ef4444";
+    if (status?.includes('REJECT')) return "#ef4444";
+    return "#f0a500";
   };
 
   // --- CHART DATA ---
@@ -368,7 +373,7 @@ const Stage4_Report = ({ onBack, entityData }) => {
                     { label: "Capacity (Revenue & Profit)", val: scoreData.breakdown.capacity, max: 20 },
                     { label: "Capital (Net Worth & Leverage)", val: scoreData.breakdown.capital, max: 20 },
                     { label: "Collateral (Asset Coverage)", val: scoreData.breakdown.collateral, max: 20 },
-                    { label: "Conditions (Sector Outlook)", val: scoreData.breakdown.conditions, max: 15 },
+                    { label: "Conditions (Sector Outlook)", val: scoreData.breakdown.conditions, max: 20 },
                   ].map((row, i) => (
                     <tr key={i} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                       <td style={{ padding: "14px 0", fontSize: "14px", color: "rgba(255,255,255,0.7)" }}>{row.label}</td>
@@ -386,14 +391,16 @@ const Stage4_Report = ({ onBack, entityData }) => {
               <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "16px" }}>
                 <svg width="150" height="150" viewBox="0 0 200 200">
                   <circle cx="100" cy="100" r="90" stroke="rgba(255,255,255,0.03)" strokeWidth="12" fill="transparent" />
-                  <circle cx="100" cy="100" r="90" stroke={getStatusColor(verdict?.status)} strokeWidth="12" fill="transparent" 
+                  <circle cx="100" cy="100" r="90" 
+                    stroke={animatedScore >= 70 ? '#f0a500' : animatedScore >= 50 ? '#FF6B35' : '#ef4444'} 
+                    strokeWidth="12" fill="transparent" 
                     strokeDasharray="565" strokeDashoffset={565 - (565 * animatedScore / 100)} 
                     strokeLinecap="round" transform="rotate(-90 100 100)" style={{ transition: "stroke-dashoffset 0.8s ease" }} />
                 </svg>
                 <div style={{ position: "absolute", fontSize: "40px", fontWeight: "900" }}>{animatedScore}</div>
               </div>
-              <div style={{ color: getStatusColor(verdict?.status), fontWeight: "900", fontSize: "14px", letterSpacing: "2px" }}>
-                {animatedScore >= 80 ? "LOW RISK" : animatedScore >= 65 ? "MODERATE RISK" : "HIGH RISK"}
+              <div style={{ color: animatedScore >= 70 ? '#f0a500' : animatedScore >= 50 ? '#FF6B35' : '#ef4444', fontWeight: "900", fontSize: "14px", letterSpacing: "2px" }}>
+                {animatedScore >= 70 ? "MODERATE RISK" : animatedScore >= 50 ? "HIGH RISK" : "CRITICAL RISK"}
               </div>
           </div>
       </div>

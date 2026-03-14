@@ -17,6 +17,58 @@ router = APIRouter(prefix="/api")
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 tavily_client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
 
+def apply_web_intelligence_penalties(base_score: int, research_findings: list) -> tuple:
+    penalty = 0
+    red_flags = []
+    
+    # Convert all findings to lowercase text for scanning
+    all_text = " ".join([
+        (f.get("title", "") + " " + f.get("snippet", "")).lower()
+        for f in research_findings
+    ])
+    
+    # Critical penalties
+    if any(word in all_text for word in ["downgraded", "rating downgrade", "bbb-", "d rated"]):
+        penalty += 15
+        red_flags.append("Credit rating downgraded by major agency")
+    
+    if any(word in all_text for word in ["breach", "breached", "covenant violation", "default"]):
+        penalty += 20
+        red_flags.append("Loan covenant breach / NCD default detected")
+    
+    if any(word in all_text for word in ["liquidity crisis", "stressed asset sale", "sell majority stake", "survival"]):
+        penalty += 15
+        red_flags.append("Liquidity stress — stressed asset sale reported")
+    
+    if any(word in all_text for word in ["fraud", "sebi penalty", "rbi penalty", "nclt insolvency"]):
+        penalty += 20
+        red_flags.append("Regulatory action / fraud allegation detected")
+    
+    if any(word in all_text for word in ["loss", "recorded a loss", "net loss", "profits to peril"]):
+        penalty += 10
+        red_flags.append("Company recorded net loss in recent fiscal year")
+    
+    # Moderate penalties
+    if any(word in all_text for word in ["watch negative", "negative outlook", "under watch"]):
+        penalty += 8
+        red_flags.append("Rating placed on Watch Negative")
+    
+    if any(word in all_text for word in ["npa", "asset quality worsened", "overdue"]):
+        penalty += 5
+        red_flags.append("Asset quality deterioration flagged in news")
+    
+    final_score = max(base_score - penalty, 10)  # floor at 10
+    
+    # Determine decision based on final score
+    if final_score >= 70:
+        decision = "APPROVE WITH CONDITIONS"
+    elif final_score >= 50:
+        decision = "CONDITIONAL — ENHANCED DUE DILIGENCE REQUIRED"
+    else:
+        decision = "REJECT"
+    
+    return final_score, decision, red_flags
+
 @router.post("/research")
 async def perform_research(data: dict):
     try:
@@ -94,6 +146,17 @@ async def perform_research(data: dict):
         match = re.search(r'\{.*\}', text, re.DOTALL)
         if match:
             final_data = json.loads(match.group())
+            
+            # Apply Intelligence Penalties
+            base_score = 72 # Default base score if not calculated elsewhere
+            final_score, decision, ai_red_flags = apply_web_intelligence_penalties(base_score, findings)
+            
+            # Merge flags
+            existing_red = final_data.get("red_flags", [])
+            final_data["red_flags"] = list(set(existing_red + ai_red_flags))
+            final_data["score"] = final_score
+            final_data["credit_decision"] = decision
+            
             # Inject raw findings for frontend to display links
             final_data["findings"] = findings
             final_data["sources_analyzed"] = len(findings)
