@@ -91,24 +91,6 @@ const STYLES = {
   }
 };
 
-const mockResearchData = {
-  company_news: ["No recent adverse news found"],
-  promoter_risk: "Low - No negative findings",
-  sector_outlook: "Positive - NBFC sector growing",
-  legal_flags: [],
-  macro_factors: ["RBI supportive of NBFC growth"],
-  overall_sentiment: "Positive",
-  sources_analyzed: 5,
-  swot: {
-    strengths: ["Strong capitalization", "Proven management"],
-    weaknesses: ["High leverage", "Asset concentration"],
-    opportunities: ["Digital banking pivot", "Rural expansion"],
-    threats: ["Regulatory tightening", "Macro volatility"]
-  },
-  reasoning_engine: "The rating reflects robust capital buffers triangulated against minor legal overheads found in court records. Growth remains consistent with sector averages.",
-  market_sentiment: "Neutral"
-};
-
 const Stage4_Report = ({ onBack, entityData }) => {
   const [loading, setLoading] = useState(true);
   const [research, setResearch] = useState(null);
@@ -122,60 +104,40 @@ const Stage4_Report = ({ onBack, entityData }) => {
 
   useEffect(() => {
     const runFinalAnalysis = async () => {
+      setLoading(true);
       try {
         const payload = {
-          company_name: entityData?.entity?.companyName || entityData?.name || entityData?.entity_name || "Unknown Entity",
-          sector: entityData?.entity?.sector || entityData?.industry || "NBFC",
-          extracted_docs: entityData?.extractedData || [],
-          entity: {
-            loan_amount: parseFloat(entityData?.loan?.amount || 50),
-            interest_rate: parseFloat(entityData?.loan?.rate || 1.5),
-            tenure: parseInt(entityData?.loan?.tenure || 36),
-            loan_type: entityData?.loan?.loanType || "Term Loan"
-          }
+          company_name: entityData?.entity?.companyName || entityData?.name || "Unknown Entity",
+          sector: entityData?.entity?.sector || "NBFC"
         };
-        
-        console.log("Research payload:", payload);
         
         const API_URL = import.meta.env.VITE_API_URL || 'https://intelli-credit-7kzw.onrender.com';
         
-        let researchData = mockResearchData;
-        try {
-          const res = await axios.post(`${API_URL}/api/research`, payload);
-          researchData = res?.data || mockResearchData;
-        } catch (apiError) {
-          console.error('Research API call failed, using mock data', apiError);
-        }
-        
-        const researchFindings = researchData?.findings || [];
+        // Fetch REAL research data
+        const res = await axios.post(`${API_URL}/api/research`, payload);
+        const researchData = res.data;
         setResearch(researchData);
 
         // --- DYNAMIC SCORING LOGIC ---
-        // Use backend score if available (Intelligence Penalties)
-        let targetScore = researchData?.score || 72;
-        let capacityScore = 18;
+        // Prioritize backend calculated scores if they exist
+        const targetScore = researchData?.total_score || researchData?.score || 72;
         
-        const allExtractedFields = entityData?.extractedData?.reduce((acc, curr) => ({ ...acc, ...curr.fields }), {}) || {};
-        
-        if (entityData?.extractedData) {
-          const revGrowth = allExtractedFields.revenue_growth || allExtractedFields['Revenue Growth'];
-          if (revGrowth && parseFloat(revGrowth) > 20) capacityScore = 20;
-          // If we didn't receive a backend score, calculate a base one
-          if (!researchData?.score) {
-            const margin = allExtractedFields.net_profit_margin || allExtractedFields['Net Profit Margin'];
-            if (margin && parseFloat(margin) > 10) targetScore += 5;
-            targetScore = 16 + capacityScore + 14 + 14 + 10;
-          }
-        }
-
         setScoreData({
           total: targetScore,
-          breakdown: { character: 16, capacity: capacityScore, capital: 14, collateral: 14, conditions: 10 },
-          red_flags: researchData?.red_flags || [],
-          green_flags: researchData?.green_flags || []
+          breakdown: { 
+            character: researchData?.character_score || 16, 
+            capacity: researchData?.capacity_score || 18, 
+            capital: researchData?.capital_score || 14, 
+            collateral: researchData?.collateral_score || 14, 
+            conditions: researchData?.conditions_score || 10 
+          },
+          red_flags: researchData?.risk_flags || [],
+          green_flags: researchData?.positive_signals || [],
+          recommended_amount: researchData?.recommended_amount,
+          recommended_rate: researchData?.recommended_rate
         });
 
-        // ANIMATION LOGIC - Exactly ~2 seconds implementation
+        // ANIMATION LOGIC
         let current = 0;
         const steps = 100;
         const increment = targetScore / steps;
@@ -191,11 +153,11 @@ const Stage4_Report = ({ onBack, entityData }) => {
         }, 2000 / steps);
         
         setVerdict({
-          status: researchData?.credit_decision || (targetScore >= 80 ? 'APPROVE' : targetScore >= 70 ? 'APPROVE WITH CONDITIONS' : 'REJECT'),
+          status: researchData?.credit_decision || (targetScore >= 75 ? 'APPROVE' : targetScore >= 60 ? 'APPROVE WITH CONDITIONS' : 'REJECT'),
         });
       } catch (error) {
-        setResearch(mockResearchData);
-        setVerdict({ status: 'APPROVE WITH CONDITIONS' });
+        console.error("Analysis Error:", error);
+        setVerdict({ status: 'ERROR' });
       } finally {
         setLoading(false);
       }
@@ -212,13 +174,14 @@ const Stage4_Report = ({ onBack, entityData }) => {
         entity: entityData?.entity || {},
         loan: entityData?.loan || {},
         extracted: entityData?.extractedData || {},
-        research: research || mockResearchData,
+        research: research || {},
         score: scoreData
       });
       const form = new FormData();
       form.append('data', allData);
       const API_URL = import.meta.env.VITE_API_URL || 'https://intelli-credit-7kzw.onrender.com';
       const response = await axios.post(`${API_URL}/api/generate-cam`, form, { responseType: 'blob' });
+      
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -235,9 +198,10 @@ const Stage4_Report = ({ onBack, entityData }) => {
 
   if (loading) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "100px 0" }}>
+      <div style={{ ...STYLES.glassCard, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "100px 0", border: "none" }}>
         <Loader2 className="animate-spin" size={64} color="#f0a500" />
-        <h2 style={{ marginTop: "24px", fontSize: "24px", fontWeight: "700" }}>Synthesizing Credit CAM...</h2>
+        <h2 style={{ marginTop: "24px", fontSize: "24px", fontWeight: "700" }}>Synthesizing REAL-TIME Intelligence...</h2>
+        <p style={{ color: "rgba(255,255,255,0.5)", marginTop: "8px" }}>Fetching latest RBI flags and financial news</p>
       </div>
     );
   }
@@ -245,18 +209,21 @@ const Stage4_Report = ({ onBack, entityData }) => {
   const getStatusColor = (status) => {
     if (status === 'APPROVE') return "#22c55e";
     if (status === 'APPROVE WITH CONDITIONS') return "#f0a500";
-    if (status?.includes('REJECT')) return "#ef4444";
+    if (status?.includes('REJECT') || status === 'ERROR') return "#ef4444";
     return "#f0a500";
   };
 
   // --- CHART DATA ---
   const allExtractedFields = entityData?.extractedData?.reduce((acc, curr) => ({ ...acc, ...curr.fields }), {}) || {};
   
-  const revenueHistory = [
-    { year: 'FY23', value: allExtractedFields.revenue_fy23 || 320 },
-    { year: 'FY24', value: allExtractedFields.revenue_fy24 || 438 },
-    { year: 'FY25', value: allExtractedFields.revenue || allExtractedFields.revenue_fy25 || 542 },
-  ];
+  // Use revenue history from research if available
+  const revenueHistory = research?.revenue_history?.length > 0 
+    ? research.revenue_history.map(h => ({ year: h.year, value: h.revenue_cr }))
+    : [
+        { year: 'FY23', value: allExtractedFields.revenue_fy23 || 0 },
+        { year: 'FY24', value: allExtractedFields.revenue_fy24 || 0 },
+        { year: 'FY25', value: allExtractedFields.revenue || 0 },
+      ];
 
   const barData = {
     labels: revenueHistory.map(d => d.year),
@@ -269,12 +236,12 @@ const Stage4_Report = ({ onBack, entityData }) => {
     }]
   };
 
-  const liveDebt = parseFloat(allExtractedFields.total_debt || allExtractedFields.Total_Debt || 0) || 3180;
-  const liveNW   = parseFloat(allExtractedFields.net_worth   || allExtractedFields.Net_Worth   || 0) || 832;
+  const liveDebt = parseFloat(research?.total_debt || allExtractedFields.total_debt || 0);
+  const liveNW   = parseFloat(research?.net_worth || allExtractedFields.net_worth || 0);
   const pieData = {
     labels: [
-      `Total Debt: INR ${liveDebt} Cr (${Math.round(liveDebt/(liveDebt+liveNW)*100)}%)`,
-      `Net Worth: INR ${liveNW} Cr (${Math.round(liveNW/(liveDebt+liveNW)*100)}%)`
+      `Total Debt: INR ${liveDebt} Cr`,
+      `Net Worth: INR ${liveNW} Cr`
     ],
     datasets: [{
       data: [liveDebt, liveNW],
@@ -302,8 +269,7 @@ const Stage4_Report = ({ onBack, entityData }) => {
         beginAtZero: true, 
         grid: { color: 'rgba(255,255,255,0.05)' }, 
         ticks: { color: 'rgba(255,255,255,0.4)' },
-        title: { display: true, text: 'Revenue (INR Cr)',
- color: 'rgba(255,255,255,0.6)' }
+        title: { display: true, text: 'Revenue (INR Cr)', color: 'rgba(255,255,255,0.6)' }
       },
       x: { grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.4)' } }
     } : {}
@@ -321,6 +287,7 @@ const Stage4_Report = ({ onBack, entityData }) => {
           <h1 style={{ fontSize: "32px", fontWeight: "900", margin: 0 }}>{entityData?.entity?.companyName}</h1>
           <div style={{ display: "flex", gap: "10px", marginTop: "12px" }}>
              <span style={{ fontSize: "11px", background: "rgba(255,255,255,0.1)", padding: "4px 10px", borderRadius: "4px", color: "rgba(255,255,255,0.6)" }}>{entityData?.entity?.sector}</span>
+             <span style={{ fontSize: "11px", background: "rgba(240, 165, 0, 0.1)", padding: "4px 10px", borderRadius: "4px", color: "#f0a500" }}>{research?.risk_level || "NOT RATED"}</span>
           </div>
         </div>
         <div style={{ 
@@ -334,79 +301,51 @@ const Stage4_Report = ({ onBack, entityData }) => {
           <div style={{ fontSize: "20px", fontWeight: "900", color: getStatusColor(verdict?.status) }}>{verdict?.status}</div>
         </div>
       </div>
-      {/* NEW: REASONING ENGINE SECTION */}
+
+      {/* RESEARCH SUMMARY */}
       <div style={{ ...STYLES.glassCard, borderLeft: "4px solid #f0a500", background: "rgba(240, 165, 0, 0.03)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px" }}>
             <Shield size={24} color="#f0a500" />
-            <h3 style={{ ...STYLES.sectionTitle, margin: 0 }}>Reasoning Engine Intelligence</h3>
+            <h3 style={{ ...STYLES.sectionTitle, margin: 0 }}>Secondary Research Intelligence</h3>
           </div>
           <p style={{ fontSize: "15px", lineHeight: "1.6", color: "rgba(255,255,255,0.7)", margin: 0 }}>
-             {research?.reasoning_engine || "AI is triangulating document data with real-time web intelligence to provide a logical basis for the decision."}
+             {research?.research_summary || "Real-time web signals analysis."}
           </p>
-          <div style={{ marginTop: "16px", display: "flex", gap: "8px" }}>
-             <span style={{ fontSize: "10px", background: "rgba(255,255,255,0.05)", padding: "4px 8px", borderRadius: "4px", color: "rgba(255,255,255,0.4)" }}>TRIANGULATION ACTIVE</span>
-             <span style={{ fontSize: "10px", background: "rgba(34, 197, 94, 0.1)", padding: "4px 8px", borderRadius: "4px", color: "#22c55e" }}>SENTIMENT: {research?.market_sentiment?.toUpperCase() || "NEUTRAL"}</span>
+          <div style={{ marginTop: "16px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
+             <span style={{ fontSize: "10px", background: "rgba(255,255,255,0.05)", padding: "4px 8px", borderRadius: "4px", color: "rgba(255,255,255,0.4)" }}>SECTOR OUTLOOK: {research?.sector_outlook?.toUpperCase()}</span>
+             <span style={{ fontSize: "10px", background: "rgba(34, 197, 94, 0.1)", padding: "4px 8px", borderRadius: "4px", color: "#22c55e" }}>PROMOTER: {research?.promoter_background?.slice(0, 50)}...</span>
           </div>
       </div>
 
-      {/* TRIANGULATION PANEL */}
-      <div style={{ ...STYLES.glassCard, borderLeft: '4px solid #a78bfa', background: 'rgba(167,139,250,0.03)' }}>
-        <h3 style={{ ...STYLES.sectionTitle, color: '#a78bfa' }}>
-          <Globe size={20} /> Pre-Cognitive Triangulation
-        </h3>
-        <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', marginBottom: '20px', marginTop: 0 }}>
-          AI cross-validates document data against real-time web intelligence to detect inconsistencies and confirm signals.
-        </p>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
-          {[
-            {
-              label: 'ASSET QUALITY (GNPA)',
-              doc: (() => { const v = allExtractedFields.gnpa_percent || allExtractedFields.gnpa; return v ? `${v}%` : 'Not extracted'; })(),
-              web: research?.findings?.find(f => f.snippet?.toLowerCase().includes('npa') || f.snippet?.toLowerCase().includes('asset quality'))?.snippet?.slice(0, 90) || 'No web mention found',
-              color: '#22c55e'
-            },
-            {
-              label: 'CREDIT RATING',
-              doc: (() => { const r = allExtractedFields.credit_rating_long_term; const o = allExtractedFields.rating_outlook; return r ? `${r}${o ? ` (${o})` : ''}` : 'Not extracted'; })(),
-              web: research?.findings?.find(f => f.snippet?.toLowerCase().includes('rating') || f.snippet?.toLowerCase().includes('icra') || f.snippet?.toLowerCase().includes('care'))?.snippet?.slice(0, 90) || 'No web mention found',
-              color: '#f0a500'
-            },
-            {
-              label: 'FINANCIAL PERFORMANCE',
-              doc: (() => { const r = allExtractedFields.revenue; const p = allExtractedFields.pat; return (r || p) ? `Rev ₹${r||'—'} Cr | PAT ₹${p||'—'} Cr` : 'Not extracted'; })(),
-              web: research?.findings?.[0]?.snippet?.slice(0, 90) || 'No web mention found',
-              color: '#60a5fa'
-            },
-          ].map((item, i) => (
-            <div key={i} style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '12px', padding: '16px', border: '1px solid rgba(255,255,255,0.07)' }}>
-              <div style={{ fontSize: '10px', fontWeight: '700', color: item.color, letterSpacing: '1px', marginBottom: '10px' }}>{item.label}</div>
-              <div style={{ marginBottom: '10px' }}>
-                <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', marginBottom: '3px' }}>FROM DOCUMENTS</div>
-                <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.85)', fontFamily: 'monospace' }}>{item.doc}</div>
-              </div>
-              <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '10px' }}>
-                <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', marginBottom: '3px' }}>FROM WEB</div>
-                <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)', lineHeight: '1.5' }}>{item.web}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* NEW: RBI REGULATORY FLAGS */}
+      {research?.rbi_regulatory_flags?.length > 0 && (
+         <div style={{ ...STYLES.glassCard, borderLeft: "4px solid #ef4444", background: "rgba(239, 68, 68, 0.05)" }}>
+            <h3 style={{ ...STYLES.sectionTitle, color: "#ef4444" }}>
+              <ShieldAlert size={20} /> RBI & Regulatory Flags
+            </h3>
+            <ul style={{ padding: 0, margin: 0, listStyle: "none", fontSize: "14px", color: "rgba(255,255,255,0.8)", lineHeight: "1.6" }}>
+              {research.rbi_regulatory_flags.map((flag, i) => (
+                <li key={i} style={{ marginBottom: "8px", display: "flex", gap: "10px" }}>
+                  <span style={{ color: "#ef4444", fontWeight: "bold" }}>●</span> {flag}
+                </li>
+              ))}
+            </ul>
+         </div>
+      )}
 
-      {/* 2. CHARTS ROW */}
+      {/* CHARTS ROW */}
       <div style={{ display: "flex", gap: "24px", width: "100%" }}>
          <div style={{ ...STYLES.glassCard, flex: 1 }}>
             <h4 style={{ fontSize: "13px", fontWeight: "700", marginBottom: "20px", color: "rgba(255,255,255,0.4)", display: "flex", alignItems: "center", gap: "8px" }}>
-              <BarChart3 size={16} color="#f0a500" /> Revenue Trajectory (INR Cr)
+              <BarChart3 size={16} color="#f0a500" /> Revenue Growth (INR Cr)
             </h4>
             <div style={{ height: "300px", position: "relative" }}>
                <Bar data={barData} options={chartOptions('bar')} />
-               {/* Values on top of bars would require datalabels plugin, but we can show them visually by setting clear axis */}
             </div>
          </div>
          <div style={{ ...STYLES.glassCard, flex: 1 }}>
             <h4 style={{ fontSize: "13px", fontWeight: "700", marginBottom: "20px", color: "rgba(255,255,255,0.4)", display: "flex", alignItems: "center", gap: "8px" }}>
-              <PieIcon size={16} color="#ef4444" /> Debt-Equity Structure
+              <PieIcon size={16} color="#ef4444" /> Capital Structure
             </h4>
             <div style={{ height: "300px" }}>
                <Pie data={pieData} options={chartOptions('pie')} />
@@ -414,20 +353,20 @@ const Stage4_Report = ({ onBack, entityData }) => {
          </div>
       </div>
 
-      {/* 3. CREDIT MATRIX (5Cs + SCORE) */}
+      {/* CREDIT MATRIX */}
       <div style={{ ...STYLES.glassCard, display: "flex", gap: "40px", alignItems: "center" }}>
           <div style={{ flex: 1 }}>
               <h3 style={STYLES.sectionTitle}>
-                <Shield size={20} /> 5 Cs Framework Analysis
+                <Shield size={20} /> AI Score Breakdown
               </h3>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <tbody>
                   {[
-                    { label: "Character (Promoter Background)", val: scoreData.breakdown.character, max: 20 },
-                    { label: "Capacity (Revenue & Profit)", val: scoreData.breakdown.capacity, max: 20 },
-                    { label: "Capital (Net Worth & Leverage)", val: scoreData.breakdown.capital, max: 20 },
-                    { label: "Collateral (Asset Coverage)", val: scoreData.breakdown.collateral, max: 20 },
-                    { label: "Conditions (Sector Outlook)", val: scoreData.breakdown.conditions, max: 20 },
+                    { label: "Character (Litigation & Promoter)", val: scoreData.breakdown.character, max: 20 },
+                    { label: "Capacity (Interest Coverage)", val: scoreData.breakdown.capacity, max: 25 },
+                    { label: "Capital (CAR & DE Ratio)", val: scoreData.breakdown.capital, max: 20 },
+                    { label: "Collateral (Asset Quality)", val: scoreData.breakdown.collateral, max: 20 },
+                    { label: "Conditions (Sector Headwinds)", val: scoreData.breakdown.conditions, max: 15 },
                   ].map((row, i) => (
                     <tr key={i} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                       <td style={{ padding: "14px 0", fontSize: "14px", color: "rgba(255,255,255,0.7)" }}>{row.label}</td>
@@ -446,144 +385,79 @@ const Stage4_Report = ({ onBack, entityData }) => {
                 <svg width="150" height="150" viewBox="0 0 200 200">
                   <circle cx="100" cy="100" r="90" stroke="rgba(255,255,255,0.03)" strokeWidth="12" fill="transparent" />
                   <circle cx="100" cy="100" r="90" 
-                    stroke={animatedScore >= 70 ? '#f0a500' : animatedScore >= 50 ? '#FF6B35' : '#ef4444'} 
+                    stroke={animatedScore >= 75 ? '#22c55e' : animatedScore >= 60 ? '#f0a500' : '#ef4444'} 
                     strokeWidth="12" fill="transparent" 
                     strokeDasharray="565" strokeDashoffset={565 - (565 * animatedScore / 100)} 
                     strokeLinecap="round" transform="rotate(-90 100 100)" style={{ transition: "stroke-dashoffset 0.8s ease" }} />
                 </svg>
                 <div style={{ position: "absolute", fontSize: "40px", fontWeight: "900" }}>{animatedScore}</div>
               </div>
-              <div style={{ color: animatedScore >= 70 ? '#f0a500' : animatedScore >= 50 ? '#FF6B35' : '#ef4444', fontWeight: "900", fontSize: "14px", letterSpacing: "2px" }}>
-                {animatedScore >= 70 ? "MODERATE RISK" : animatedScore >= 50 ? "HIGH RISK" : "CRITICAL RISK"}
+              <div style={{ color: animatedScore >= 75 ? '#22c55e' : animatedScore >= 60 ? '#f0a500' : '#ef4444', fontWeight: "900", fontSize: "14px", letterSpacing: "2px" }}>
+                {research?.risk_level || "CALCULATING"}
               </div>
           </div>
       </div>
 
-      {/* 4. EWS ROW */}
+      {/* POSITIVES & RISKS */}
       <div style={{ display: "flex", gap: "24px", width: "100%" }}>
-         <div style={{ flex: 1, padding: "24px", borderRadius: "16px", background: "rgba(239, 68, 68, 0.05)", border: "1px solid rgba(239, 68, 68, 0.2)" }}>
-            <h4 style={{ color: "#ef4444", fontSize: "14px", fontWeight: "800", marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
-              <AlertTriangle size={18} /> CRITICAL RISK ALERTS
-            </h4>
-            <ul style={{ padding: 0, margin: 0, listStyle: "none", fontSize: "13px", color: "rgba(255,255,255,0.6)", lineHeight: "1.6" }}>
-               {scoreData.red_flags?.length > 0 ? scoreData.red_flags.map((f, i) => (
-                 <li key={i} style={{ marginBottom: "10px", display: "flex", gap: "8px" }}>
-                   <span style={{ color: "#ef4444" }}>-</span> {f}
-                 </li>
-               )) : (
-                 <li style={{ marginBottom: "10px", display: "flex", gap: "8px" }}>
-                   <span style={{ color: "#ef4444" }}>-</span> No critical risk alerts identified.
-                 </li>
-               )}
-            </ul>
-         </div>
          <div style={{ flex: 1, padding: "24px", borderRadius: "16px", background: "rgba(34, 197, 94, 0.05)", border: "1px solid rgba(34, 197, 94, 0.2)" }}>
             <h4 style={{ color: "#22c55e", fontSize: "14px", fontWeight: "800", marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
-              <CheckCircle size={18} /> POSITIVE INDICATORS
+              <CheckCircle size={18} /> POSITIVE SIGNALS
             </h4>
             <ul style={{ padding: 0, margin: 0, listStyle: "none", fontSize: "13px", color: "rgba(255,255,255,0.6)", lineHeight: "1.6" }}>
-               {scoreData.green_flags?.length > 0 ? scoreData.green_flags.map((f, i) => (
-                 <li key={i} style={{ marginBottom: "10px", display: "flex", gap: "8px" }}>
-                   <span style={{ color: "#22c55e" }}>-</span> {f}
-                 </li>
-               )) : (
-                 <li style={{ marginBottom: "10px", display: "flex", gap: "8px" }}>
-                   <span style={{ color: "#22c55e" }}>-</span> Standard industry benchmarks met.
-                 </li>
-               )}
+               {research?.positive_signals?.map((s, i) => <li key={i} style={{ marginBottom: "8px" }}>✓ {s}</li>)}
+            </ul>
+         </div>
+         <div style={{ flex: 1, padding: "24px", borderRadius: "16px", background: "rgba(239, 68, 68, 0.05)", border: "1px solid rgba(239, 68, 68, 0.2)" }}>
+            <h4 style={{ color: "#ef4444", fontSize: "14px", fontWeight: "800", marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
+              <AlertTriangle size={18} /> RISK FLAGS
+            </h4>
+            <ul style={{ padding: 0, margin: 0, listStyle: "none", fontSize: "13px", color: "rgba(255,255,255,0.6)", lineHeight: "1.6" }}>
+               {research?.risk_flags?.map((f, i) => <li key={i} style={{ marginBottom: "8px" }}>⚠ {f}</li>)}
             </ul>
          </div>
       </div>
 
-      {/* NEW: SWOT ANALYSIS GRID */}
-      <div style={STYLES.glassCard}>
-          <h3 style={STYLES.sectionTitle}>SWOT Analysis (Pre-Cognitive Insight)</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-             <div style={{ padding: "16px", background: "rgba(34, 197, 94, 0.05)", borderRadius: "12px", border: "1px solid rgba(34, 197, 94, 0.1)" }}>
-                <div style={{ color: "#22c55e", fontSize: "11px", fontWeight: "900", marginBottom: "8px" }}>STRENGTHS</div>
-                <ul style={{ padding: 0, margin: 0, listStyle: "none", fontSize: "13px", color: "rgba(255,255,255,0.6)" }}>
-                  {research?.swot?.strengths?.map((s, i) => <li key={i} style={{ marginBottom: "4px" }}>- {s}</li>)}
-                </ul>
-             </div>
-             <div style={{ padding: "16px", background: "rgba(239, 68, 68, 0.05)", borderRadius: "12px", border: "1px solid rgba(239, 68, 68, 0.1)" }}>
-                <div style={{ color: "#ef4444", fontSize: "11px", fontWeight: "900", marginBottom: "8px" }}>WEAKNESSES</div>
-                <ul style={{ padding: 0, margin: 0, listStyle: "none", fontSize: "13px", color: "rgba(255,255,255,0.6)" }}>
-                  {research?.swot?.weaknesses?.map((s, i) => <li key={i} style={{ marginBottom: "4px" }}>- {s}</li>)}
-                </ul>
-             </div>
-             <div style={{ padding: "16px", background: "rgba(240, 165, 0, 0.05)", borderRadius: "12px", border: "1px solid rgba(240, 165, 0, 0.1)" }}>
-                <div style={{ color: "#f0a500", fontSize: "11px", fontWeight: "900", marginBottom: "8px" }}>OPPORTUNITIES</div>
-                <ul style={{ padding: 0, margin: 0, listStyle: "none", fontSize: "13px", color: "rgba(255,255,255,0.6)" }}>
-                  {research?.swot?.opportunities?.map((s, i) => <li key={i} style={{ marginBottom: "4px" }}>- {s}</li>)}
-                </ul>
-             </div>
-             <div style={{ padding: "16px", background: "rgba(255, 255, 255, 0.02)", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.05)" }}>
-                <div style={{ color: "rgba(255,255,255,0.4)", fontSize: "11px", fontWeight: "900", marginBottom: "8px" }}>THREATS</div>
-                <ul style={{ padding: 0, margin: 0, listStyle: "none", fontSize: "13px", color: "rgba(255,255,255,0.6)" }}>
-                  {research?.swot?.threats?.map((s, i) => <li key={i} style={{ marginBottom: "4px" }}>- {s}</li>)}
-                </ul>
-             </div>
-          </div>
-      </div>
-
-      {/* 5. MARKET INSIGHT */}
+      {/* NEWS SECTION */}
       <div style={STYLES.glassCard}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-            <h3 style={{ ...STYLES.sectionTitle, margin: 0 }}>
-              Web Intelligence Findings
-            </h3>
-            <span style={{ fontSize: "11px", fontWeight: "700", color: "rgba(255,255,255,0.3)" }}>{research?.sources_analyzed || 5} SOURCES ANALYZED</span>
+            <h3 style={STYLES.sectionTitle}><Globe size={20} /> Latest Headlines</h3>
+            <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.3)" }}>REAL-TIME FEED</span>
           </div>
-          
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-             {research?.findings && research.findings.length > 0 ? (
-                research.findings.map((item, i) => (
-                  <div key={i} style={{ padding: "16px", background: "rgba(255,255,255,0.02)", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.1)" }}>
-                    <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ color: "#f0a500", textDecoration: "none", fontWeight: "600", display: "block", marginBottom: "4px" }}>
-                      {item.title}
-                    </a>
-                    <p style={{ fontSize: "13px", lineHeight: "1.5", color: "#aaa", margin: 0 }}>
-                      {item.snippet}
-                    </p>
-                  </div>
-                ))
-             ) : (
-                <p style={{ fontSize: "14px", color: "#666", textAlign: "center", margin: 0 }}>
-                  Web search completed. No significant findings detected.
-                </p>
-             )}
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+             {research?.latest_news?.map((news, i) => (
+                <div key={i} style={{ padding: "12px 16px", background: "rgba(255,255,255,0.02)", borderRadius: "8px", fontSize: "14px", color: "rgba(255,255,255,0.7)" }}>
+                   {news}
+                </div>
+             ))}
           </div>
-
       </div>
 
-      {/* 6. RECOMMENDED STRUCTURE */}
+      {/* PROPOSED TERMS */}
       <div style={{ ...STYLES.glassCard, background: "rgba(240, 165, 0, 0.08)", border: "1px solid rgba(240, 165, 0, 0.3)" }}>
-          <h3 style={STYLES.sectionTitle}>
-            Proposed Loan Terms
-          </h3>
+          <h3 style={STYLES.sectionTitle}>Proposed Loan Terms</h3>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "40px" }}>
              <div>
-                <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", marginBottom: "6px", textTransform: "uppercase" }}>Recommended Limit</div>
-                <div style={{ fontSize: '24px', fontWeight: '900', color: '#f0a500' }}>INR {scoreData?.recommended_amount || entityData?.loan?.amount || '—'} Cr</div>
+                <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", marginBottom: "6px" }}>RECOMMENDED LIMIT</div>
+                <div style={{ fontSize: '24px', fontWeight: '900', color: '#f0a500' }}>INR {scoreData?.recommended_amount || entityData?.loan?.amount} Cr</div>
              </div>
              <div>
-                <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", marginBottom: "6px", textTransform: "uppercase" }}>Interest Spread</div>
-                <div style={{ fontSize: "24px", fontWeight: "900" }}>{research?.recommended_rate || `Base + ${entityData?.loan?.rate || '-'}%`}</div>
+                <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", marginBottom: "6px" }}>INTEREST RATE</div>
+                <div style={{ fontSize: "24px", fontWeight: "900" }}>{scoreData?.recommended_rate || `Base + ${entityData?.loan?.rate}%`}</div>
              </div>
              <div>
-                <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", marginBottom: "6px", textTransform: "uppercase" }}>Tenor Profile</div>
-                <div style={{ fontSize: "24px", fontWeight: "900" }}>{research?.tenure || entityData?.loan?.tenure || '-'} Months
-</div>
+                <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", marginBottom: "6px" }}>TENURE</div>
+                <div style={{ fontSize: "24px", fontWeight: "900" }}>{entityData?.loan?.tenure} Months</div>
              </div>
           </div>
       </div>
 
-      {/* 7. DOWNLOAD BUTTON */}
+      {/* DOWNLOAD BUTTON */}
       <button style={STYLES.mainDownloadBtn} onClick={handleDownloadReport} disabled={isGeneratingPDF}>
         {isGeneratingPDF ? (
           <><Loader2 className="animate-spin" size={24} /> Building Full Credit Memo...</>
         ) : (
-          <><Download size={24} /> DOWNLOAD COMPLETE CAM REPORT (PDF)</>
+          <><Download size={24} /> DOWNLOAD COMPLETE CAM REPORT (DOCX)</>
         )}
       </button>
 
