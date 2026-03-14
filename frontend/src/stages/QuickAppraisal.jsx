@@ -255,11 +255,44 @@ export default function QuickAppraisal({ onBack }) {
         {/* STEP 2: FINANCIALS */}
         <div style={getStepStyle(1)}>
           <StepHeader step={1} currentStep={state.step} title="AI Financials Extracted" />
-          {state.step >= 1 && (
-            <div style={{ marginTop: '20px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
-              {Object.entries(state.result?.financials || {}).map(([key, val]) => (
-                <Metric key={key} label={key} value={val} />
-              ))}
+          {state.step >= 1 && state.result && (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: '10px',
+              margin: '20px 0'
+            }}>
+              {[
+                { label: 'REVENUE', value: state.result.extracted?.annual_report?.revenue, unit: ' Cr' },
+                { label: 'NET PROFIT (PAT)', value: state.result.extracted?.annual_report?.pat, unit: ' Cr' },
+                { label: 'EBITDA', value: state.result.extracted?.annual_report?.ebitda, unit: ' Cr' },
+                { label: 'TOTAL DEBT', value: state.result.extracted?.annual_report?.total_debt || state.result.extracted?.borrowing_profile?.total_debt, unit: ' Cr' },
+                { label: 'NET WORTH', value: state.result.extracted?.annual_report?.net_worth, unit: ' Cr' },
+                { label: 'TOTAL ASSETS', value: state.result.extracted?.annual_report?.total_assets || state.result.extracted?.alm_statement?.total_assets, unit: ' Cr' },
+                { label: 'GNPA %', value: state.result.extracted?.annual_report?.gnpa_percent || state.result.extracted?.portfolio_cuts?.gnpa_percent, unit: '%' },
+                { label: 'CAR %', value: state.result.extracted?.annual_report?.car_percent, unit: '%' },
+                { label: 'CREDIT RATING', value: state.result.extracted?.borrowing_profile?.credit_rating_long_term, unit: '' },
+                { label: 'RATING OUTLOOK', value: state.result.extracted?.borrowing_profile?.rating_outlook, unit: '' },
+                { label: 'COLLECTION EFF.', value: state.result.extracted?.portfolio_cuts?.collection_efficiency, unit: '%' },
+                { label: 'PROMOTER HOLD.', value: state.result.extracted?.shareholding_pattern?.promoter_holding, unit: '%' },
+              ].map((m, i) => {
+                const hasValue = m.value && m.value !== 'null' && m.value !== null
+                return (
+                  <div key={i} style={{
+                    background: '#111827',
+                    border: '1px solid #1f2937',
+                    borderRadius: '8px',
+                    padding: '12px'
+                  }}>
+                    <div style={{fontSize: '10px', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px'}}>
+                      {m.label}
+                    </div>
+                    <div style={{fontSize: '16px', fontWeight: '700', color: hasValue ? '#60a5fa' : '#374151'}}>
+                      {hasValue ? `${m.value}${m.unit}` : '—'}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>
@@ -267,57 +300,149 @@ export default function QuickAppraisal({ onBack }) {
         {/* STEP 3: CREDIT SCORE */}
         <div style={getStepStyle(2)}>
           <StepHeader step={2} currentStep={state.step} title="Credit Score & Verdict" />
-          {state.step >= 2 && state.result?.score && (
+          {state.step >= 2 && state.result?.scoring && (
             <div style={{ marginTop: '20px' }}>
-              <div style={{ display: 'flex', gap: '40px', background: '#050505', padding: '24px', borderRadius: '16px', border: '1px solid #1f2937' }}>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '64px', fontWeight: '900', color: '#22c55e' }}>{state.result.score.score}</div>
-                  <div style={{ fontSize: '14px', color: '#6b7280', marginTop: '-8px' }}>/ 100 PASS</div>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ 
-                    display: 'inline-block', padding: '6px 16px', borderRadius: '20px',
-                    backgroundColor: state.result.score.decision === 'APPROVE' ? '#166534' : '#d97706',
-                    fontSize: '12px', fontWeight: '800', marginBottom: '12px'
+              <div style={{ 
+                display: 'flex', gap: '40px', background: '#050505', padding: '24px', 
+                borderRadius: '16px', border: '1px solid #1f2937', alignItems: 'center' 
+              }}>
+                {/* SVG SCORE RING */}
+                <div style={{
+                  position: 'relative',
+                  width: '120px',
+                  height: '120px',
+                  flexShrink: 0
+                }}>
+                  <svg width="120" height="120" viewBox="0 0 120 120">
+                    <circle cx="60" cy="60" r="50" fill="none" stroke="#1e293b" strokeWidth="10"/>
+                    <circle cx="60" cy="60" r="50" fill="none"
+                      stroke={state.result.scoring?.score >= 70 ? '#22c55e' : state.result.scoring?.score >= 45 ? '#f0a500' : '#ef4444'}
+                      strokeWidth="10"
+                      strokeDasharray={`${2 * Math.PI * 50}`}
+                      strokeDashoffset={`${2 * Math.PI * 50 * (1 - (state.result.scoring?.score || 0) / 95)}`}
+                      strokeLinecap="round"
+                      transform="rotate(-90 60 60)"
+                      style={{transition: 'stroke-dashoffset 1.5s ease'}}
+                    />
+                  </svg>
+                  <div style={{
+                    position: 'absolute', inset: 0,
+                    display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', justifyContent: 'center'
                   }}>
-                    {state.result.score.decision}
+                    <span style={{fontSize: '28px', fontWeight: '900', color: 'white', lineHeight: 1}}>
+                      {state.result.scoring?.score || 0}
+                    </span>
+                    <span style={{fontSize: '11px', color: '#64748b'}}>/95</span>
                   </div>
+                </div>
+
+                <div style={{ flex: 1 }}>
+                  <div style={{
+                    padding: '10px 20px',
+                    borderRadius: '8px',
+                    border: `2px solid ${
+                      state.result.scoring?.decision === 'APPROVE' ? '#22c55e' :
+                      state.result.scoring?.decision?.includes('CONDITION') ? '#f0a500' :
+                      state.result.scoring?.decision?.includes('ENHANCED') ? '#f97316' : '#ef4444'
+                    }`,
+                    color: state.result.scoring?.decision === 'APPROVE' ? '#22c55e' :
+                      state.result.scoring?.decision?.includes('CONDITION') ? '#f0a500' :
+                      state.result.scoring?.decision?.includes('ENHANCED') ? '#f97316' : '#ef4444',
+                    fontWeight: '800',
+                    fontSize: '13px',
+                    textAlign: 'center',
+                    maxWidth: '200px',
+                    marginBottom: '16px'
+                  }}>
+                    {state.result.scoring?.decision || 'CALCULATING...'}
+                  </div>
+
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                     <div>
                       <div style={{ fontSize: '11px', color: '#6b7280' }}>GRADE</div>
-                      <div style={{ fontSize: '20px', fontWeight: '700' }}>{state.result.score.grade}</div>
+                      <div style={{ fontSize: '20px', fontWeight: '700' }}>{state.result.scoring?.grade}</div>
                     </div>
                     <div>
                       <div style={{ fontSize: '11px', color: '#6b7280' }}>RATE</div>
-                      <div style={{ fontSize: '20px', fontWeight: '700' }}>{state.result.score.interest_rate}</div>
+                      <div style={{ fontSize: '20px', fontWeight: '700' }}>{state.result.scoring?.interest_rate}</div>
                     </div>
                   </div>
                   <div style={{ marginTop: '12px' }}>
-                    <div style={{ fontSize: '11px', color: '#6b7280' }}>RECOMMENDED LIMIT</div>
-                    <div style={{ fontSize: '20px', fontWeight: '700', color: '#60a5fa' }}>₹{state.result.score.suggested_loan_limit_crore} Crore</div>
+                    <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>RECOMMENDED LIMIT</div>
+                    <div style={{ 
+                      fontSize: '20px', fontWeight: '700', 
+                      color: state.result.scoring?.recommended_amount > 0 ? '#60a5fa' : '#ef4444'
+                    }}>
+                      {state.result.scoring?.recommended_amount > 0 
+                        ? `INR ${state.result.scoring.recommended_amount} Cr`
+                        : 'REJECTED'}
+                    </div>
                   </div>
                 </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '16px' }}>
                 <div style={{ background: '#1c0a0a', border: '1px solid #7f1d1d', borderRadius: '12px', padding: '16px' }}>
-                  <div style={{ fontSize: '12px', color: '#f87171', fontWeight: '800', marginBottom: '8px' }}>RED FLAGS</div>
-                  {state.result.score.red_flags.map((f, i) => (
-                    <div key={i} style={{ fontSize: '13px', color: '#fca5a5', marginBottom: '4px' }}>• {f}</div>
-                  ))}
+                  <div style={{ fontSize: '12px', color: '#f87171', fontWeight: '800', marginBottom: '8px' }}>CRITICAL RISK ALERTS</div>
+                  {state.result.scoring?.red_flags?.length > 0
+                    ? state.result.scoring.red_flags.map((f, i) => (
+                      <div key={i} style={{ fontSize: '13px', color: '#fca5a5', marginBottom: '4px' }}>⚠ {f}</div>
+                    ))
+                    : <p style={{color: '#6b7280', fontSize: '13px', fontStyle: 'italic', margin: 0 }}>No critical alerts identified</p>
+                  }
                 </div>
                 <div style={{ background: '#052e16', border: '1px solid #166534', borderRadius: '12px', padding: '16px' }}>
-                  <div style={{ fontSize: '12px', color: '#4ade80', fontWeight: '800', marginBottom: '8px' }}>POSITIVE SIGNALS</div>
-                  {state.result.score.positive_signals.map((f, i) => (
-                    <div key={i} style={{ fontSize: '13px', color: '#86efac', marginBottom: '4px' }}>• {f}</div>
+                  <div style={{ fontSize: '12px', color: '#4ade80', fontWeight: '800', marginBottom: '8px' }}>POSITIVE INDICATORS</div>
+                  {state.result.scoring?.green_flags?.length > 0
+                    ? state.result.scoring.green_flags.map((f, i) => (
+                      <div key={i} style={{ fontSize: '13px', color: '#86efac', marginBottom: '4px' }}>✓ {f}</div>
+                    ))
+                    : <p style={{color: '#6b7280', fontSize: '13px', fontStyle: 'italic', margin: 0 }}>Awaiting analysis</p>
+                  }
+                </div>
+              </div>
+
+              {/* SWOT GRID */}
+              {state.result.scoring?.swot && Object.values(state.result.scoring.swot).some(arr => arr?.length > 0) && (
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '12px',
+                  margin: '20px 0'
+                }}>
+                  {[
+                    {key: 'strengths', color: '#22c55e', bg: 'rgba(34,197,94,0.05)', border: 'rgba(34,197,94,0.2)'},
+                    {key: 'weaknesses', color: '#ef4444', bg: 'rgba(239,68,68,0.05)', border: 'rgba(239,68,68,0.2)'},
+                    {key: 'opportunities', color: '#3b82f6', bg: 'rgba(59,130,246,0.05)', border: 'rgba(59,130,246,0.2)'},
+                    {key: 'threats', color: '#f97316', bg: 'rgba(249,115,22,0.05)', border: 'rgba(249,115,22,0.2)'},
+                  ].map(({key, color, bg, border}) => (
+                    <div key={key} style={{padding: '16px', borderRadius: '10px', background: bg, border: `1px solid ${border}`}}>
+                      <div style={{fontSize: '11px', fontWeight: '800', color, letterSpacing: '1px', marginBottom: '10px'}}>
+                        {key.toUpperCase()}
+                      </div>
+                      {(state.result.scoring?.swot?.[key] || []).map((item, i) => (
+                        <div key={i} style={{fontSize: '13px', color: 'rgba(255,255,255,0.7)', marginBottom: '6px', lineHeight: '1.5'}}>
+                          • {item}
+                        </div>
+                      ))}
+                    </div>
                   ))}
                 </div>
+              )}
+
+              {/* REASONING ENGINE */}
+              <div style={{ marginTop: '24px', background: '#050505', border: '1px solid #1f2937', borderRadius: '12px', padding: '16px' }}>
+                <div style={{ fontSize: '12px', color: '#6b7280', fontWeight: '800', marginBottom: '12px' }}>⚙ REASONING ENGINE</div>
+                <p style={{fontSize: '14px', lineHeight: '1.7', color: 'rgba(255,255,255,0.8)', margin: 0}}>
+                  {state.result.scoring?.reasoning || `${state.form.company_name} scored ${state.result.scoring?.score || 0}/95. Decision: ${state.result.scoring?.decision || 'N/A'}.`}
+                </p>
               </div>
 
               <div style={{ marginTop: '24px' }}>
                 <div style={{ fontSize: '12px', color: '#6b7280', fontWeight: '800', marginBottom: '12px' }}>5Cs BREAKDOWN</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-                  {Object.entries(state.result.score.five_cs).map(([key, val]) => (
+                  {Object.entries(state.result.scoring.five_cs).map(([key, val]) => (
                     <div key={key}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                         <span style={{ fontSize: '12px', textTransform: 'capitalize' }}>{key}</span>
@@ -347,11 +472,41 @@ export default function QuickAppraisal({ onBack }) {
               }}>
                 {state.result.research.risk_level} RISK
               </div>
-              <p style={{ color: '#9ca3af', lineHeight: '1.6', fontSize: '14px', margin: 0 }}>
+              <p style={{ color: '#9ca3af', lineHeight: '1.6', fontSize: '14px', marginBottom: '20px' }}>
                 {state.result.research.summary}
               </p>
-              <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px', color: '#4b5563', fontSize: '12px' }}>
-                <Globe size={14} /> {state.result.research.sources} real-time web sources analyzed
+              
+              {/* FINDINGS LIST */}
+              {state.result.findings?.length > 0 && (
+                <div style={{ marginTop: '16px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: '800', color: '#6b7280', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Globe size={14} /> WEB SOURCES ({state.result.findings.length})
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {state.result.findings.slice(0, 4).map((f, i) => (
+                      <div key={i} style={{
+                        background: '#111827',
+                        border: '1px solid #1f2937',
+                        borderRadius: '8px',
+                        padding: '14px'
+                      }}>
+                        <div style={{fontSize: '13px', fontWeight: '700', color: '#60a5fa', marginBottom: '6px'}}>
+                          {f.title || 'Web Source'}
+                        </div>
+                        <div style={{fontSize: '12px', color: '#9ca3af', lineHeight: '1.6'}}>
+                          {f.snippet || f.content || 'No preview available'}
+                        </div>
+                        <div style={{fontSize: '11px', color: '#374151', marginTop: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
+                          {f.url}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div style={{ marginTop: '12px', color: '#4b5563', fontSize: '12px' }}>
+                {state.result.research.sources} real-time web sources analyzed for {state.result.company_name}
               </div>
             </div>
           )}

@@ -214,22 +214,26 @@ async def quick_appraisal(
             },
             "financials": financials,
             "analysis": analysis_narrative,
-            "score": {
+            "scoring": {
                 "score": s,
                 "grade": grade,
                 "decision": scoring.get("decision"),
                 "interest_rate": scoring.get("recommended_rate"),
-                "suggested_loan_limit_crore": scoring.get("recommended_amount"),
+                "recommended_amount": scoring.get("recommended_amount"),
                 "red_flags": scoring.get("red_flags", []),
-                "positive_signals": scoring.get("green_flags", []),
+                "green_flags": scoring.get("green_flags", []),
                 "explanation": f"Scored {s}/95. {scoring.get('reasoning').split('.')[0]}.",
-                "five_cs": { k: v.get("score") for k, v in scoring.get("five_cs", {}).items() }
+                "five_cs": { k: v.get("score") for k, v in scoring.get("five_cs", {}).items() },
+                "swot": scoring.get("swot", {}),
+                "reasoning": scoring.get("reasoning")
             },
             "research": {
                 "risk_level": "HIGH" if len(scoring.get("red_flags", [])) > 3 else "MEDIUM" if len(scoring.get("red_flags", [])) > 0 else "LOW",
                 "summary": research_narrative,
                 "sources": len(findings)
             },
+            "extracted": extracted,
+            "findings": findings,
             "report_id": report_id
         }
 
