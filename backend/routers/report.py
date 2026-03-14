@@ -22,7 +22,7 @@ tavily_client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
 _research_cache = {}
 _tavily_cache = {}
 
-def cached_tavily_search(query: str, max_results: int = 5) -> list:
+def cached_tavily_search(query: str, max_results: int = 3) -> list:
     """Wrapper for Tavily search with query-level in-memory caching."""
     try:
         key = query.strip().lower()
