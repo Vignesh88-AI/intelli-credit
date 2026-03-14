@@ -119,42 +119,71 @@ async def quick_appraisal(
     interest_rate: str = Form("11.5")
 ):
     try:
-        # 1. Extract text from uploaded file
+        # 1. Extract text
         contents = await file.read()
         text = extract_text_from_file(contents, file.filename)
 
-        # 2. Run AI extraction
+        # 2. AI Financial Extraction
         extracted = extract_any_document(text, company_name, groq_client)
+        
+        annual = extracted.get("annual_report", {})
+        borrowing = extracted.get("borrowing_profile", {})
+        portfolio = extracted.get("portfolio_cuts", {})
+        shareholding = extracted.get("shareholding_pattern", {})
 
-        # 3. Run parallel web research (2 queries as requested)
+        # Flattened financials for frontend
+        def fmt_cr(val):
+            return f"{val} Cr" if val and str(val).lower() != 'null' else "null"
+        def fmt_pct(val):
+            return f"{val}%" if val and str(val).lower() != 'null' else "null"
+
+        financials = {
+            "Revenue": fmt_cr(annual.get('revenue')),
+            "Net Profit (PAT)": fmt_cr(annual.get('pat')),
+            "EBITDA": fmt_cr(annual.get('ebitda')),
+            "Total Debt": fmt_cr(annual.get('total_debt') or borrowing.get('total_debt')),
+            "Net Worth": fmt_cr(annual.get('net_worth')),
+            "Total Assets": fmt_cr(annual.get('total_assets') or extracted.get('alm_statement', {}).get('total_assets')),
+            "GNPA %": fmt_pct(annual.get('gnpa_percent') or portfolio.get('gnpa_percent')),
+            "CAR %": fmt_pct(annual.get('car_percent')),
+            "Collection Efficiency": fmt_pct(portfolio.get('collection_efficiency')),
+            "Credit Rating": borrowing.get('credit_rating_long_term') or "null",
+            "Rating Outlook": borrowing.get('rating_outlook') or "null",
+            "Promoter Holding": fmt_pct(shareholding.get('promoter_holding')),
+        }
+
+        # 3. AI Narrative Summary (Doc Analysis)
+        analysis_prompt = f"""You are a senior Indian credit analyst. In 3-4 sentences, summarize the financial health and key risks of {company_name} based on these metrics: {json.dumps(financials)}. 
+        Be specific with numbers. Use professional Indian banking language."""
+        
+        analysis_res = groq_client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[{"role": "user", "content": analysis_prompt}],
+            temperature=0.3,
+            max_tokens=500
+        )
+        analysis_narrative = analysis_res.choices[0].message.content
+
+        # 4. Web Intelligence Pass
         loop = asyncio.get_event_loop()
-        queries = [
-            f"{company_name} India financial results 2024 financials revenue profit",
-            f"{company_name} India credit rating news risk 2024 2025"
-        ]
+        research_query = f"{company_name} India credit rating news risk litigation 2024 2025"
+        search_resp = await loop.run_in_executor(
+            None, 
+            lambda: cached_tavily_search(query=research_query, max_results=3)
+        )
         
-        async def fetch_search(query):
-            return await loop.run_in_executor(
-                None, 
-                lambda: cached_tavily_search(query=query, max_results=3)
-            )
-            
-        search_responses = await asyncio.gather(*(fetch_search(q) for q in queries))
+        web_context = "\n".join([f"- {r.get('title')}: {r.get('content')}" for r in search_resp.get("results", [])])
+        research_prompt = f"Summarize the latest web intelligence for {company_name} in 2 sentences focus on risk/reputation: {web_context}"
         
-        # Flatten and deduplicate findings
-        unique_findings = {}
-        for resp in search_responses:
-            for r in resp.get("results", []):
-                url = r.get("url")
-                if url and url not in unique_findings:
-                    unique_findings[url] = {
-                        "title": r.get("title", "No Title"),
-                        "snippet": r.get("content", "")[:300],
-                        "url": url
-                    }
-        findings = list(unique_findings.values())
+        research_res = groq_client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[{"role": "user", "content": research_prompt}],
+            temperature=0.3,
+            max_tokens=300
+        )
+        research_narrative = research_res.choices[0].message.content
 
-        # 4. Run universal scoring
+        # 5. Scoring
         entity_data = {
             "company_name": company_name,
             "sector": sector,
@@ -162,19 +191,49 @@ async def quick_appraisal(
             "interest_rate": float(interest_rate),
             "tenure": int(tenure)
         }
+        findings = [{"title": r.get("title"), "snippet": r.get("content"), "url": r.get("url")} for r in search_resp.get("results", [])]
         
-        # Scoring expects the dict with keys like 'annual_report', 'borrowing_profile', etc.
-        scoring = calculate_universal_score(
-            company_name,
-            extracted,
-            findings,
-            entity_data
-        )
+        scoring = calculate_universal_score(company_name, extracted, findings, entity_data)
+        
+        # Grading Logic
+        grade = "D"
+        s = scoring.get("score", 0)
+        if s >= 80: grade = "A"
+        elif s >= 70: grade = "B+"
+        elif s >= 60: grade = "B"
+        elif s >= 50: grade = "C"
 
-        # 5. Result - flattened structure for frontend
+        # 6. Combined Structured Result
         report_id = str(uuid.uuid4())[:8]
         
-        # PERSIST RESULT FOR DOWNLOAD
+        combined_result = {
+            "upload": { 
+                "filename": file.filename, 
+                "characters_extracted": len(text), 
+                "preview": text[:200] + "..." 
+            },
+            "financials": financials,
+            "analysis": analysis_narrative,
+            "score": {
+                "score": s,
+                "grade": grade,
+                "decision": scoring.get("decision"),
+                "interest_rate": scoring.get("recommended_rate"),
+                "suggested_loan_limit_crore": scoring.get("recommended_amount"),
+                "red_flags": scoring.get("red_flags", []),
+                "positive_signals": scoring.get("green_flags", []),
+                "explanation": f"Scored {s}/95. {scoring.get('reasoning').split('.')[0]}.",
+                "five_cs": { k: v.get("score") for k, v in scoring.get("five_cs", {}).items() }
+            },
+            "research": {
+                "risk_level": "HIGH" if len(scoring.get("red_flags", [])) > 3 else "MEDIUM" if len(scoring.get("red_flags", [])) > 0 else "LOW",
+                "summary": research_narrative,
+                "sources": len(findings)
+            },
+            "report_id": report_id
+        }
+
+        # Cache for download
         quick_reports[report_id] = {
             "company_name": company_name,
             "scoring": scoring,
@@ -182,13 +241,9 @@ async def quick_appraisal(
             "findings": findings,
             "entity_data": entity_data
         }
-        
-        return {
-            "scoring": scoring,
-            "extracted": extracted, # This is the dict with doc categories
-            "findings": findings,
-            "report_id": report_id
-        }
+
+        return combined_result
+
     except Exception as e:
         print(f"Quick Appraisal Error: {e}")
         import traceback

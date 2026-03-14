@@ -1,280 +1,399 @@
-import { useState } from "react"
-import "../styles/quick.css"
+import React, { useState, useEffect, useRef } from 'react';
+import axios from 'axios';
+import { 
+  FileText, Shield, BarChart3, Globe, Download, 
+  CheckCircle2, Loader2, ChevronRight, Upload,
+  AlertCircle, TrendingUp, RefreshCcw
+} from 'lucide-react';
 
-export default function QuickAppraisal({ onBack }) {
-  const [step, setStep] = useState("input") // input | loading | result
-  const [form, setForm] = useState({
-    company_name: "",
-    sector: "NBFC",
-    loan_amount: "",
-    tenure: "36",
-    interest_rate: "11.5"
-  })
-  const [file, setFile] = useState(null)
-  const [result, setResult] = useState(null)
-  const [progress, setProgress] = useState("")
+const API_URL = import.meta.env.VITE_API_URL || 'https://intelli-credit-7kzw.onrender.com';
 
-  const sectors = ["NBFC", "Manufacturing", "IT/Technology", "Real Estate", 
-                   "Healthcare", "Retail", "Infrastructure", "Agriculture", "Others"]
+const STYLES = {
+  container: {
+    minHeight: '100vh',
+    backgroundColor: '#000',
+    color: '#fff',
+    fontFamily: 'system-ui, -apple-system, sans-serif',
+    padding: '40px 20px',
+    paddingTop: '80px'
+  },
+  card: {
+    backgroundColor: '#0a0a0a',
+    border: '1px solid #1f2937',
+    borderRadius: '16px',
+    padding: '24px',
+    marginBottom: '20px',
+    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+  },
+  activeCard: {
+    backgroundColor: '#0f172a',
+    borderColor: '#2563eb',
+    boxShadow: '0 0 20px rgba(37, 99, 235, 0.1)',
+  },
+  doneCard: {
+    borderColor: '#166534',
+  },
+  lockedCard: {
+    opacity: 0.45,
+    pointerEvents: 'none',
+  },
+  badge: {
+    width: '32px',
+    height: '32px',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '14px',
+    fontWeight: '700',
+    marginRight: '16px',
+  },
+  metricCard: {
+    background: '#050505',
+    border: '1px solid #1f2937',
+    padding: '16px',
+    borderRadius: '12px',
+  }
+};
 
-  const API_URL = import.meta.env.VITE_API_URL || 'https://intelli-credit-7kzw.onrender.com'
-
-  async function runQuickAppraisal() {
-    if (!form.company_name || !file) return
-    setStep("loading")
-
-    const formData = new FormData()
-    formData.append("file", file)
-    formData.append("company_name", form.company_name)
-    formData.append("sector", form.sector)
-    formData.append("loan_amount", form.loan_amount)
-    formData.append("tenure", form.tenure)
-    formData.append("interest_rate", form.interest_rate)
-
-    try {
-      setProgress("Extracting financial data from document...")
-      const res = await fetch(`${API_URL}/api/quick-appraisal`, {
-        method: "POST",
-        body: formData
-      })
-      const data = await res.json()
-      setResult(data)
-      setStep("result")
-    } catch (err) {
-      console.error(err)
-      setProgress("Error occurred. Please try again.")
-    }
+const Metric = ({ label, value }) => {
+  const isNull = !value || value === 'null' || value === '—';
+  let color = '#60a5fa'; // Blue default
+  if (isNull) color = '#374151';
+  else if (String(value).includes('%')) {
+    const num = parseFloat(value);
+    if (label.includes('GNPA')) color = num > 5 ? '#ef4444' : '#22c55e';
+    if (label.includes('Collection')) color = num < 95 ? '#f59e0b' : '#22c55e';
+    if (label.includes('CAR')) color = num < 15 ? '#ef4444' : '#22c55e';
   }
 
-  if (step === "input") return (
-    <div className="quick-container">
-      <div className="quick-header">
-        <h1>Quick Appraisal</h1>
-        <p>Upload one document + enter company details - get instant credit assessment</p>
+  return (
+    <div style={STYLES.metricCard}>
+      <div style={{ fontSize: '10px', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+        {label}
       </div>
+      <div style={{ fontSize: '18px', fontWeight: '700', color: isNull ? '#374151' : color }}>
+        {isNull ? '—' : value}
+      </div>
+    </div>
+  );
+};
 
-      <div className="quick-form">
-        <div className="form-row">
-          <div className="form-group">
-            <label>Company Name *</label>
-            <input value={form.company_name} 
-              onChange={e => setForm({...form, company_name: e.target.value})}
-              placeholder="e.g. Kinara Capital Private Limited" />
-          </div>
-          <div className="form-group">
-            <label>Sector *</label>
-            <select value={form.sector} 
-              onChange={e => setForm({...form, sector: e.target.value})}>
-              {sectors.map(s => <option key={s}>{s}</option>)}
-            </select>
+const StepHeader = ({ step, currentStep, title }) => {
+  const isDone = currentStep > step;
+  const isActive = currentStep === step;
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', marginBottom: isActive ? '20px' : '0' }}>
+      <div style={{
+        ...STYLES.badge,
+        backgroundColor: isDone ? '#166534' : isActive ? '#2563eb' : '#1f2937',
+        color: '#fff'
+      }}>
+        {isDone ? <CheckCircle2 size={18} /> : step + 1}
+      </div>
+      <h3 style={{ 
+        fontSize: '18px', 
+        fontWeight: '600', 
+        color: isActive ? '#fff' : isDone ? '#4ade80' : '#9ca3af',
+        margin: 0
+      }}>
+        {title}
+      </h3>
+      {isActive && <Loader2 className="animate-spin" size={18} style={{ marginLeft: '12px', color: '#2563eb' }} />}
+    </div>
+  );
+};
+
+export default function QuickAppraisal({ onBack }) {
+  const [state, setState] = useState({
+    step: 0,
+    result: null,
+    file: null,
+    form: { company_name: '', sector: 'NBFC', loan_amount: '50' },
+    loading: false,
+    loadingMsg: ""
+  });
+
+  const fileInputRef = useRef(null);
+
+  const handleFile = (e) => {
+    const file = e.target.files[0];
+    if (file) setState(prev => ({ ...prev, file }));
+  };
+
+  const startAppraisal = async () => {
+    if (!state.file || !state.form.company_name) return;
+    
+    setState(prev => ({ ...prev, loading: true, loadingMsg: "AI Extracting Finance..." }));
+    
+    try {
+      const formData = new FormData();
+      formData.append('file', state.file);
+      formData.append('company_name', state.form.company_name);
+      formData.append('sector', state.form.sector);
+      formData.append('loan_amount', state.form.loan_amount);
+
+      const res = await axios.post(`${API_URL}/api/quick-appraisal`, formData);
+      const result = res.data;
+
+      // START SEQUENTIAL ANIMATION
+      setState(prev => ({ ...prev, result, step: 1 }));
+      
+      setTimeout(() => setState(prev => ({ ...prev, step: 2 })), 1000);
+      setTimeout(() => setState(prev => ({ ...prev, step: 3 })), 2000);
+      setTimeout(() => setState(prev => ({ ...prev, step: 4 })), 3000);
+
+    } catch (err) {
+      console.error(err);
+      alert("Analysis failed. Please try a different document.");
+    } finally {
+      setState(prev => ({ ...prev, loading: false }));
+    }
+  };
+
+  const getStepStyle = (s) => {
+    if (state.step === s) return { ...STYLES.card, ...STYLES.activeCard };
+    if (state.step > s) return { ...STYLES.card, ...STYLES.doneCard };
+    return { ...STYLES.card, ...STYLES.lockedCard };
+  };
+
+  const downloadReport = () => {
+    const link = document.createElement('a');
+    link.href = `${API_URL}/api/quick-report/${state.result.report_id}`;
+    link.setAttribute('download', `Veridex_CAM_${state.form.company_name}.docx`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  return (
+    <div style={STYLES.container}>
+      <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+        
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '32px' }}>
+          <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: '8px', marginRight: '16px' }}>
+            <ChevronRight style={{ transform: 'rotate(180deg)' }} />
+          </button>
+          <div>
+            <h1 style={{ fontSize: '24px', fontWeight: '800', margin: 0 }}>Quick Cognitive Appraisal</h1>
+            <p style={{ color: '#6b7280', fontSize: '14px', margin: 0 }}>Step-by-step document intelligence pass</p>
           </div>
         </div>
 
-        <div className="form-row">
-          <div className="form-group">
-            <label>Loan Amount (INR Cr)</label>
-            <input type="number" value={form.loan_amount} 
-              onChange={e => setForm({...form, loan_amount: e.target.value})}
-              placeholder="50" />
-          </div>
-          <div className="form-group">
-            <label>Tenure (Months)</label>
-            <input type="number" value={form.tenure} 
-              onChange={e => setForm({...form, tenure: e.target.value})}
-              placeholder="36" />
-          </div>
-          <div className="form-group">
-            <label>Interest Rate (%)</label>
-            <input type="number" value={form.interest_rate} 
-              onChange={e => setForm({...form, interest_rate: e.target.value})}
-              placeholder="11.5" />
-          </div>
-        </div>
+        {/* STEP 1: UPLOAD */}
+        <div style={getStepStyle(0)}>
+          <StepHeader step={0} currentStep={state.step} title="Upload Document" />
+          {state.step === 0 && (
+            <div style={{ marginTop: '20px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+                <div>
+                  <label style={{ fontSize: '12px', color: '#6b7280', marginBottom: '6px', display: 'block' }}>COMPANY NAME</label>
+                  <input 
+                    value={state.form.company_name}
+                    onChange={e => setState(prev => ({ ...prev, form: { ...prev.form, company_name: e.target.value }}))}
+                    style={{ width: '100%', background: '#000', border: '1px solid #374151', borderRadius: '8px', padding: '12px', color: '#fff' }}
+                    placeholder="e.g. Tata Motors"
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '12px', color: '#6b7280', marginBottom: '6px', display: 'block' }}>REQUESTED LOAN (CR)</label>
+                  <input 
+                    type="number"
+                    value={state.form.loan_amount}
+                    onChange={e => setState(prev => ({ ...prev, form: { ...prev.form, loan_amount: e.target.value }}))}
+                    style={{ width: '100%', background: '#000', border: '1px solid #374151', borderRadius: '8px', padding: '12px', color: '#fff' }}
+                  />
+                </div>
+              </div>
+              
+              <div 
+                onClick={() => fileInputRef.current.click()}
+                style={{
+                  border: '2px dashed #374151', borderRadius: '12px', padding: '40px',
+                  textAlign: 'center', cursor: 'pointer', background: state.file ? 'rgba(37,99,235,0.05)' : 'transparent',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <input type="file" ref={fileInputRef} hidden onChange={handleFile} accept=".pdf,.doc,.docx,.xlsx,.xls" />
+                {state.file ? (
+                  <div>
+                    <FileText size={40} style={{ color: '#2563eb', marginBottom: '12px' }} />
+                    <div style={{ fontSize: '16px', fontWeight: '600' }}>{state.file.name}</div>
+                    <div style={{ fontSize: '12px', color: '#6b7280' }}>{(state.file.size / 1024 / 1024).toFixed(2)} MB</div>
+                  </div>
+                ) : (
+                  <div>
+                    <Upload size={40} style={{ color: '#374151', marginBottom: '12px' }} />
+                    <div style={{ fontSize: '16px', fontWeight: '600', color: '#9ca3af' }}>Click to select PDF or Financial Doc</div>
+                    <div style={{ fontSize: '12px', color: '#4b5563' }}>Supports PDF, Excel, Word</div>
+                  </div>
+                )}
+              </div>
 
-        <div className="upload-zone" onClick={() => document.getElementById('qfile').click()}>
-          <input id="qfile" type="file" accept=".pdf,.xlsx,.xls,.docx" 
-            style={{display:'none'}}
-            onChange={e => setFile(e.target.files[0])} />
-          {file ? (
-            <div className="file-selected">
-              <span>{file.name}</span>
-              <span className="file-size">{(file.size/1024/1024).toFixed(2)} MB</span>
+              <button 
+                onClick={startAppraisal}
+                disabled={!state.file || !state.form.company_name || state.loading}
+                style={{
+                  width: '100%', marginTop: '20px', padding: '16px',
+                  background: (state.file && state.form.company_name) ? '#2563eb' : '#1e2937',
+                  color: (state.file && state.form.company_name) ? '#fff' : '#6b7280',
+                  border: 'none', borderRadius: '12px', fontWeight: '700', cursor: 'pointer'
+                }}
+              >
+                {state.loading ? 'Processing Document...' : 'Run Quick Appraisal'}
+              </button>
             </div>
-          ) : (
-            <div className="upload-prompt">
-              <span className="upload-icon">UPLOAD</span>
-              <p>Upload any financial document</p>
-              <p className="upload-hint">Annual Report, ALM, Borrowing Profile, Portfolio Data - any one works</p>
+          )}
+          {state.step > 0 && (
+            <div style={{ marginTop: '12px', color: '#22c55e', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+               <CheckCircle2 size={16} /> Document successfully analyzed ({state.result?.upload?.characters_extracted} chars)
             </div>
           )}
         </div>
 
-        <div style={{display:'flex', gap:'12px'}}>
-          <button className="btn-outline" onClick={onBack}>Back</button>
-          <button className="btn-run-quick" 
-            onClick={runQuickAppraisal}
-            disabled={!form.company_name || !file}>
-            Run Quick Appraisal
-          </button>
+        {/* STEP 2: FINANCIALS */}
+        <div style={getStepStyle(1)}>
+          <StepHeader step={1} currentStep={state.step} title="AI Financials Extracted" />
+          {state.step >= 1 && (
+            <div style={{ marginTop: '20px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+              {Object.entries(state.result?.financials || {}).map(([key, val]) => (
+                <Metric key={key} label={key} value={val} />
+              ))}
+            </div>
+          )}
         </div>
-      </div>
-    </div>
-  )
 
-  if (step === "loading") return (
-    <div className="quick-loading">
-      <div className="loading-spinner"></div>
-      <h2>Analyzing...</h2>
-      <p>{progress}</p>
-      <div className="loading-steps">
-        <span>Extracting data</span>
-        <span>Web research</span>
-        <span>Scoring</span>
-        <span>Generating report</span>
-      </div>
-    </div>
-  )
-
-  if (step === "result" && result) return (
-    <div className="quick-result">
-      <button onClick={() => setStep("input")} className="back-btn">Back</button>
-      <div className="result-header">
-        <div>
-          <p className="result-label">QUICK APPRAISAL RESULT</p>
-          <h1>{form.company_name}</h1>
-          <span className="sector-badge">{form.sector}</span>
-        </div>
-        <div className={`decision-badge decision-${result.scoring?.decision?.toLowerCase().replace(/ /g,'-')}`}>
-          {result.scoring?.decision}
-        </div>
-      </div>
-
-      {/* FINANCIAL METRICS GRID */}
-      {result.extracted && (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: '12px',
-          margin: '20px 0'
-        }}>
-          {[
-            { label: 'REVENUE', value: result.extracted?.annual_report?.revenue, unit: 'Cr', color: '#22c55e' },
-            { label: 'NET PROFIT (PAT)', value: result.extracted?.annual_report?.pat, unit: 'Cr', color: result.extracted?.annual_report?.pat > 0 ? '#22c55e' : '#ef4444' },
-            { label: 'EBITDA', value: result.extracted?.annual_report?.ebitda, unit: 'Cr', color: '#f0a500' },
-            { label: 'TOTAL DEBT', value: result.extracted?.annual_report?.total_debt || result.extracted?.borrowing_profile?.total_debt, unit: 'Cr', color: '#ef4444' },
-            { label: 'NET WORTH', value: result.extracted?.annual_report?.net_worth, unit: 'Cr', color: '#22c55e' },
-            { label: 'TOTAL ASSETS', value: result.extracted?.annual_report?.total_assets || result.extracted?.alm_statement?.total_assets, unit: 'Cr', color: '#f0a500' },
-            { label: 'GROSS NPA', value: result.extracted?.annual_report?.gnpa_percent || result.extracted?.portfolio_cuts?.gnpa_percent, unit: '%', color: '#f0a500' },
-            { label: 'CAR %', value: result.extracted?.annual_report?.car_percent, unit: '%', color: '#22c55e' },
-            { label: 'CREDIT RATING', value: result.extracted?.borrowing_profile?.credit_rating_long_term, unit: '', color: '#f0a500' },
-          ].map((metric, i) => (
-            <div key={i} style={{
-              background: 'rgba(255,255,255,0.04)',
-              border: '1px solid rgba(255,255,255,0.08)',
-              borderRadius: '12px',
-              padding: '16px',
-            }}>
-              <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', letterSpacing: '1px', marginBottom: '8px' }}>
-                {metric.label}
+        {/* STEP 3: CREDIT SCORE */}
+        <div style={getStepStyle(2)}>
+          <StepHeader step={2} currentStep={state.step} title="Credit Score & Verdict" />
+          {state.step >= 2 && state.result?.score && (
+            <div style={{ marginTop: '20px' }}>
+              <div style={{ display: 'flex', gap: '40px', background: '#050505', padding: '24px', borderRadius: '16px', border: '1px solid #1f2937' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '64px', fontWeight: '900', color: '#22c55e' }}>{state.result.score.score}</div>
+                  <div style={{ fontSize: '14px', color: '#6b7280', marginTop: '-8px' }}>/ 100 PASS</div>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ 
+                    display: 'inline-block', padding: '6px 16px', borderRadius: '20px',
+                    backgroundColor: state.result.score.decision === 'APPROVE' ? '#166534' : '#d97706',
+                    fontSize: '12px', fontWeight: '800', marginBottom: '12px'
+                  }}>
+                    {state.result.score.decision}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#6b7280' }}>GRADE</div>
+                      <div style={{ fontSize: '20px', fontWeight: '700' }}>{state.result.score.grade}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#6b7280' }}>RATE</div>
+                      <div style={{ fontSize: '20px', fontWeight: '700' }}>{state.result.score.interest_rate}</div>
+                    </div>
+                  </div>
+                  <div style={{ marginTop: '12px' }}>
+                    <div style={{ fontSize: '11px', color: '#6b7280' }}>RECOMMENDED LIMIT</div>
+                    <div style={{ fontSize: '20px', fontWeight: '700', color: '#60a5fa' }}>₹{state.result.score.suggested_loan_limit_crore} Crore</div>
+                  </div>
+                </div>
               </div>
-              <div style={{ fontSize: '20px', fontWeight: '800', color: metric.value && metric.value !== 'null' ? metric.color : '#4a5568' }}>
-                {metric.value && metric.value !== 'null' ? `${metric.value} ${metric.unit}` : 'N/A'}
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '16px' }}>
+                <div style={{ background: '#1c0a0a', border: '1px solid #7f1d1d', borderRadius: '12px', padding: '16px' }}>
+                  <div style={{ fontSize: '12px', color: '#f87171', fontWeight: '800', marginBottom: '8px' }}>RED FLAGS</div>
+                  {state.result.score.red_flags.map((f, i) => (
+                    <div key={i} style={{ fontSize: '13px', color: '#fca5a5', marginBottom: '4px' }}>• {f}</div>
+                  ))}
+                </div>
+                <div style={{ background: '#052e16', border: '1px solid #166534', borderRadius: '12px', padding: '16px' }}>
+                  <div style={{ fontSize: '12px', color: '#4ade80', fontWeight: '800', marginBottom: '8px' }}>POSITIVE SIGNALS</div>
+                  {state.result.score.positive_signals.map((f, i) => (
+                    <div key={i} style={{ fontSize: '13px', color: '#86efac', marginBottom: '4px' }}>• {f}</div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ marginTop: '24px' }}>
+                <div style={{ fontSize: '12px', color: '#6b7280', fontWeight: '800', marginBottom: '12px' }}>5Cs BREAKDOWN</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+                  {Object.entries(state.result.score.five_cs).map(([key, val]) => (
+                    <div key={key}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                        <span style={{ fontSize: '12px', textTransform: 'capitalize' }}>{key}</span>
+                        <span style={{ fontSize: '12px', color: '#6b7280' }}>{val}/20</span>
+                      </div>
+                      <div style={{ height: '4px', background: '#1f2937', borderRadius: '2px' }}>
+                        <div style={{ height: '100%', width: `${(val/20)*100}%`, background: '#2563eb', borderRadius: '2px' }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
-          ))}
+          )}
         </div>
-      )}
 
-      <div className="score-section">
-        <div className="score-circle" style={{
-          background: `conic-gradient(${result.scoring?.score >= 70 ? '#F5A623' : result.scoring?.score >= 45 ? '#FF6B35' : '#E53935'} ${result.scoring?.score * (360/95)}deg, #1a2332 0deg)`
-        }}>
-          <div className="score-inner">
-            <span className="score-number">{result.scoring?.score}</span>
-            <span className="score-label">/95</span>
-          </div>
-        </div>
-        <div className="score-breakdown">
-          {result.scoring?.five_cs && Object.entries(result.scoring.five_cs).map(([key, val]) => (
-            <div key={key} className="cs-row">
-              <span className="cs-label">{key.charAt(0).toUpperCase() + key.slice(1)}</span>
-              <div className="cs-bar">
-                <div className="cs-fill" style={{width: `${(val.score/(key==='conditions'?15:20))*100}%`}}></div>
+        {/* STEP 4: WEB RESEARCH */}
+        <div style={getStepStyle(3)}>
+          <StepHeader step={3} currentStep={state.step} title="Web Intelligence" />
+          {state.step >= 3 && state.result?.research && (
+            <div style={{ marginTop: '20px' }}>
+              <div style={{ 
+                display: 'inline-block', padding: '4px 12px', borderRadius: '8px',
+                border: `1px solid ${state.result.research.risk_level === 'LOW' ? '#166534' : '#b91c1c'}`,
+                color: state.result.research.risk_level === 'LOW' ? '#4ade80' : '#f87171',
+                fontSize: '11px', fontWeight: '800', marginBottom: '16px'
+              }}>
+                {state.result.research.risk_level} RISK
               </div>
-              <span className="cs-score">{val.score}/{key==='conditions'?15:20}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="loan-terms-row">
-        <div className="term-box">
-          <span className="term-label">RECOMMENDED LIMIT</span>
-          <span className="term-value">INR {result.scoring?.recommended_amount} Cr</span>
-        </div>
-        <div className="term-box">
-          <span className="term-label">INTEREST RATE</span>
-          <span className="term-value">{result.scoring?.recommended_rate}</span>
-        </div>
-        <div className="term-box">
-          <span className="term-label">TENOR</span>
-          <span className="term-value">{form.tenure} Months</span>
-        </div>
-      </div>
-
-      <div className="reasoning-box">
-        <h3>Reasoning Engine</h3>
-        <p>{result.scoring?.reasoning}</p>
-      </div>
-
-      <div className="flags-row">
-        <div className="red-flags">
-          <h4>Critical Risk Alerts</h4>
-          {result.scoring?.red_flags?.map((f,i) => <p key={i}>- {f}</p>)}
-        </div>
-        <div className="green-flags">
-          <h4>Positive Indicators</h4>
-          {result.scoring?.green_flags?.map((f,i) => <p key={i}>- {f}</p>)}
-        </div>
-      </div>
-
-      {result.findings && result.findings.length > 0 && (
-        <div className="web-intel-box">
-          <h3>Web Intelligence</h3>
-          <div className="findings-list">
-            {result.findings.map((f,i) => (
-              <div key={i} className="finding-item">
-                <strong>{f.title}</strong>
-                <p>{f.snippet}</p>
+              <p style={{ color: '#9ca3af', lineHeight: '1.6', fontSize: '14px', margin: 0 }}>
+                {state.result.research.summary}
+              </p>
+              <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px', color: '#4b5563', fontSize: '12px' }}>
+                <Globe size={14} /> {state.result.research.sources} real-time web sources analyzed
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {result.scoring?.swot && (
-        <div className="swot-grid">
-          {Object.entries(result.scoring.swot).map(([key, items]) => (
-            <div key={key} className={`swot-quadrant swot-${key}`}>
-              <h4>{key.toUpperCase()}</h4>
-              {items?.map((item, i) => <p key={i}>- {item}</p>)}
             </div>
-          ))}
+          )}
         </div>
-      )}
 
-      <div className="quick-actions">
-        <button onClick={() => { setStep("input"); setResult(null); setFile(null) }} 
-          className="btn-outline">New Appraisal</button>
-        <button onClick={() => {
-          const link = document.createElement('a')
-          link.href = `${API_URL}/api/quick-report/${result.report_id}`
-          link.setAttribute('download', `QuickCAM_${form.company_name}.docx`)
-          document.body.appendChild(link)
-          link.click()
-          document.body.removeChild(link)
-        }} className="btn-primary">Download CAM Report</button>
+        {/* STEP 5: DOWNLOAD */}
+        <div style={getStepStyle(4)}>
+          <StepHeader step={4} currentStep={state.step} title="Download CAM" />
+          {state.step >= 4 && (
+            <div style={{ marginTop: '20px' }}>
+               <p style={{ color: '#6b7280', fontSize: '14px', marginBottom: '20px' }}>
+                 Your high-fidelity Credit Appraisal Memo is ready for internal committee review.
+               </p>
+               <div style={{ display: 'flex', gap: '12px' }}>
+                <button 
+                  onClick={downloadReport}
+                  style={{
+                    flex: 1, padding: '16px', background: '#22c55e', color: '#fff',
+                    border: 'none', borderRadius: '12px', fontWeight: '700', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px'
+                  }}
+                >
+                  <Download size={20} /> Download CAM Report (.docx)
+                </button>
+                <button 
+                  onClick={() => setState({ 
+                    step: 0, result: null, file: null, loading: false, loadingMsg: "",
+                    form: { company_name: '', sector: 'NBFC', loan_amount: '50' } 
+                  })}
+                  style={{
+                    padding: '16px', background: '#1f2937', color: '#9ca3af',
+                    border: 'none', borderRadius: '12px', cursor: 'pointer'
+                  }}
+                >
+                  <RefreshCcw size={20} />
+                </button>
+               </div>
+            </div>
+          )}
+        </div>
+
       </div>
     </div>
-  )
+  );
 }
