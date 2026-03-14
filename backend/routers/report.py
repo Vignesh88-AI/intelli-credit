@@ -509,24 +509,20 @@ async def perform_research(data: dict):
         import asyncio
         loop = asyncio.get_event_loop()
         
-        queries = [
-            f"{company_name} India financial results revenue profit 2024 2025",
-            f"{company_name} credit rating ICRA CARE India 2024 2025",
-            f"{company_name} India news RBI penalty legal case NCLT 2024 2025",
-            f"{sector} India NBFC sector outlook RBI regulation 2025"
-        ]
-        
-        async def fetch_search(query):
+        async def fetch_search(query, results_count):
             return await loop.run_in_executor(
                 None, 
-                lambda: cached_tavily_search(query=query, max_results=3)
+                lambda: cached_tavily_search(query=query, max_results=results_count)
             )
             
-        search_responses = await asyncio.gather(*(fetch_search(q) for q in queries))
+        search_results = await asyncio.gather(
+            fetch_search(f"{company_name} India financial results revenue profit 2024 2025", 3),
+            fetch_search(f"{company_name} India balance sheet total debt net worth borrowings equity 2024", 2)
+        )
         
         # Deduplicate results by URL
         unique_findings = {}
-        for resp in search_responses:
+        for resp in search_results:
             for r in resp.get("results", []):
                 url = r.get("url")
                 if url and url not in unique_findings:
@@ -547,13 +543,9 @@ async def perform_research(data: dict):
 Analyze the provided web search results to perform a deep credit research on the company.
 
 Follow these strict output rules:
-1. Extract the last 3 years of revenue if available for the 'revenue_history' array.
-2. Calculate the 5Cs scores (out of max values) based on evidence:
-   - Character (max 20): Integrity, promoter background, litigation.
-   - Capacity (max 25): Cash flow, debt service ability, interest coverage.
-   - Capital (max 20): Net worth, promoter stake, leverage.
-   - Collateral (max 20): Asset quality, security, guarantees.
-   - Conditions (max 15): Sector outlook, macro environment.
+1. Extract the last 3 years of revenue history. 
+   CRITICAL: If you do not have confirmed revenue data for a specific year, use null — NEVER use 0. Only include a year if you found actual data for it.
+2. Calculate the 5Cs scores (out of max values) based on evidence.
 
 Return ONLY valid JSON:
 {
@@ -569,9 +561,9 @@ Return ONLY valid JSON:
   "roe": "PAT / Net Worth %",
   "revenue_growth": "YoY growth %",
   "revenue_history": [
-    {"year": "2024", "revenue_cr": 0},
-    {"year": "2023", "revenue_cr": 0},
-    {"year": "2022", "revenue_cr": 0}
+    {"year": "FY2024", "revenue_cr": null},
+    {"year": "FY2023", "revenue_cr": null},
+    {"year": "FY2022", "revenue_cr": null}
   ],
   "character_score": 18,
   "capacity_score": 20,

@@ -51,9 +51,23 @@ const RevenueChart = ({ data, growth }) => {
   if (!data || !data.length) return null;
   
   const cleanGrowth = String(growth || "0").replace('%', '').trim();
+  const validData = data.filter(d => d.val && d.val > 0);
 
-  if (data.length < 3) {
-    const latestValue = data[0]?.val || 0;
+  if (validData.length === 0) {
+    return (
+      <div style={{ 
+        display: "flex", alignItems: "center", justifyContent: "center", 
+        height: "100px", color: "#94a3b8", fontSize: "13px", 
+        textAlign: "center", border: "1px dashed #1e3a5f", borderRadius: "8px",
+        padding: "0 20px", background: "#0a162888"
+      }}>
+        Revenue history not available from web sources
+      </div>
+    );
+  }
+
+  if (validData.length < 3) {
+    const latestValue = validData[0]?.val || 0;
     return (
       <div style={{ 
         display: "flex", alignItems: "center", justifyContent: "center", 
@@ -66,10 +80,10 @@ const RevenueChart = ({ data, growth }) => {
     );
   }
 
-  const max = Math.max(...data.map(d => d.val)) * 1.2;
+  const max = Math.max(...validData.map(d => d.val)) * 1.2;
   return (
     <div style={{ display: "flex", alignItems: "flex-end", gap: "10px", height: "100px", padding: "0 8px" }}>
-      {data.map((d, i) => (
+      {validData.map((d, i) => (
         <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}>
           <span style={{ fontSize: "10px", color: "#94a3b8" }}>INR {d.val}Cr</span>
           <div style={{
