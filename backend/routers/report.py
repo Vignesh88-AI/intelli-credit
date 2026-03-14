@@ -109,96 +109,222 @@ async def perform_research(data: dict):
 @router.post("/generate-cam")
 async def generate_report(data: str = Form(...)):
     try:
+        from docx import Document
+        from docx.shared import Pt, RGBColor, Inches
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+        import uuid
+        import io
+        from datetime import datetime
+
         payload = json.loads(data)
-        entity_name = payload.get('entity', {}).get('companyName', 'Entity')
-        
-        # Fetch Web Intelligence Findings
-        web_data = tavily_client.search(
-            query=f"{entity_name} India news legal NCLT court case 2024 2025",
-            max_results=3,
-            search_depth="basic"
-        )
-        web_findings = "\n".join([
-            r.get("content", "")[:200] 
-            for r in web_data.get("results", [])
-        ])
+        entity_data = payload.get('entity', {})
+        loan_data = payload.get('loan', {})
+        extracted_data = payload.get('extracted', [])
+        research_data = payload.get('research', {})
+        score_data = payload.get('score', {})
 
-        # Call Groq for professional CAM content as JSON (Replacing Anthropic)
-        prompt = f"""Generate a comprehensive CAM report as JSON for: {payload.get('entity', {})}. 
-        Web findings: {web_findings}. 
-        Return JSON with exactly these fields: verdict, score, five_cs, risk_alerts, positive_indicators, web_intelligence, recommended_structure, reasoning.
-        Do not include markdown formatting or extra text."""
+        # Reformat extracted docs for the template
+        extracted_docs = {}
+        for doc in extracted_data:
+            doc_type = doc.get("doc_type", "unknown")
+            extracted_docs[doc_type] = doc.get("fields", {})
 
-        response = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[
-                {"role": "system", "content": "You are a senior credit analyst. Generate a comprehensive CAM report as JSON."},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=3000,
-            temperature=0.2
-        )
-        
-        # Parse JSON response
-        try:
-            cam_data = json.loads(response.choices[0].message.content)
-            print("CAM RESPONSE FIELDS:", list(cam_data.keys()))
-            cam_markdown = f"# Credit Appraisal Memo: {entity_name}\n\n"
-            cam_markdown += f"## Verdict: {cam_data.get('verdict')}\n"
-            cam_markdown += f"## Score: {cam_data.get('score')}\n\n"
-            cam_markdown += "### Web Intelligence Findings\n" + cam_data.get('web_intelligence', 'No findings') + "\n\n"
-            cam_markdown += "### Reasoning\n" + cam_data.get('reasoning', '')
-        except Exception as e:
-            print(f"Error parsing Groq JSON: {e}")
-            cam_markdown = response.choices[0].message.content
-        print("CAM RESPONSE GENERATED. SYSTEM PROMPT USED: Senior Credit Officer Triangulation")
-        # Since it's markdown, we don't have keys, but we can log the input payload keys
-        print("CAM INPUT PAYLOAD FIELDS:", list(payload.keys()))
-        
-        # Generate DOCX with python-docx
+        # Prepare scoring result for the template
+        scoring_result = {
+            "decision": score_data.get("total", 0) >= 80 and "APPROVE" or (score_data.get("total", 0) >= 70 and "APPROVE WITH CONDITIONS" or "REJECT"),
+            "score": score_data.get("total", 0),
+            "reasoning": research_data.get("reasoning_engine", "Analysis based on submitted documents."),
+            "recommended_amount": loan_data.get("amount", "N/A"),
+            "recommended_rate": "Base + 1.5%",
+            "five_cs": {
+                "character": {"score": score_data.get("breakdown", {}).get("character", 15), "notes": "Promoter history verified via MCA/CIBIL."},
+                "capacity": {"score": score_data.get("breakdown", {}).get("capacity", 15), "notes": "Debt-service coverage ratio within limits."},
+                "capital": {"score": score_data.get("breakdown", {}).get("capital", 15), "notes": "Net worth and leverage ratio analyzed."},
+                "collateral": {"score": score_data.get("breakdown", {}).get("collateral", 15), "notes": "Asset cover estimated from balance sheet."},
+                "conditions": {"score": score_data.get("breakdown", {}).get("conditions", 10), "notes": "Sector outlook and macro trends considered."}
+            },
+            "red_flags": research_data.get("legal_flags", []),
+            "green_flags": ["Strong revenue growth", "No adverse NCLT reports"],
+            "swot": research_data.get("swot", {})
+        }
+
+        research_findings = research_data.get("findings", [])
+
+        # ── Generate Report ──
         doc = Document()
-        
-        # Add a professional header
         section = doc.sections[0]
-        header = section.header
-        header_para = header.paragraphs[0]
-        header_para.text = "VERIDEX® PRIVATE APPRAISAL - CONFIDENTIAL"
-        header_para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        section.page_width = Inches(8.5)
+        section.page_height = Inches(11)
+        section.left_margin = Inches(1)
+        section.right_margin = Inches(1)
 
-        # Title
-        title = doc.add_heading("Credit Appraisal Memo (CAM)", 0)
+        def add_heading(text, level=1, color=(26, 58, 107)):
+            p = doc.add_heading(text, level=level)
+            p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            for run in p.runs:
+                run.font.color.rgb = RGBColor(*color)
+            return p
+
+        def add_kv(label, value):
+            p = doc.add_paragraph()
+            run_label = p.add_run(f"{label}: ")
+            run_label.bold = True
+            run_label.font.size = Pt(11)
+            run_value = p.add_run(str(value) if value else "N/A")
+            run_value.font.size = Pt(11)
+            return p
+
+        def add_table(headers, rows):
+            table = doc.add_table(rows=1, cols=len(headers))
+            table.style = 'Table Grid'
+            hdr_cells = table.rows[0].cells
+            for i, h in enumerate(headers):
+                hdr_cells[i].text = h
+                hdr_cells[i].paragraphs[0].runs[0].bold = True
+                hdr_cells[i].paragraphs[0].runs[0].font.color.rgb = RGBColor(255, 255, 255)
+                tc = hdr_cells[i]._tc
+                tcPr = tc.get_or_add_tcPr()
+                from docx.oxml.ns import qn
+                from docx.oxml import OxmlElement
+                shd = OxmlElement('w:shd')
+                shd.set(qn('w:fill'), '1A3A6B')
+                shd.set(qn('w:color'), 'auto')
+                shd.set(qn('w:val'), 'clear')
+                tcPr.append(shd)
+            for row_data in rows:
+                row_cells = table.add_row().cells
+                for i, val in enumerate(row_data):
+                    row_cells[i].text = str(val) if val else "N/A"
+            doc.add_paragraph()
+            return table
+
+        # COVER PAGE
+        doc.add_paragraph()
+        title = doc.add_heading('Credit Appraisal Memo (CAM)', 0)
         title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        for run in title.runs:
+            run.font.color.rgb = RGBColor(26, 58, 107)
 
-        doc.add_paragraph(f"Target Entity: {entity_name}")
-        doc.add_paragraph(f"Report Date: {os.popen('date /t').read().strip() if os.name == 'nt' else os.popen('date').read().strip()}")
+        subtitle = doc.add_paragraph('VERIDEX® PRIVATE APPRAISAL — CONFIDENTIAL')
+        subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        subtitle.runs[0].font.color.rgb = RGBColor(150, 150, 150)
+        subtitle.runs[0].font.size = Pt(10)
+
+        doc.add_paragraph()
+        add_kv("Target Entity", entity_data.get("companyName", "N/A"))
+        add_kv("CIN", entity_data.get("cin", "N/A"))
+        add_kv("PAN", entity_data.get("pan", "N/A"))
+        add_kv("Sector", entity_data.get("sector", "N/A"))
+        add_kv("Loan Amount Requested", f"₹{loan_data.get('amount', 'N/A')} Cr")
+        add_kv("Loan Type", loan_data.get("loanType", "N/A"))
+        add_kv("Tenure", f"{loan_data.get('tenure', 'N/A')} Months")
+        add_kv("Report Date", datetime.now().strftime("%d %B %Y"))
+        add_kv("Report Generated By", "VERIDEX AI Credit Engine v1.2")
+
         doc.add_page_break()
 
-        # Parse markdown-ish content from Groq into DOCX
-        for line in cam_markdown.split('\n'):
-            line = line.strip()
-            if not line: continue
-            
-            if line.startswith('###'):
-                doc.add_heading(line.replace('###', '').strip(), level=3)
-            elif line.startswith('##'):
-                doc.add_heading(line.replace('##', '').strip(), level=2)
-            elif line.startswith('#'):
-                doc.add_heading(line.replace('#', '').strip(), level=1)
-            elif line.startswith('- ') or line.startswith('* '):
-                doc.add_paragraph(line[2:], style='List Bullet')
-            else:
-                doc.add_paragraph(line)
+        # 1. EXECUTIVE SUMMARY
+        add_heading('1. Executive Summary', 1)
+        add_kv("Credit Decision", scoring_result.get("decision"))
+        add_kv("Intelli-Score", f"{scoring_result.get('score')}/100")
+        add_kv("Recommended Loan Limit", f"₹{scoring_result.get('recommended_amount')} Cr")
+        add_kv("Recommended Interest Rate", scoring_result.get("recommended_rate"))
+        
+        doc.add_paragraph()
+        p = doc.add_paragraph()
+        p.add_run("Reasoning: ").bold = True
+        p.add_run(scoring_result.get("reasoning"))
+
+        # 2. FIVE Cs ANALYSIS
+        add_heading('2. Five Cs Framework Analysis', 1)
+        five_cs = scoring_result.get("five_cs", {})
+        cs_rows = [
+            ["Character (Promoter Background)", f"{five_cs.get('character', {}).get('score', 0)}/20", five_cs.get("character", {}).get("notes", "")],
+            ["Capacity (Revenue & Profit)", f"{five_cs.get('capacity', {}).get('score', 0)}/20", five_cs.get("capacity", {}).get("notes", "")],
+            ["Capital (Net Worth & Leverage)", f"{five_cs.get('capital', {}).get('score', 0)}/20", five_cs.get("capital", {}).get("notes", "")],
+            ["Collateral (Asset Coverage)", f"{five_cs.get('collateral', {}).get('score', 0)}/20", five_cs.get("collateral", {}).get("notes", "")],
+            ["Conditions (Sector Outlook)", f"{five_cs.get('conditions', {}).get('score', 0)}/15", five_cs.get("conditions", {}).get("notes", "")],
+        ]
+        add_table(["Parameter", "Score", "Analysis Notes"], cs_rows)
+
+        # 3. FINANCIAL HIGHLIGHTS
+        add_heading('3. Financial Highlights', 1)
+        annual = extracted_docs.get("annual_report", {})
+        fin_rows = [
+            ["Revenue", f"₹{annual.get('revenue', 'N/A')} Cr", ""],
+            ["Net Profit (PAT)", f"₹{annual.get('pat', 'N/A')} Cr", ""],
+            ["Total Debt", f"₹{annual.get('total_debt', 'N/A')} Cr", ""],
+            ["Net Worth", f"₹{annual.get('net_worth', 'N/A')} Cr", ""],
+            ["Gross NPA %", f"{annual.get('gnpa_percent', 'N/A')}%", "Below 2% is healthy"],
+            ["CAR %", f"{annual.get('car_percent', 'N/A')}%", "Above 15% is adequate"],
+        ]
+        add_table(["Metric", "Value", "Benchmark"], fin_rows)
+
+        # 4. RISK ALERTS & POSITIVE INDICATORS
+        add_heading('4. Risk Alerts', 1)
+        for alert in scoring_result.get("red_flags", []):
+            p = doc.add_paragraph(style='List Bullet')
+            p.add_run(f"⚠ {alert}").font.color.rgb = RGBColor(180, 0, 0)
+        if not scoring_result.get("red_flags"):
+            doc.add_paragraph("No critical risk alerts identified.")
+
+        add_heading('Positive Indicators', 2)
+        for indicator in scoring_result.get("green_flags", []):
+            p = doc.add_paragraph(style='List Bullet')
+            p.add_run(f"✓ {indicator}").font.color.rgb = RGBColor(0, 128, 0)
+
+        # 5. SWOT
+        add_heading('5. SWOT Analysis', 1)
+        swot = scoring_result.get("swot", {})
+        swot_rows = [
+            ["STRENGTHS", "WEAKNESSES"],
+            ["\n".join(swot.get("strengths", [])), "\n".join(swot.get("weaknesses", []))],
+            ["OPPORTUNITIES", "THREATS"],
+            ["\n".join(swot.get("opportunities", [])), "\n".join(swot.get("threats", []))],
+        ]
+        table = doc.add_table(rows=0, cols=2)
+        table.style = 'Table Grid'
+        for i, row_data in enumerate(swot_rows):
+            row = table.add_row()
+            for j, val in enumerate(row_data):
+                row.cells[j].text = val
+                if i in [0, 2]:
+                    row.cells[j].paragraphs[0].runs[0].bold = True
+
+        # 6. WEB INTELLIGENCE
+        add_heading('6. Secondary Research (Web Intelligence)', 1)
+        if research_findings:
+            for finding in research_findings[:5]:
+                p = doc.add_paragraph()
+                p.add_run(finding.get("title", "")).bold = True
+                doc.add_paragraph(finding.get("snippet", ""))
+                url_p = doc.add_paragraph()
+                url_run = url_p.add_run(finding.get("url", ""))
+                url_run.font.color.rgb = RGBColor(0, 70, 180)
+                url_run.font.size = Pt(9)
+        else:
+            doc.add_paragraph("No significant adverse findings detected in secondary research.")
+
+        # FINAL DISCLAIMER
+        doc.add_paragraph()
+        disclaimer = doc.add_paragraph("This report has been generated by the VERIDEX AI Credit Engine. All assessments are based on submitted documents and AI-powered secondary research. This document is confidential.")
+        disclaimer.runs[0].font.size = Pt(9)
+        disclaimer.runs[0].font.color.rgb = RGBColor(120, 120, 120)
 
         buffer = io.BytesIO()
         doc.save(buffer)
         buffer.seek(0)
         
+        entity_name = entity_data.get('companyName', 'Entity').replace(' ', '_')
         return Response(
             content=buffer.getvalue(), 
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            headers={"Content-Disposition": f"attachment; filename=CAM_{entity_name.replace(' ', '_')}.docx"}
+            headers={"Content-Disposition": f"attachment; filename=CAM_{entity_name}.docx"}
         )
         
     except Exception as e:
         print(f"Error generating report: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+

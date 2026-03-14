@@ -116,19 +116,30 @@ const Stage3_Extraction = ({ onNext, entityData }) => {
         <p style={STYLES.subtitle}>AI has distilled critical financial health indicators from your documents.</p>
       </div>
 
-      {/* METRIC WALL */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "20px", marginBottom: "40px" }}>
         {[
-          { label: "Revenue", key: "revenue", icon: <TrendingUp size={20} />, color: "#22c55e", sub: "↑28.5% YoY" },
-          { label: "Net Profit (PAT)", key: "pat", icon: <CheckCircle size={20} />, color: "#22c55e", sub: "↑38.7% YoY" },
-          { label: "Total Debt", key: "total_debt", icon: <AlertCircle size={20} />, color: "#f0a500", sub: "Manageable" },
-          { label: "Net Worth", key: "net_worth", icon: <Shield size={20} />, color: "#22c55e", sub: "Robust" },
-          { label: "Gross NPA", key: "gnpa_percent", icon: <Activity size={20} />, color: "#22c55e", sub: "Below 2%" },
-          { label: "CAR", key: "car_percent", icon: <Zap size={20} />, color: "#22c55e", sub: "Well Capitalized" },
+          { label: "Revenue", key: ["revenue", "Revenue"], icon: <TrendingUp size={20} />, color: "#22c55e", sub: "↑28.5% YoY" },
+          { label: "Net Profit (PAT)", key: ["pat", "net_profit", "Net Profit"], icon: <CheckCircle size={20} />, color: "#22c55e", sub: "↑38.7% YoY" },
+          { label: "Total Debt", key: ["total_debt", "Total Debt"], icon: <AlertCircle size={20} />, color: "#f0a500", sub: "Manageable" },
+          { label: "Net Worth", key: ["net_worth", "Net Worth"], icon: <Shield size={20} />, color: "#22c55e", sub: "Robust" },
+          { label: "Gross NPA", key: ["gnpa_percent", "GNPA"], icon: <Activity size={20} />, color: "#22c55e", sub: "Below 2%" },
+          { label: "CAR", key: ["car_percent", "CAR"], icon: <Zap size={20} />, color: "#22c55e", sub: "Well Capitalized" },
         ].map((m, i) => {
-          // Find value in extractions
-          const financialData = extractions.reduce((acc, curr) => ({ ...acc, ...curr.fields }), {});
-          const val = financialData[m.key] || "N/A";
+          // Find value in extractions - prioritize annual_report
+          const annualDoc = extractions.find(d => d.doc_type === "annual_report");
+          const financialData = annualDoc ? annualDoc.fields : extractions.reduce((acc, curr) => ({ ...acc, ...curr.fields }), {});
+          
+          let val = "N/A";
+          if (Array.isArray(m.key)) {
+            for (const k of m.key) {
+              if (financialData[k]) {
+                val = financialData[k];
+                break;
+              }
+            }
+          } else {
+            val = financialData[m.key] || "N/A";
+          }
           
           return (
             <div key={i} style={{ ...STYLES.glassCard, padding: "24px", borderLeft: `4px solid ${m.color}`, marginBottom: 0 }}>
@@ -139,7 +150,7 @@ const Stage3_Extraction = ({ onNext, entityData }) => {
                 </div>
               </div>
               <div style={{ fontSize: "24px", fontWeight: "800", color: "white", marginBottom: "4px" }}>
-                {typeof val === 'number' ? `₹${val} Cr` : val}
+                {val !== "N/A" && !isNaN(parseFloat(val)) ? `₹${val} Cr` : val}
               </div>
               <div style={{ fontSize: "12px", color: m.color, fontWeight: "600" }}>{m.sub}</div>
             </div>
@@ -155,7 +166,7 @@ const Stage3_Extraction = ({ onNext, entityData }) => {
                 <div>
                   <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "700" }}>{res.original_type}</h3>
                   <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.4)", marginTop: "2px" }}>
-                    Source Identified: {res.detected_type || "Unknown"}
+                    Source Identified: {res.doc_type_label || res.detected_type || "Unknown"}
                   </div>
                 </div>
                 {res.status === 'success' && (

@@ -123,20 +123,24 @@ const Stage4_Report = ({ onBack, entityData }) => {
   useEffect(() => {
     const runFinalAnalysis = async () => {
       try {
-        const researchForm = new FormData();
-        researchForm.append('company_name', entityData?.entity?.companyName || 'Unknown Entity');
-        researchForm.append('sector', entityData?.entity?.sector || 'General');
+        const payload = {
+          company_name: entityData?.entity?.companyName || entityData?.name || entityData?.entity_name || "Unknown Entity",
+          sector: entityData?.entity?.sector || entityData?.industry || "NBFC"
+        };
+        
+        console.log("Research payload:", payload);
         
         const API_URL = import.meta.env.VITE_API_URL || 'https://intelli-credit-7kzw.onrender.com';
         
         let researchData = mockResearchData;
         try {
-          const res = await axios.post(`${API_URL}/api/research`, researchForm);
+          const res = await axios.post(`${API_URL}/api/research`, payload);
           researchData = res?.data || mockResearchData;
         } catch (apiError) {
           console.error('Research API call failed, using mock data', apiError);
         }
         
+        const researchFindings = researchData?.findings || [];
         setResearch(researchData);
 
         // --- DYNAMIC SCORING LOGIC ---
@@ -463,23 +467,21 @@ const Stage4_Report = ({ onBack, entityData }) => {
           </div>
           
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-             {research?.findings?.length > 0 ? (
+             {research?.findings && research.findings.length > 0 ? (
                 research.findings.map((item, i) => (
-                  <div key={i} style={{ padding: "16px", background: "rgba(255,255,255,0.02)", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.05)" }}>
-                    <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ color: "#f0a500", textDecoration: "none", fontWeight: "700", display: "block", marginBottom: "8px" }}>
+                  <div key={i} style={{ padding: "16px", background: "rgba(255,255,255,0.02)", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.1)" }}>
+                    <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ color: "#f0a500", textDecoration: "none", fontWeight: "600", display: "block", marginBottom: "4px" }}>
                       {item.title}
                     </a>
-                    <p style={{ fontSize: "13px", lineHeight: "1.5", color: "rgba(255,255,255,0.6)", margin: 0 }}>
+                    <p style={{ fontSize: "13px", lineHeight: "1.5", color: "#aaa", margin: 0 }}>
                       {item.snippet}
                     </p>
                   </div>
                 ))
              ) : (
-                <div style={{ padding: "20px", background: "rgba(255,255,255,0.02)", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.05)" }}>
-                  <p style={{ fontSize: "14px", color: "rgba(255,255,255,0.3)", textAlign: "center", margin: 0 }}>
-                    {research?.web_findings || research?.web_intelligence || research?.research_summary || "Web search completed. No adverse news or legal findings detected for this entity."}
-                  </p>
-                </div>
+                <p style={{ fontSize: "14px", color: "#666", textAlign: "center", margin: 0 }}>
+                  Web search completed. No significant findings detected.
+                </p>
              )}
           </div>
 

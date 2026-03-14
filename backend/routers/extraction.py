@@ -9,8 +9,15 @@ from typing import List, Dict, Any
 router = APIRouter(prefix="/api")
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-# Enhanced prompt for Indian Financial Intelligence
-EXTRACTION_SYSTEM_PROMPT = """You are a senior Indian credit analyst. 
+DOC_TYPE_LABELS = {
+    "annual_report": "Annual Reports",
+    "alm": "ALM Statement",
+    "shareholding": "Shareholding Pattern",
+    "borrowing_profile": "Borrowing Profile",
+    "portfolio_cuts": "Portfolio Cuts"
+}
+
+GENERAL_EXTRACTION_PROMPT = """You are a senior Indian credit analyst. 
 Extract financial metrics from the provided text.
 CRITICAL: 
 - Identify values in INR Crores (Cr) or Lakhs (L). Convert everything to Crores if possible.
@@ -30,6 +37,37 @@ Return ONLY valid JSON with these keys if found:
   "gst_mismatch": "brief description if any",
   "nclt_status": "brief description if any"
 }
+"""
+
+ALM_PROMPT = """You are a financial document analyst. Extract the following fields from this ALM (Asset-Liability Management) statement. Return ONLY valid JSON, no explanation.
+
+Required fields:
+{
+  "total_assets": "extract total assets value in Cr",
+  "total_liabilities": "extract total liabilities in Cr",
+  "short_term_assets": "assets maturing within 1 year",
+  "long_term_assets": "assets maturing beyond 1 year",
+  "short_term_liabilities": "liabilities due within 1 year",
+  "long_term_liabilities": "liabilities due beyond 1 year",
+  "liquidity_gap": "difference between short term assets and liabilities"
+}
+
+If a field is not found, use null.
+"""
+
+SHAREHOLDING_PROMPT = """You are a financial document analyst. Extract shareholding data. Return ONLY valid JSON.
+
+Required fields:
+{
+  "promoter_holding": "promoter shareholding percentage",
+  "fii_holding": "FII/FPI shareholding percentage",
+  "dii_holding": "DII/mutual fund shareholding percentage",
+  "public_holding": "public/retail shareholding percentage",
+  "pledged_shares": "percentage of promoter shares pledged",
+  "total_shares": "total number of shares outstanding"
+}
+
+If a field is not found, use null.
 """
 
 @router.post("/extract")
@@ -59,11 +97,21 @@ async def extract_data(file_paths: List[str] = Form(...), doc_types: List[str] =
                     results.append({"file_path": path, "status": "error", "message": "No text found", "fields": {}})
                     continue
 
+                # Select prompt based on doc type
+                detected_type = doc_types[i]
+                system_prompt = GENERAL_EXTRACTION_PROMPT
+                if detected_type == "alm":
+                    system_prompt = ALM_PROMPT
+                elif detected_type == "shareholding":
+                    system_prompt = SHAREHOLDING_PROMPT
+                elif detected_type == "annual_report":
+                    system_prompt = GENERAL_EXTRACTION_PROMPT
+
                 # Groq call for extraction
                 response = client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
                     messages=[
-                        {"role": "system", "content": EXTRACTION_SYSTEM_PROMPT},
+                        {"role": "system", "content": system_prompt},
                         {"role": "user", "content": f"Extract financial fields from this text:\n\n{text[:15000]}"}
                     ],
                     max_tokens=1500,
@@ -83,6 +131,8 @@ async def extract_data(file_paths: List[str] = Form(...), doc_types: List[str] =
                 results.append({
                     "file_path": path,
                     "original_type": doc_types[i],
+                    "doc_type": detected_type,
+                    "doc_type_label": DOC_TYPE_LABELS.get(detected_type, detected_type.replace('_', ' ').capitalize()),
                     "fields": extracted_json,
                     "status": "success"
                 })
