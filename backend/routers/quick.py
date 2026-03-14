@@ -2,13 +2,10 @@ from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 import uuid
 import os
 import json
-from typing import Dict
-from .report import calculate_universal_score, generate_swot
-# Import helper functions from main or common utils if they exist
-# For now, I'll assume I can import or redefine needed logic.
-# Actually, I should check report.py for helpers like do_research or similar.
-import sys
-from .report import tavily_client, groq_client
+import asyncio
+import re
+from typing import Dict, List
+from .report import calculate_universal_score, generate_swot, tavily_client, groq_client
 import io
 
 try:
@@ -20,22 +17,38 @@ except ImportError:
 
 router = APIRouter(prefix="/api")
 
-# Temporary in-memory storage for quick reports (would be Redis/DB in prod)
+# Temporary in-memory storage for quick reports
 quick_reports = {}
 
 MAX_PAGES = 15
 
+def robust_json_parser(text: str) -> dict:
+    """Strip markdown fences and parse JSON with regex fallback."""
+    if not text: return {}
+    clean_text = text.replace("```json", "").replace("```", "").strip()
+    try:
+        return json.loads(clean_text)
+    except:
+        pass
+    try:
+        match = re.search(r'\{.*\}', clean_text, re.DOTALL)
+        if match:
+            return json.loads(match.group())
+    except:
+        pass
+    return {}
+
 def extract_text_from_file(contents: bytes, filename: str) -> str:
-    import io
     if filename.endswith('.pdf'):
         import pdfplumber
         text = ""
         with pdfplumber.open(io.BytesIO(contents)) as pdf:
             total_pages = len(pdf.pages)
-            if total_pages > MAX_PAGES:
-                text += f"[Note: Document has {total_pages} pages. Analyzing first {MAX_PAGES} only.]\n\n"
+            # For quick appraisal, we still cap it or follow similar logic to extraction.py
+            # But here we'll keep it simple: first 15 pages.
+            pages_to_read = pdf.pages[:MAX_PAGES]
             
-            for page in pdf.pages[:MAX_PAGES]:
+            for page in pages_to_read:
                 page_text = page.extract_text() or ""
                 if page_text and len(page_text.strip()) > 50:
                     text += page_text + "\n"
@@ -53,45 +66,48 @@ def extract_text_from_file(contents: bytes, filename: str) -> str:
         from docx import Document
         doc = Document(io.BytesIO(contents))
         return "\n".join([p.text for p in doc.paragraphs])
-    # Fallback for text-based or others
     try:
         return contents.decode('utf-8')
     except:
         return ""
 
 def extract_any_document(text: str, company_name: str, client) -> dict:
-    prompt = f"""Extract all available financial metrics from this document about {company_name}.
-Return ONLY valid JSON with any fields you can find:
+    # Use 20,000 characters for context as requested
+    prompt = f"""You are a senior Indian credit analyst. Extract ALL financial data from this {company_name} document. 
+Look for: revenue/total income, PAT/net profit, total debt/borrowings, net worth/equity, GNPA%, CAR%, promoter holding%, pledged shares%, credit rating, rating outlook, total AUM, collection efficiency. 
+Convert all values to INR Crores. 
+
+Return ONLY valid JSON matching this EXACT schema — use null for not found:
 {{
   "annual_report": {{
-    "revenue": null, "pat": null, "total_debt": null, "net_worth": null,
-    "gnpa_percent": null, "car_percent": null
+    "revenue": null, "pat": null, "pbt": null, "ebitda": null, "total_debt": null, "net_worth": null, 
+    "total_assets": null, "gnpa_percent": null, "car_percent": null, "interest_coverage": null, 
+    "cash_from_operations": null, "auditor_remarks": null
   }},
   "borrowing_profile": {{
-    "total_debt": null, "credit_rating_long_term": null, "rating_outlook": null
-  }},
-  "portfolio_cuts": {{
-    "gnpa_percent": null, "collection_efficiency": null, "total_aum": null
+    "total_debt": null, "credit_rating_long_term": null, "rating_outlook": null, "average_cost_of_funds": null
   }},
   "shareholding_pattern": {{
-    "promoter_holding": null, "pledged_shares": null
+    "promoter_holding": null, "pledged_shares": null, "fii_holding": null
+  }},
+  "portfolio_cuts": {{
+    "gnpa_percent": null, "nnpa_percent": null, "collection_efficiency": null, "total_aum": null
   }},
   "alm_statement": {{
     "total_assets": null, "total_liabilities": null, "liquidity_gap": null
   }}
 }}
-Fill in whatever you can find. Use null for anything not found. Document:
-{text[:4000]}"""
+
+Document Text:
+{text[:20000]}"""
 
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.1,
-        max_tokens=1000
+        max_tokens=2048
     )
-    import json
-    text_resp = response.choices[0].message.content.replace("```json","").replace("```","").strip()
-    return json.loads(text_resp)
+    return robust_json_parser(response.choices[0].message.content)
 
 @router.post("/quick-appraisal")
 async def quick_appraisal(
@@ -107,22 +123,36 @@ async def quick_appraisal(
         contents = await file.read()
         text = extract_text_from_file(contents, file.filename)
 
-        # 2. Run AI extraction on whatever doc type it is
+        # 2. Run AI extraction
         extracted = extract_any_document(text, company_name, groq_client)
 
-        # 3. Run web research (strictly 1 credit Tavily call)
-        findings = []
-        try:
-            search_query = f"{company_name} India financial results 2024 financials revenue profit"
-            search_result = tavily_client.search(query=search_query, max_results=3, search_depth="basic")
-            for r in search_result.get("results", []):
-                findings.append({
-                    "title": r.get("title", ""),
-                    "snippet": r.get("content", "")[:300],
-                    "url": r.get("url", "")
-                })
-        except Exception as se:
-            print(f"Tavily search failed in quick-appraisal: {se}")
+        # 3. Run parallel web research (2 queries as requested)
+        loop = asyncio.get_event_loop()
+        queries = [
+            f"{company_name} India financial results 2024 financials revenue profit",
+            f"{company_name} India credit rating news risk 2024 2025"
+        ]
+        
+        async def fetch_search(query):
+            return await loop.run_in_executor(
+                None, 
+                lambda: tavily_client.search(query=query, max_results=3, search_depth="basic")
+            )
+            
+        search_responses = await asyncio.gather(*(fetch_search(q) for q in queries))
+        
+        # Flatten and deduplicate findings
+        unique_findings = {}
+        for resp in search_responses:
+            for r in resp.get("results", []):
+                url = r.get("url")
+                if url and url not in unique_findings:
+                    unique_findings[url] = {
+                        "title": r.get("title", "No Title"),
+                        "snippet": r.get("content", "")[:300],
+                        "url": url
+                    }
+        findings = list(unique_findings.values())
 
         # 4. Run universal scoring
         entity_data = {
@@ -132,6 +162,8 @@ async def quick_appraisal(
             "interest_rate": float(interest_rate),
             "tenure": int(tenure)
         }
+        
+        # Scoring expects the dict with keys like 'annual_report', 'borrowing_profile', etc.
         scoring = calculate_universal_score(
             company_name,
             extracted,
@@ -139,14 +171,12 @@ async def quick_appraisal(
             entity_data
         )
 
-        # 5. Result
+        # 5. Result - flattened structure for frontend
         report_id = str(uuid.uuid4())[:8]
-        # In a real app, we'd generate the file here and store it.
-        # For the hackathon, we'll return the same scoring as enough.
         
         return {
             "scoring": scoring,
-            "extracted": extracted,
+            "extracted": extracted, # This is the dict with doc categories
             "findings": findings,
             "report_id": report_id
         }
