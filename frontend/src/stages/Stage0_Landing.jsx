@@ -11,7 +11,7 @@ const STATS = [
   { val: "5 min", label: "Full Appraisal" },
   { val: "5 Cs", label: "Credit Framework" },
   { val: "360", label: "Web Research" },
-  { val: "100%", label: "Explainable AI" },
+  { val: "3 Modes", label: "Full / Quick / Research" },
 ];
 
 const FEATURES = [
@@ -215,6 +215,23 @@ export default function Stage0_Landing({ onStart, onResearch, onQuick }) {
           color: var(--text);
         }
 
+        .btn-quick {
+          padding: 14px 32px;
+          font-family: 'Rajdhani', sans-serif;
+          font-size: 13px;
+          font-weight: 600;
+          letter-spacing: 0.1em;
+          background: transparent;
+          color: #C8960C;
+          border: 1px solid #C8960C;
+          cursor: pointer;
+          transition: all 0.2s;
+          text-transform: uppercase;
+        }
+        .btn-quick:hover {
+          background: rgba(200, 150, 12, 0.1);
+        }
+
         .step-node {
           width: 48px; height: 48px;
           border: 1px solid var(--gold-dim);
@@ -412,10 +429,7 @@ export default function Stage0_Landing({ onStart, onResearch, onQuick }) {
           <button className="btn-primary" onClick={onStart}>
             <span>BEGIN APPRAISAL</span>
           </button>
-          <button className="btn-secondary btn-highlight" onClick={onQuick} style={{
-            borderColor: 'var(--gold)',
-            boxShadow: '0 0 15px rgba(201, 168, 76, 0.2)'
-          }}>
+          <button className="btn-quick" onClick={onQuick}>
             <span>QUICK APPRAISAL</span>
           </button>
           <button className="btn-secondary" onClick={onResearch}>
@@ -620,7 +634,7 @@ export default function Stage0_Landing({ onStart, onResearch, onQuick }) {
           <button className="btn-primary" onClick={onStart}>
             <span>LAUNCH PLATFORM</span>
           </button>
-          <button className="btn-secondary" onClick={onQuick}>
+          <button className="btn-quick" onClick={onQuick}>
             <span>QUICK APPRAISAL</span>
           </button>
           <button className="btn-secondary" onClick={onResearch}>
