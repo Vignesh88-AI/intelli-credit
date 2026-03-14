@@ -1,5 +1,5 @@
 import { useState } from "react"
-import "./styles/quick.css"
+import "../styles/quick.css"
 
 export default function QuickAppraisal({ onBack }) {
   const [step, setStep] = useState("input") // input | loading | result
@@ -31,7 +31,8 @@ export default function QuickAppraisal({ onBack }) {
 
     try {
       setProgress("Extracting financial data from document...")
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/quick-appraisal`, {
+      const API_URL = import.meta.env.VITE_API_URL || 'https://intelli-credit-7kzw.onrender.com'
+      const res = await fetch(`${API_URL}/api/quick-appraisal`, {
         method: "POST",
         body: formData
       })
