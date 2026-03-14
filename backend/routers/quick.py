@@ -5,7 +5,7 @@ import json
 import asyncio
 import re
 from typing import Dict, List
-from .report import calculate_universal_score, generate_swot, tavily_client, groq_client
+from .report import calculate_universal_score, generate_swot, tavily_client, groq_client, cached_tavily_search
 import io
 
 try:
@@ -136,7 +136,7 @@ async def quick_appraisal(
         async def fetch_search(query):
             return await loop.run_in_executor(
                 None, 
-                lambda: tavily_client.search(query=query, max_results=3, search_depth="basic")
+                lambda: cached_tavily_search(query=query, max_results=3)
             )
             
         search_responses = await asyncio.gather(*(fetch_search(q) for q in queries))

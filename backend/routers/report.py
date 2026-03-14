@@ -18,6 +18,26 @@ router = APIRouter(prefix="/api")
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 tavily_client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
 
+# --- CACHING LAYER ---
+_research_cache = {}
+_tavily_cache = {}
+
+def cached_tavily_search(query: str, max_results: int = 5) -> list:
+    """Wrapper for Tavily search with query-level in-memory caching."""
+    try:
+        key = query.strip().lower()
+        if key in _tavily_cache:
+            print(f"📡 CACHE HIT: {query}")
+            return _tavily_cache[key]
+        
+        print(f"🌐 TAVILY SEARCH: {query}")
+        results = tavily_client.search(query=query, max_results=max_results, search_depth="basic")
+        _tavily_cache[key] = results
+        return results
+    except Exception as e:
+        print(f"❌ Tavily Cache Error for {query}: {e}")
+        return {"results": []}
+
 def calculate_universal_score(
     company_name: str,
     extracted_docs: dict,
@@ -480,6 +500,12 @@ async def perform_research(data: dict):
         company_name = data.get("company_name", "Unknown Entity")
         sector = data.get("sector", "General")
         
+        # 1. Company-level Cache (saves Groq + Tavily)
+        cache_key = company_name.strip().lower()
+        if cache_key in _research_cache:
+            print(f"🚀 RE-USING CACHED RESEARCH: {company_name}")
+            return _research_cache[cache_key]
+
         import asyncio
         loop = asyncio.get_event_loop()
         
@@ -493,7 +519,7 @@ async def perform_research(data: dict):
         async def fetch_search(query):
             return await loop.run_in_executor(
                 None, 
-                lambda: tavily_client.search(query=query, max_results=3, search_depth="basic")
+                lambda: cached_tavily_search(query=query, max_results=3)
             )
             
         search_responses = await asyncio.gather(*(fetch_search(q) for q in queries))
@@ -581,6 +607,9 @@ Use numerical values for financials where possible. No markdown."""},
             # Ensure data_sources is updated if missing
             if not extracted_json.get("data_sources"):
                 extracted_json["data_sources"] = sources_list[:10]
+            
+            # 2. Store in Company Cache
+            _research_cache[cache_key] = extracted_json
             return extracted_json
         return {"error": "parsing failed", "raw": text[:500]}
 
@@ -589,6 +618,23 @@ Use numerical values for financials where possible. No markdown."""},
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/cache/stats")
+async def get_cache_stats():
+    """Returns statistics about current in-memory caches."""
+    return {
+        "cached_companies": list(_research_cache.keys()),
+        "cached_queries": len(_tavily_cache),
+        "total_companies": len(_research_cache)
+    }
+
+@router.delete("/cache/clear")
+async def clear_cache():
+    """Clears all in-memory caches."""
+    global _research_cache, _tavily_cache
+    _research_cache = {}
+    _tavily_cache = {}
+    return {"message": "Cache cleared"}
 
 
 @router.post("/generate-cam")

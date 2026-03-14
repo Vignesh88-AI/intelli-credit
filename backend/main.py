@@ -52,4 +52,5 @@ async def health_check():
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
+    print("✅ Tavily cache active — repeat searches cost 0 credits")
     uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
