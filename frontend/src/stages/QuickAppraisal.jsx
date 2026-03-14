@@ -149,6 +149,42 @@ export default function QuickAppraisal({ onBack }) {
         </div>
       </div>
 
+      {/* FINANCIAL METRICS GRID */}
+      {result.extracted && (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: '12px',
+          margin: '20px 0'
+        }}>
+          {[
+            { label: 'REVENUE', value: result.extracted?.annual_report?.revenue, unit: 'Cr', color: '#22c55e' },
+            { label: 'NET PROFIT (PAT)', value: result.extracted?.annual_report?.pat, unit: 'Cr', color: result.extracted?.annual_report?.pat > 0 ? '#22c55e' : '#ef4444' },
+            { label: 'EBITDA', value: result.extracted?.annual_report?.ebitda, unit: 'Cr', color: '#f0a500' },
+            { label: 'TOTAL DEBT', value: result.extracted?.annual_report?.total_debt || result.extracted?.borrowing_profile?.total_debt, unit: 'Cr', color: '#ef4444' },
+            { label: 'NET WORTH', value: result.extracted?.annual_report?.net_worth, unit: 'Cr', color: '#22c55e' },
+            { label: 'TOTAL ASSETS', value: result.extracted?.annual_report?.total_assets || result.extracted?.alm_statement?.total_assets, unit: 'Cr', color: '#f0a500' },
+            { label: 'GROSS NPA', value: result.extracted?.annual_report?.gnpa_percent || result.extracted?.portfolio_cuts?.gnpa_percent, unit: '%', color: '#f0a500' },
+            { label: 'CAR %', value: result.extracted?.annual_report?.car_percent, unit: '%', color: '#22c55e' },
+            { label: 'CREDIT RATING', value: result.extracted?.borrowing_profile?.credit_rating_long_term, unit: '', color: '#f0a500' },
+          ].map((metric, i) => (
+            <div key={i} style={{
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: '12px',
+              padding: '16px',
+            }}>
+              <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', letterSpacing: '1px', marginBottom: '8px' }}>
+                {metric.label}
+              </div>
+              <div style={{ fontSize: '20px', fontWeight: '800', color: metric.value && metric.value !== 'null' ? metric.color : '#4a5568' }}>
+                {metric.value && metric.value !== 'null' ? `${metric.value} ${metric.unit}` : 'N/A'}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="score-section">
         <div className="score-circle" style={{
           background: `conic-gradient(${result.scoring?.score >= 70 ? '#F5A623' : result.scoring?.score >= 45 ? '#FF6B35' : '#E53935'} ${result.scoring?.score * (360/95)}deg, #1a2332 0deg)`
@@ -230,8 +266,14 @@ export default function QuickAppraisal({ onBack }) {
       <div className="quick-actions">
         <button onClick={() => { setStep("input"); setResult(null); setFile(null) }} 
           className="btn-outline">New Appraisal</button>
-        <button onClick={() => window.open(`${API_URL}/api/quick-report/${result.report_id}`)}
-          className="btn-primary">Download CAM Report</button>
+        <button onClick={() => {
+          const link = document.createElement('a')
+          link.href = `${API_URL}/api/quick-report/${result.report_id}`
+          link.setAttribute('download', `QuickCAM_${form.company_name}.docx`)
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+        }} className="btn-primary">Download CAM Report</button>
       </div>
     </div>
   )
