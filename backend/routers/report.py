@@ -498,7 +498,7 @@ async def perform_research(data: dict):
             if len(findings) >= 5:
                 break
             try:
-                search_result = tavily_client.search(query=query, max_results=5, search_depth="advanced")
+                search_result = tavily_client.search(query=query, max_results=3, search_depth="basic")
                 for r in search_result.get("results", []):
                     findings.append({
                         "title": r.get("title", ""),

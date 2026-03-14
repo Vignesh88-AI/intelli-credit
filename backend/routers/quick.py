@@ -118,7 +118,7 @@ async def quick_appraisal(
         ]
         for query in queries_to_try:
             try:
-                search_result = tavily_client.search(query=query, max_results=3, search_depth="advanced")
+                search_result = tavily_client.search(query=query, max_results=3, search_depth="basic")
                 for r in search_result.get("results", []):
                     findings.append({
                         "title": r.get("title", ""),
