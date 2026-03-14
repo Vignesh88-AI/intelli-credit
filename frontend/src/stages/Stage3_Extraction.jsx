@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
-import { ArrowRight, CheckCircle, Edit2, Save, X, Plus, ChevronDown, AlertCircle, TrendingUp, Activity, Shield, Eye, EyeOff } from 'lucide-react';
+import axios from 'axios';
+import { 
+  ArrowRight, CheckCircle, Edit2, Save, X, Plus, ChevronDown, AlertCircle, 
+  TrendingUp, Activity, Shield, Eye, EyeOff, Settings, RefreshCw, Lock
+} from 'lucide-react';
 
 const DOC_TYPE_OPTIONS = [
   { value: 'annual_report', label: 'Annual Reports (P&L / Balance Sheet / Cashflow)' },
@@ -17,6 +21,14 @@ const CONFIDENCE_MAP = {
   borrowing_profile: 89,
   portfolio_cuts: 88,
   general: 72,
+};
+
+const DEFAULT_SCHEMAS = {
+  annual_report: ["revenue", "pat", "ebitda", "total_debt", "net_worth", "gnpa_percent", "car_percent", "auditor_remarks"],
+  alm: ["total_assets", "total_liabilities", "liquidity_gap"],
+  shareholding: ["promoter_holding", "pledged_shares", "fii_holding"],
+  borrowing_profile: ["total_debt", "credit_rating_long_term", "rating_outlook"],
+  portfolio_cuts: ["total_aum", "gnpa_percent", "collection_efficiency"]
 };
 
 const S = {
@@ -46,6 +58,16 @@ const S = {
     borderBottom: '1px solid rgba(255,255,255,0.05)',
     verticalAlign: 'middle',
   },
+  banner: {
+    background: 'linear-gradient(90deg, rgba(240, 165, 0, 0.1) 0%, rgba(10, 22, 40, 1) 100%)',
+    border: '1px solid rgba(240, 165, 0, 0.3)',
+    borderRadius: '12px',
+    padding: '16px 24px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
+    marginBottom: '32px'
+  }
 };
 
 const safeNum = (v) => {
@@ -65,6 +87,14 @@ const Stage3_Extraction = ({ onNext, entityData }) => {
       editingId: null,
     }))
   );
+  
+  const [isReExtracting, setIsReExtracting] = useState(false);
+  const [schemaLocked, setSchemaLocked] = useState(true);
+  const [disabledFields, setDisabledFields] = useState(new Set());
+  const [customSchemaFields, setCustomSchemaFields] = useState([]);
+  const [showAddSchemaField, setShowAddSchemaField] = useState(false);
+  const [newSchemaKey, setNewSchemaKey] = useState('');
+  
   const [newFieldKey, setNewFieldKey] = useState({});
   const [newFieldVal, setNewFieldVal] = useState({});
 
@@ -109,6 +139,47 @@ const Stage3_Extraction = ({ onNext, entityData }) => {
     setNewFieldVal((p) => ({ ...p, [idx]: '' }));
   };
 
+  const handleReExtract = async () => {
+    setIsReExtracting(true);
+    setSchemaLocked(false);
+    try {
+      const activeDocType = extractions[0]?.doc_type || 'annual_report';
+      const baseFields = DEFAULT_SCHEMAS[activeDocType] || [];
+      const currentFields = [...baseFields.filter(f => !disabledFields.has(f)), ...customSchemaFields];
+      
+      const customSchemaObj = {};
+      currentFields.forEach(f => {
+        customSchemaObj[f] = `Extract ${f.replace(/_/g, ' ')}`;
+      });
+
+      const form = new FormData();
+      extractions.forEach(e => {
+        form.append('file_paths', e.file_path);
+        form.append('doc_types', e.doc_type);
+      });
+      form.append('custom_schema', JSON.stringify(customSchemaObj));
+
+      const API_URL = import.meta.env.VITE_API_URL || 'https://intelli-credit-7kzw.onrender.com';
+      const res = await axios.post(`${API_URL}/api/extract`, form);
+      
+      if (res.data?.extractions) {
+        setExtractions(res.data.extractions.map(e => ({
+          ...e,
+          approved: false,
+          rejected: false,
+          hiddenFields: new Set(),
+          customFields: [],
+          editingId: null
+        })));
+        setSchemaLocked(true);
+      }
+    } catch (err) {
+      alert("Re-extraction failed: " + err.message);
+    } finally {
+      setIsReExtracting(false);
+    }
+  };
+
   const handleConfirm = () => {
     const cleaned = extractions
       .filter((e) => !e.rejected)
@@ -129,7 +200,6 @@ const Stage3_Extraction = ({ onNext, entityData }) => {
     onNext({ extractedData: cleaned });
   };
 
-  // Aggregate metrics across all docs
   const allFields = extractions.reduce((a, e) => ({ ...a, ...e.fields }), {});
   const getVal = (...keys) => {
     for (const k of keys) if (allFields[k] != null && allFields[k] !== '') return allFields[k];
@@ -151,27 +221,31 @@ const Stage3_Extraction = ({ onNext, entityData }) => {
   ];
 
   const approved = extractions.filter((e) => !e.rejected);
-  const rejectedCount = extractions.filter((e) => e.rejected).length;
-
-  if (!extractions || extractions.length === 0) {
-    return (
-      <div style={{ ...S.container, textAlign: 'center', padding: '100px 0' }}>
-        <div style={{ ...S.card, padding: '48px' }}>
-          <AlertCircle size={48} color="#ff4d4d" style={{ marginBottom: '24px' }} />
-          <h2 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '8px' }}>No Data Extracted</h2>
-          <p style={{ color: 'rgba(255,255,255,0.5)', marginBottom: '32px' }}>
-            The AI engine could not retrieve any structured fields from the provided documents.
-          </p>
-          <button style={{ background: '#f0a500', color: '#0a1628', padding: '12px 32px', border: 'none', borderRadius: '50px', fontWeight: '700', cursor: 'pointer' }} onClick={() => window.location.reload()}>
-            Try Again
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const pendingApprovalCount = extractions.filter((e) => !e.approved && !e.rejected).length;
 
   return (
     <div style={S.container}>
+      
+      {/* ── Classification Banner ── */}
+      <div style={S.banner}>
+        <div style={{ background: '#f0a500', borderRadius: '50%', padding: '10px', display: 'flex' }}>
+          <Activity size={24} color="#0a1628" />
+        </div>
+        <div style={{ flex: 1 }}>
+          <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: 'white' }}>
+            AI classified your documents — review and approve each one below
+          </h4>
+          <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'rgba(255,255,255,0.6)' }}>
+            {pendingApprovalCount} document{pendingApprovalCount !== 1 ? 's' : ''} pending your validation
+          </p>
+        </div>
+        {schemaLocked && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(34,197,94,0.1)', color: '#22c55e', padding: '6px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: '900', border: '1px solid rgba(34,197,94,0.3)' }}>
+            <Lock size={12} /> SCHEMA LOCKED
+          </div>
+        )}
+      </div>
+
       {/* Header */}
       <div style={{ marginBottom: '32px' }}>
         <h1 style={{ fontSize: '32px', fontWeight: '800', color: '#f0a500', marginBottom: '6px' }}>
@@ -180,6 +254,79 @@ const Stage3_Extraction = ({ onNext, entityData }) => {
         <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '15px' }}>
           Review AI-extracted data, approve document classifications, and configure output schema before finalizing.
         </p>
+      </div>
+
+      {/* ── Schema Configuration Panel ── */}
+      <div style={{ ...S.card, padding: '24px', marginBottom: '40px', background: 'rgba(240,165,0,0.03)', border: '1px solid rgba(240,165,0,0.15)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+           <h3 style={{ ...S.sectionTitle, margin: 0 }}>
+             <Settings size={20} /> Dynamic Output Schema Configuration
+           </h3>
+           <button 
+             onClick={handleReExtract}
+             disabled={isReExtracting}
+             style={{ background: '#f0a500', color: '#0a1628', border: 'none', borderRadius: '8px', padding: '8px 16px', fontSize: '13px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+           >
+             {isReExtracting ? <RefreshCw className="animate-spin" size={16} /> : <RefreshCw size={16} />}
+             RE-EXTRACT WITH SCHEMA
+           </button>
+        </div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '20px' }}>
+           {/* Default Fields Checkboxes */}
+           {(DEFAULT_SCHEMAS[extractions[0]?.doc_type] || []).map(field => (
+             <label key={field} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.05)', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}>
+               <input 
+                 type="checkbox" 
+                 checked={!disabledFields.has(field)} 
+                 onChange={() => {
+                   const next = new Set(disabledFields);
+                   next.has(field) ? next.delete(field) : next.add(field);
+                   setDisabledFields(next);
+                 }}
+               />
+               {field.replace(/_/g, ' ')}
+             </label>
+           ))}
+
+           {/* Custom Schema Fields */}
+           {customSchemaFields.map(field => (
+             <div key={field} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(167,139,250,0.1)', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', border: '1px solid rgba(167,139,250,0.3)' }}>
+               <span style={{ color: '#a78bfa', fontWeight: '700' }}>{field}</span>
+               <X 
+                 size={14} 
+                 style={{ cursor: 'pointer' }} 
+                 onClick={() => setCustomSchemaFields(prev => prev.filter(f => f !== field))} 
+               />
+             </div>
+           ))}
+
+           {showAddSchemaField ? (
+             <div style={{ display: 'flex', gap: '8px' }}>
+               <input 
+                 autoFocus
+                 placeholder="Field Name"
+                 value={newSchemaKey}
+                 onChange={e => setNewSchemaKey(e.target.value.toLowerCase().replace(/\s/g, '_'))}
+                 onKeyDown={e => e.key === 'Enter' && (setCustomSchemaFields(prev => [...prev, newSchemaKey]), setNewSchemaKey(''), setShowAddSchemaField(false))}
+                 style={{ background: '#0a1628', border: '1px solid #a78bfa', borderRadius: '6px', padding: '4px 10px', color: 'white', fontSize: '12px' }}
+               />
+               <button 
+                 onClick={() => { setCustomSchemaFields(prev => [...prev, newSchemaKey]); setNewSchemaKey(''); setShowAddSchemaField(false); }}
+                 style={{ background: '#a78bfa', color: '#0a1628', border: 'none', borderRadius: '6px', padding: '4px 10px', fontSize: '12px', fontWeight: '700' }}
+               >
+                 ADD
+               </button>
+             </div>
+           ) : (
+             <button 
+               onClick={() => setShowAddSchemaField(true)}
+               style={{ background: 'transparent', border: '1px dashed rgba(167,139,250,0.5)', color: '#a78bfa', borderRadius: '6px', padding: '6px 12px', fontSize: '12px', cursor: 'pointer', fontWeight: '700' }}
+             >
+               + ADD CUSTOM FIELD
+             </button>
+           )}
+        </div>
       </div>
 
       {/* Metric Summary Cards */}
@@ -216,7 +363,6 @@ const Stage3_Extraction = ({ onNext, entityData }) => {
                       <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: 'white' }}>{res.original_type}</h3>
                     </div>
 
-                    {/* Confidence Badge */}
                     <div style={{
                       padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '700',
                       background: confScore >= 90 ? 'rgba(34,197,94,0.1)' : 'rgba(240,165,0,0.1)',
@@ -227,7 +373,6 @@ const Stage3_Extraction = ({ onNext, entityData }) => {
                     </div>
                   </div>
 
-                  {/* Classification Approval Row */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '12px', flexWrap: 'wrap' }}>
                     <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>Detected as:</span>
                     <select
@@ -243,7 +388,6 @@ const Stage3_Extraction = ({ onNext, entityData }) => {
                       ))}
                     </select>
 
-                    {/* Approve */}
                     {!res.approved && !res.rejected && (
                       <button
                         onClick={() => updateDoc(idx, { approved: true })}
@@ -262,7 +406,6 @@ const Stage3_Extraction = ({ onNext, entityData }) => {
                       </span>
                     )}
 
-                    {/* Reject */}
                     <button
                       onClick={() => updateDoc(idx, res.rejected ? { rejected: false } : { rejected: true, approved: false })}
                       style={{
@@ -278,7 +421,6 @@ const Stage3_Extraction = ({ onNext, entityData }) => {
                   </div>
                 </div>
 
-                {/* ── Extracted Fields Table ── */}
                 {!res.rejected && (
                   <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
@@ -286,7 +428,7 @@ const Stage3_Extraction = ({ onNext, entityData }) => {
                         <tr>
                           <th style={S.th}>Field</th>
                           <th style={S.th}>Extracted Value</th>
-                          <th style={{ ...S.th, textAlign: 'right' }}>Schema</th>
+                          <th style={{ ...S.th, textAlign: 'right' }}>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -318,7 +460,6 @@ const Stage3_Extraction = ({ onNext, entityData }) => {
                               </td>
                               <td style={{ ...S.td, textAlign: 'right' }}>
                                 <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                                  {/* Edit */}
                                   <button
                                     title="Edit value"
                                     onClick={() => updateDoc(idx, { editingId: res.editingId === key ? null : key })}
@@ -326,7 +467,6 @@ const Stage3_Extraction = ({ onNext, entityData }) => {
                                   >
                                     {res.editingId === key ? <Save size={15} color="#22c55e" /> : <Edit2 size={15} />}
                                   </button>
-                                  {/* Toggle visibility */}
                                   <button
                                     title={res.hiddenFields.has(key) ? 'Include in schema' : 'Exclude from schema'}
                                     onClick={() => toggleField(idx, key)}
@@ -368,23 +508,8 @@ const Stage3_Extraction = ({ onNext, entityData }) => {
                             </button>
                           </td>
                         </tr>
-
-                        {Object.keys(res.fields || {}).length === 0 && (
-                          <tr>
-                            <td colSpan="3" style={{ ...S.td, textAlign: 'center', color: 'rgba(255,255,255,0.3)' }}>
-                              No fields extracted. Add custom fields above.
-                            </td>
-                          </tr>
-                        )}
                       </tbody>
                     </table>
-
-                    {/* Schema summary */}
-                    {res.hiddenFields.size > 0 && (
-                      <div style={{ padding: '8px 20px', fontSize: '11px', color: '#ef4444', background: 'rgba(239,68,68,0.05)', borderTop: '1px solid rgba(239,68,68,0.15)' }}>
-                        {res.hiddenFields.size} field(s) excluded from output schema
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
@@ -406,31 +531,9 @@ const Stage3_Extraction = ({ onNext, entityData }) => {
                 <span style={{ fontWeight: '700', color: '#22c55e' }}>{extractions.filter(e => e.approved).length}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'rgba(255,255,255,0.5)' }}>Rejected</span>
-                <span style={{ fontWeight: '700', color: rejectedCount > 0 ? '#ef4444' : 'rgba(255,255,255,0.4)' }}>{rejectedCount}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'rgba(255,255,255,0.5)' }}>Total fields</span>
                 <span style={{ fontWeight: '700' }}>{approved.reduce((a, e) => a + Object.keys(e.fields || {}).length - e.hiddenFields.size, 0)}</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'rgba(255,255,255,0.5)' }}>Excluded fields</span>
-                <span style={{ fontWeight: '700', color: '#f0a500' }}>{approved.reduce((a, e) => a + e.hiddenFields.size, 0)}</span>
-              </div>
-              <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '12px', display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'rgba(255,255,255,0.5)' }}>Custom fields added</span>
-                <span style={{ fontWeight: '700', color: '#a78bfa' }}>{approved.reduce((a, e) => a + (e.customFields?.length || 0), 0)}</span>
-              </div>
-            </div>
-          </div>
-
-          <div style={{ ...S.card, padding: '20px', marginBottom: '16px', borderColor: 'rgba(34,197,94,0.2)' }}>
-            <div style={{ fontSize: '11px', color: '#22c55e', fontWeight: '700', letterSpacing: '1px', marginBottom: '10px' }}>HOW THIS WORKS</div>
-            <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', lineHeight: '1.7' }}>
-              <p style={{ margin: '0 0 6px' }}>• <strong style={{ color: 'white' }}>Approve / Change Type</strong> — correct the AI-detected document classification</p>
-              <p style={{ margin: '0 0 6px' }}>• <strong style={{ color: 'white' }}>Eye icon</strong> — toggle a field's inclusion in the output schema</p>
-              <p style={{ margin: '0 0 6px' }}>• <strong style={{ color: 'white' }}>Edit icon</strong> — manually correct any extracted value</p>
-              <p style={{ margin: 0 }}>• <strong style={{ color: '#a78bfa' }}>Purple row</strong> — add custom fields not auto-detected by AI</p>
             </div>
           </div>
 
@@ -446,11 +549,6 @@ const Stage3_Extraction = ({ onNext, entityData }) => {
             Finalize Schema & Proceed
             <ArrowRight size={18} />
           </button>
-          {rejectedCount > 0 && (
-            <p style={{ textAlign: 'center', fontSize: '11px', color: 'rgba(255,255,255,0.3)', marginTop: '8px' }}>
-              {rejectedCount} rejected document(s) will be excluded from the report
-            </p>
-          )}
         </div>
       </div>
     </div>

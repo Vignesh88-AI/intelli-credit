@@ -191,7 +191,11 @@ If a field is not found use null.
 """
 
 @router.post("/extract")
-async def extract_data(file_paths: List[str] = Form(...), doc_types: List[str] = Form(...)):
+async def extract_data(
+    file_paths: List[str] = Form(...), 
+    doc_types: List[str] = Form(...),
+    custom_schema: str = Form(None)
+):
     try:
         results = []
         for i, path in enumerate(file_paths):
@@ -237,11 +241,27 @@ async def extract_data(file_paths: List[str] = Form(...), doc_types: List[str] =
                     results.append({"file_path": path, "status": "error", "message": "No text found", "fields": {}})
                     continue
 
-                system_prompt = GENERAL_EXTRACTION_PROMPT
-                if detected_type == "alm": system_prompt = ALM_PROMPT
-                elif detected_type == "shareholding": system_prompt = SHAREHOLDING_PROMPT
-                elif detected_type == "borrowing_profile": system_prompt = BORROWING_PROMPT
-                elif detected_type == "portfolio_cuts": system_prompt = PORTFOLIO_CUTS_PROMPT
+                # --- DYNAMIC SCHEMA LOGIC ---
+                if custom_schema:
+                    try:
+                        schema_obj = json.loads(custom_schema)
+                        system_prompt = f"""You are a senior Indian credit analyst. Extract precisely these fields from the document.
+Return ONLY valid JSON matching this EXACT schema:
+{json.dumps(schema_obj, indent=2)}
+
+CRITICAL: 
+- Values in INR Crores (Cr).
+- Use null if not found.
+- Do NOT add fields not in the schema.
+"""
+                    except:
+                        system_prompt = GENERAL_EXTRACTION_PROMPT
+                else:
+                    system_prompt = GENERAL_EXTRACTION_PROMPT
+                    if detected_type == "alm": system_prompt = ALM_PROMPT
+                    elif detected_type == "shareholding": system_prompt = SHAREHOLDING_PROMPT
+                    elif detected_type == "borrowing_profile": system_prompt = BORROWING_PROMPT
+                    elif detected_type == "portfolio_cuts": system_prompt = PORTFOLIO_CUTS_PROMPT
 
                 # Groq call with Retry Logic (Up to 2 retries)
                 extracted_json = {}
