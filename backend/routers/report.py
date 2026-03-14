@@ -17,6 +17,44 @@ router = APIRouter(prefix="/api")
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 tavily_client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
 
+def calculate_recommended_terms(score: int, requested_amount: float, requested_rate: float, requested_tenure: int) -> dict:
+    
+    if score >= 70:
+        # Approve full amount, standard rate
+        recommended_amount = requested_amount
+        rate_premium = 0.0
+        decision = "APPROVE WITH CONDITIONS"
+    elif score >= 55:
+        # Approve 75% of requested, add 1% premium
+        recommended_amount = round(requested_amount * 0.75, 2)
+        rate_premium = 1.0
+        decision = "CONDITIONAL — ENHANCED DUE DILIGENCE REQUIRED"
+    elif score >= 40:
+        # Approve 50% of requested, add 2.5% premium
+        recommended_amount = round(requested_amount * 0.50, 2)
+        rate_premium = 2.5
+        decision = "CONDITIONAL — HIGH RISK TERMS"
+    else:
+        # Reject — recommend zero
+        recommended_amount = 0
+        rate_premium = 0
+        decision = "REJECT"
+    
+    # Build interest rate string
+    if recommended_amount == 0:
+        recommended_rate = "N/A — Loan Rejected"
+    elif rate_premium == 0:
+        recommended_rate = f"Base + {round(requested_rate, 1)}%"
+    else:
+        recommended_rate = f"Base + {round(requested_rate + rate_premium, 1)}% (incl. {rate_premium}% risk premium)"
+    
+    return {
+        "decision": decision,
+        "recommended_amount": recommended_amount,
+        "recommended_rate": recommended_rate,
+        "tenure": requested_tenure
+    }
+
 def apply_web_intelligence_penalties(base_score: int, research_findings: list) -> tuple:
     penalty = 0
     red_flags = []
@@ -155,7 +193,19 @@ async def perform_research(data: dict):
             existing_red = final_data.get("red_flags", [])
             final_data["red_flags"] = list(set(existing_red + ai_red_flags))
             final_data["score"] = final_score
-            final_data["credit_decision"] = decision
+            
+            # Calculate Recommended Terms
+            entity_req = data.get("entity", {})
+            requested_amount = float(entity_req.get("loan_amount", 50))
+            requested_rate = float(entity_req.get("interest_rate", 1.5))
+            requested_tenure = int(entity_req.get("tenure", 36))
+            
+            rec_terms = calculate_recommended_terms(final_score, requested_amount, requested_rate, requested_tenure)
+            
+            final_data["credit_decision"] = rec_terms["decision"]
+            final_data["recommended_amount"] = rec_terms["recommended_amount"]
+            final_data["recommended_rate"] = rec_terms["recommended_rate"]
+            final_data["tenure"] = rec_terms["tenure"]
             
             # Inject raw findings for frontend to display links
             final_data["findings"] = findings
@@ -194,10 +244,10 @@ async def generate_report(data: str = Form(...)):
 
         # Prepare scoring result for the template
         scoring_result = {
-            "decision": score_data.get("total", 0) >= 80 and "APPROVE" or (score_data.get("total", 0) >= 70 and "APPROVE WITH CONDITIONS" or "REJECT"),
-            "score": score_data.get("total", 0),
-            "recommended_amount": loan_data.get("amount", "50"),
-            "recommended_rate": "Base + 1.5%",
+            "decision": research_data.get("credit_decision", score_data.get("total", 0) >= 80 and "APPROVE" or (score_data.get("total", 0) >= 70 and "APPROVE WITH CONDITIONS" or "REJECT")),
+            "score": research_data.get("score", score_data.get("total", 0)),
+            "recommended_amount": research_data.get("recommended_amount", loan_data.get("amount", "50")),
+            "recommended_rate": research_data.get("recommended_rate", "Base + 1.5%"),
             "reasoning": research_data.get("reasoning_engine", "Analysis based on submitted documents."),
             "red_flags": research_data.get("red_flags", ["Debt-to-Equity (3.8x) nearing industry cap", "Limited operating track record since 2019"]),
             "green_flags": research_data.get("green_flags", ["Strong institutional backing", "Diversified lending portfolio"]),

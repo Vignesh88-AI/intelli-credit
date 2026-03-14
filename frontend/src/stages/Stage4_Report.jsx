@@ -125,7 +125,13 @@ const Stage4_Report = ({ onBack, entityData }) => {
       try {
         const payload = {
           company_name: entityData?.entity?.companyName || entityData?.name || entityData?.entity_name || "Unknown Entity",
-          sector: entityData?.entity?.sector || entityData?.industry || "NBFC"
+          sector: entityData?.entity?.sector || entityData?.industry || "NBFC",
+          entity: {
+            loan_amount: parseFloat(entityData?.loan?.amount || 50),
+            interest_rate: parseFloat(entityData?.loan?.rate || 1.5),
+            tenure: parseInt(entityData?.loan?.tenure || 36),
+            loan_type: entityData?.loan?.loanType || "Term Loan"
+          }
         };
         
         console.log("Research payload:", payload);
@@ -510,15 +516,15 @@ const Stage4_Report = ({ onBack, entityData }) => {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "40px" }}>
              <div>
                 <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", marginBottom: "6px", textTransform: "uppercase" }}>Recommended Limit</div>
-                <div style={{ fontSize: "24px", fontWeight: "900", color: "#f0a500" }}>₹50.00 Cr</div>
+                <div style={{ fontSize: "24px", fontWeight: "900", color: "#f0a500" }}>₹{research?.recommended_amount !== undefined ? research.recommended_amount : (entityData?.loan?.amount || '—')} Cr</div>
              </div>
              <div>
                 <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", marginBottom: "6px", textTransform: "uppercase" }}>Interest Spread</div>
-                <div style={{ fontSize: "24px", fontWeight: "900" }}>Base + 1.5%</div>
+                <div style={{ fontSize: "24px", fontWeight: "900" }}>{research?.recommended_rate || `Base + ${entityData?.loan?.rate || '—'}%`}</div>
              </div>
              <div>
                 <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", marginBottom: "6px", textTransform: "uppercase" }}>Tenor Profile</div>
-                <div style={{ fontSize: "24px", fontWeight: "900" }}>36 Months</div>
+                <div style={{ fontSize: "24px", fontWeight: "900" }}>{research?.tenure || entityData?.loan?.tenure || '—'} Months</div>
              </div>
           </div>
       </div>
