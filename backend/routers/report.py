@@ -614,27 +614,55 @@ async def generate_report(data: str = Form(...)):
             doc_type = doc.get("doc_type", "unknown")
             extracted_docs[doc_type] = doc.get("fields", {})
 
-        # Prepare scoring result for the template
+        # Sample company names for testing: Tata Capital, Kinara, Vivriti
+        
+        # If score_data is empty, calculate it internally as a fallback
+        if not score_data:
+            score_data = calculate_universal_score(
+                entity_data.get("companyName", "Unknown"),
+                extracted_docs,
+                research_data.get("findings", []),
+                {
+                    "company_name": entity_data.get("companyName"),
+                    "sector": entity_data.get("sector"),
+                    "loan_amount": float(loan_data.get("amount", 0)),
+                    "interest_rate": float(loan_data.get("rate", 11.5)),
+                    "tenure": int(loan_data.get("tenure", 36))
+                }
+            )
+
+        # Prepare scoring result with strict prioritization logic
+        total_score = score_data.get("total_score") or score_data.get("score") or research_data.get("total_score") or research_data.get("score") or 0
+        
+        # Compute decision logic
+        decision = score_data.get("decision")
+        if not decision:
+            decision = research_data.get("credit_decision")
+        if not decision:
+            if total_score >= 75: decision = "APPROVE"
+            elif total_score >= 60: decision = "APPROVE WITH CONDITIONS"
+            else: decision = "REJECT"
+
         scoring_result = {
-            "decision": research_data.get("credit_decision", score_data.get("total", 0) >= 80 and "APPROVE" or (score_data.get("total", 0) >= 70 and "APPROVE WITH CONDITIONS" or "REJECT")),
-            "score": research_data.get("score", score_data.get("total", 0)),
-            "recommended_amount": research_data.get("recommended_amount", loan_data.get("amount", "50")),
-            "recommended_rate": research_data.get("recommended_rate", "Base + 1.5%"),
-            "reasoning": research_data.get("reasoning_engine", "Analysis based on submitted documents."),
-            "red_flags": research_data.get("red_flags", ["Debt-to-Equity (3.8x) nearing industry cap", "Limited operating track record since 2019"]),
-            "green_flags": research_data.get("green_flags", ["Strong institutional backing", "Diversified lending portfolio"]),
-            "five_cs": research_data.get("five_cs", {
-                "character": {"score": score_data.get("breakdown", {}).get("character", 16), "notes": "Promoter history verified. No adverse legal flags found in primary search."},
-                "capacity": {"score": score_data.get("breakdown", {}).get("capacity", 18), "notes": f"Revenue ₹{extracted_docs.get('annual_report', {}).get('revenue', 'N/A')} Cr. GNPA within healthy limits."},
-                "capital": {"score": score_data.get("breakdown", {}).get("capital", 14), "notes": f"Net worth ₹{extracted_docs.get('annual_report', {}).get('net_worth', 'N/A')} Cr. Leverage nearing sector cap."},
-                "collateral": {"score": score_data.get("breakdown", {}).get("collateral", 14), "notes": "Asset coverage adequate based on total debt vs portfolio cuts."},
-                "conditions": {"score": score_data.get("breakdown", {}).get("conditions", 10), "notes": "NBFC sector faces RBI regulatory tightening but showing growth resilience."}
-            }),
+            "decision": decision,
+            "score": total_score,
+            "recommended_amount": score_data.get("recommended_amount", research_data.get("recommended_amount", loan_data.get("amount", "50"))),
+            "recommended_rate": score_data.get("recommended_rate", research_data.get("recommended_rate", "Base + 1.5%")),
+            "reasoning": score_data.get("reasoning", research_data.get("research_summary", "Analysis based on submitted documents.")),
+            "red_flags": score_data.get("red_flags", research_data.get("risk_flags", [])),
+            "green_flags": score_data.get("green_flags", research_data.get("positive_signals", [])),
+            "five_cs": score_data.get("five_cs", research_data.get("five_cs", {
+                "character": {"score": 16, "notes": "Promoter history verified."},
+                "capacity": {"score": 18, "notes": "Revenue and GNPA within healthy limits."},
+                "capital": {"score": 14, "notes": "Net worth and leverage monitored."},
+                "collateral": {"score": 14, "notes": "Asset coverage adequate."},
+                "conditions": {"score": 10, "notes": "Sector outlook remains resilient."}
+            })),
             "swot": research_data.get("swot", {
-                "strengths": ["Strong capitalization", "Proven management"],
-                "weaknesses": ["High leverage", "Asset concentration"],
-                "opportunities": ["Digital banking pivot", "Rural expansion"],
-                "threats": ["Regulatory tightening", "Macro volatility"]
+                "strengths": ["Capital adequacy", "Market position"],
+                "weaknesses": ["Concentration risk", "Rising interest rates"],
+                "opportunities": ["Digital expansion", "Rural growth"],
+                "threats": ["Regulatory changes", "Macro volatility"]
             })
         }
 
