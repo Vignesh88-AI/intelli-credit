@@ -109,6 +109,25 @@ const Stage3_Extraction = ({ onNext, entityData }) => {
     );
   }
 
+  // Pre-calculate aggregate data for metric cards
+  const annualDoc = extractions.find(d => d.doc_type === "annual_report");
+  const financialData = annualDoc ? annualDoc.fields : extractions.reduce((acc, curr) => ({ ...acc, ...curr.fields }), {});
+  
+  const getVal = (keys) => {
+    for (const k of keys) {
+      if (financialData[k] !== undefined && financialData[k] !== null && financialData[k] !== "") return financialData[k];
+    }
+    return "N/A";
+  };
+
+  const metrics = [
+    { label: "REVENUE", icon: <TrendingUp size={20} />, key: ["revenue", "Revenue", "total_income"], color: "#22c55e", sub: "↑28.5%", unit: "₹", suffix: " Cr" },
+    { label: "NET PROFIT (PAT)", icon: <Activity size={20} />, key: ["pat", "net_profit", "Net Profit", "Profit After Tax"], color: "#22c55e", sub: "↑38.7%", unit: "₹", suffix: " Cr" },
+    { label: "TOTAL DEBT", icon: <AlertCircle size={20} />, key: ["total_debt", "Total Debt", "borrowings"], color: "#f0a500", sub: "Manageable", unit: "₹", suffix: " Cr" },
+    { label: "NET WORTH", icon: <Shield size={20} />, key: ["net_worth", "Net Worth", "equity"], color: "#22c55e", sub: "Robust", unit: "₹", suffix: " Cr" },
+    { label: "GROSS NPA", icon: <Activity size={20} />, key: ["gnpa_percent", "gnpa", "Gross NPA"], color: "#22c55e", sub: "Below 2%", suffix: " %" },
+  ];
+
   return (
     <div style={STYLES.container}>
       <div style={STYLES.header}>
@@ -116,31 +135,10 @@ const Stage3_Extraction = ({ onNext, entityData }) => {
         <p style={STYLES.subtitle}>AI has distilled critical financial health indicators from your documents.</p>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "20px", marginBottom: "40px" }}>
-        {[
-          { label: "Revenue", key: ["revenue", "Revenue"], icon: <TrendingUp size={20} />, color: "#22c55e", sub: "↑28.5% YoY" },
-          { label: "Net Profit (PAT)", key: ["pat", "net_profit", "Net Profit"], icon: <CheckCircle size={20} />, color: "#22c55e", sub: "↑38.7% YoY" },
-          { label: "Total Debt", key: ["total_debt", "Total Debt"], icon: <AlertCircle size={20} />, color: "#f0a500", sub: "Manageable" },
-          { label: "Net Worth", key: ["net_worth", "Net Worth"], icon: <Shield size={20} />, color: "#22c55e", sub: "Robust" },
-          { label: "Gross NPA", key: ["gnpa_percent", "GNPA"], icon: <Activity size={20} />, color: "#22c55e", sub: "Below 2%" },
-          { label: "CAR", key: ["car_percent", "CAR"], icon: <Zap size={20} />, color: "#22c55e", sub: "Well Capitalized" },
-        ].map((m, i) => {
-          // Find value in extractions - prioritize annual_report
-          const annualDoc = extractions.find(d => d.doc_type === "annual_report");
-          const financialData = annualDoc ? annualDoc.fields : extractions.reduce((acc, curr) => ({ ...acc, ...curr.fields }), {});
-          
-          let val = "N/A";
-          if (Array.isArray(m.key)) {
-            for (const k of m.key) {
-              if (financialData[k]) {
-                val = financialData[k];
-                break;
-              }
-            }
-          } else {
-            val = financialData[m.key] || "N/A";
-          }
-          
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "20px", marginBottom: "40px" }}>
+        {metrics.map((m, i) => {
+          const rawVal = getVal(m.key);
+          const displayVal = rawVal === "N/A" ? "None" : `${m.unit || ""}${rawVal}${m.suffix || ""}`;
           return (
             <div key={i} style={{ ...STYLES.glassCard, padding: "24px", borderLeft: `4px solid ${m.color}`, marginBottom: 0 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "16px" }}>
@@ -150,7 +148,7 @@ const Stage3_Extraction = ({ onNext, entityData }) => {
                 </div>
               </div>
               <div style={{ fontSize: "24px", fontWeight: "800", color: "white", marginBottom: "4px" }}>
-                {val !== "N/A" && !isNaN(parseFloat(val)) ? `₹${val} Cr` : val}
+                {displayVal}
               </div>
               <div style={{ fontSize: "12px", color: m.color, fontWeight: "600" }}>{m.sub}</div>
             </div>

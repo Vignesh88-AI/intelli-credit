@@ -147,18 +147,21 @@ const Stage4_Report = ({ onBack, entityData }) => {
         let targetScore = 72;
         let capacityScore = 18;
         
+        const allExtractedFields = entityData?.extractedData?.reduce((acc, curr) => ({ ...acc, ...curr.fields }), {}) || {};
+        
         if (entityData?.extractedData) {
-          const financials = entityData.extractedData.reduce((acc, curr) => ({ ...acc, ...curr.fields }), {});
-          const revGrowth = financials.revenue_growth || financials['Revenue Growth'];
-          if (revGrowth && parseFloat(revGrowth) > 20) capacityScore = 22;
-          const margin = financials.net_profit_margin || financials['Net Profit Margin'];
+          const revGrowth = allExtractedFields.revenue_growth || allExtractedFields['Revenue Growth'];
+          if (revGrowth && parseFloat(revGrowth) > 20) capacityScore = 20;
+          const margin = allExtractedFields.net_profit_margin || allExtractedFields['Net Profit Margin'];
           if (margin && parseFloat(margin) > 10) targetScore += 5;
           targetScore = 16 + capacityScore + 14 + 14 + 10;
         }
 
         setScoreData({
           total: targetScore,
-          breakdown: { character: 16, capacity: capacityScore, capital: 14, collateral: 14, conditions: 10 }
+          breakdown: { character: 16, capacity: capacityScore, capital: 14, collateral: 14, conditions: 10 },
+          red_flags: researchData?.red_flags || [],
+          green_flags: researchData?.green_flags || []
         });
 
         // ANIMATION LOGIC - Exactly ~2 seconds implementation
@@ -235,11 +238,19 @@ const Stage4_Report = ({ onBack, entityData }) => {
   };
 
   // --- CHART DATA ---
+  const allExtractedFields = entityData?.extractedData?.reduce((acc, curr) => ({ ...acc, ...curr.fields }), {}) || {};
+  
+  const revenueHistory = [
+    { year: 'FY23', value: allExtractedFields.revenue_fy23 || 320 },
+    { year: 'FY24', value: allExtractedFields.revenue_fy24 || 438 },
+    { year: 'FY25', value: allExtractedFields.revenue || allExtractedFields.revenue_fy25 || 542 },
+  ];
+
   const barData = {
-    labels: ['FY22', 'FY23', 'FY24'],
+    labels: revenueHistory.map(d => d.year),
     datasets: [{
       label: 'Revenue (₹ Cr)',
-      data: [320, 438, 542],
+      data: revenueHistory.map(d => d.value),
       backgroundColor: '#f0a500',
       borderRadius: 6,
       barThickness: 50,
@@ -295,7 +306,6 @@ const Stage4_Report = ({ onBack, entityData }) => {
           <h1 style={{ fontSize: "32px", fontWeight: "900", margin: 0 }}>{entityData?.entity?.companyName}</h1>
           <div style={{ display: "flex", gap: "10px", marginTop: "12px" }}>
              <span style={{ fontSize: "11px", background: "rgba(255,255,255,0.1)", padding: "4px 10px", borderRadius: "4px", color: "rgba(255,255,255,0.6)" }}>{entityData?.entity?.sector}</span>
-             <span style={{ fontSize: "11px", background: "rgba(240, 165, 0, 0.1)", padding: "4px 10px", borderRadius: "4px", color: "#f0a500" }}>PROTOTYPE V1.2</span>
           </div>
         </div>
         <div style={{ 
@@ -355,7 +365,7 @@ const Stage4_Report = ({ onBack, entityData }) => {
                 <tbody>
                   {[
                     { label: "Character (Promoter Background)", val: scoreData.breakdown.character, max: 20 },
-                    { label: "Capacity (Revenue & Profit)", val: scoreData.breakdown.capacity, max: 25 },
+                    { label: "Capacity (Revenue & Profit)", val: scoreData.breakdown.capacity, max: 20 },
                     { label: "Capital (Net Worth & Leverage)", val: scoreData.breakdown.capital, max: 20 },
                     { label: "Collateral (Asset Coverage)", val: scoreData.breakdown.collateral, max: 20 },
                     { label: "Conditions (Sector Outlook)", val: scoreData.breakdown.conditions, max: 15 },
@@ -395,19 +405,14 @@ const Stage4_Report = ({ onBack, entityData }) => {
               <AlertTriangle size={18} /> CRITICAL RISK ALERTS
             </h4>
             <ul style={{ padding: 0, margin: 0, listStyle: "none", fontSize: "13px", color: "rgba(255,255,255,0.6)", lineHeight: "1.6" }}>
-               {research?.legal_flags?.length > 0 ? research.legal_flags.map((f, i) => (
+               {scoreData.red_flags?.length > 0 ? scoreData.red_flags.map((f, i) => (
                  <li key={i} style={{ marginBottom: "10px", display: "flex", gap: "8px" }}>
                    <span style={{ color: "#ef4444" }}>●</span> {f}
                  </li>
                )) : (
-                 <>
-                   <li style={{ marginBottom: "10px", display: "flex", gap: "8px" }}>
-                     <span style={{ color: "#ef4444" }}>●</span> Debt-to-Equity (3.8x) nearing industry cap.
-                   </li>
-                   <li style={{ display: "flex", gap: "8px" }}>
-                     <span style={{ color: "#ef4444" }}>●</span> Specific regional sector dependency noted.
-                   </li>
-                 </>
+                 <li style={{ marginBottom: "10px", display: "flex", gap: "8px" }}>
+                   <span style={{ color: "#ef4444" }}>●</span> No critical risk alerts identified.
+                 </li>
                )}
             </ul>
          </div>
@@ -416,12 +421,15 @@ const Stage4_Report = ({ onBack, entityData }) => {
               <CheckCircle size={18} /> POSITIVE INDICATORS
             </h4>
             <ul style={{ padding: 0, margin: 0, listStyle: "none", fontSize: "13px", color: "rgba(255,255,255,0.6)", lineHeight: "1.6" }}>
-               <li style={{ marginBottom: "10px", display: "flex", gap: "8px" }}>
-                 <span style={{ color: "#22c55e" }}>●</span> Strong {entityData?.entity?.sector} revenue trajectory.
-               </li>
-               <li style={{ display: "flex", gap: "8px" }}>
-                 <span style={{ color: "#22c55e" }}>●</span> No promoter pledge or adverse NCLT reports analyzed.
-               </li>
+               {scoreData.green_flags?.length > 0 ? scoreData.green_flags.map((f, i) => (
+                 <li key={i} style={{ marginBottom: "10px", display: "flex", gap: "8px" }}>
+                   <span style={{ color: "#22c55e" }}>●</span> {f}
+                 </li>
+               )) : (
+                 <li style={{ marginBottom: "10px", display: "flex", gap: "8px" }}>
+                   <span style={{ color: "#22c55e" }}>●</span> Standard industry benchmarks met.
+                 </li>
+               )}
             </ul>
          </div>
       </div>

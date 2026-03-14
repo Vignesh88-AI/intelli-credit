@@ -98,7 +98,20 @@ async def extract_data(file_paths: List[str] = Form(...), doc_types: List[str] =
                     continue
 
                 # Select prompt based on doc type
-                detected_type = doc_types[i]
+                raw_type = doc_types[i].lower()
+                detected_type = "general"
+                
+                if "alm" in raw_type:
+                    detected_type = "alm"
+                elif "shareholding" in raw_type:
+                    detected_type = "shareholding"
+                elif "annual" in raw_type or "report" in raw_type:
+                    detected_type = "annual_report"
+                elif "borrowing" in raw_type:
+                    detected_type = "borrowing_profile"
+                elif "portfolio" in raw_type:
+                    detected_type = "portfolio_cuts"
+
                 system_prompt = GENERAL_EXTRACTION_PROMPT
                 if detected_type == "alm":
                     system_prompt = ALM_PROMPT
@@ -132,7 +145,8 @@ async def extract_data(file_paths: List[str] = Form(...), doc_types: List[str] =
                     "file_path": path,
                     "original_type": doc_types[i],
                     "doc_type": detected_type,
-                    "doc_type_label": DOC_TYPE_LABELS.get(detected_type, detected_type.replace('_', ' ').capitalize()),
+                    "detected_type": detected_type,
+                    "doc_type_label": DOC_TYPE_LABELS.get(detected_type, doc_types[i]),
                     "fields": extracted_json,
                     "status": "success"
                 })
