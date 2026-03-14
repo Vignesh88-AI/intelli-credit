@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowRight, ArrowLeft } from 'lucide-react';
+import QuickAppraisalInline from '../components/QuickAppraisalInline';
 
 const STYLES = {
   container: { maxWidth: "800px", margin: "0 auto", padding: "40px 20px" },
@@ -59,6 +60,7 @@ const Stage1_Onboarding = ({ onNext }) => {
     loan: {}
   });
   const [errors, setErrors] = useState({});
+  const [mode, setMode] = useState("full"); // "full" or "quick"
 
   const sectors = ['NBFC', 'Manufacturing', 'Real Estate', 'Infrastructure', 'Retail', 'IT Services', 'Healthcare', 'Pharma', 'Logistics', 'Other'];
   const loanTypes = ['Term Loan', 'Working Capital', 'CC Limit', 'LC/BG', 'ECB'];
@@ -110,6 +112,25 @@ const Stage1_Onboarding = ({ onNext }) => {
           </p>
         </div>
 
+        <div className="mode-selector">
+          <button
+            className={`mode-btn ${mode === 'full' ? 'mode-active' : ''}`}
+            onClick={() => setMode('full')}>
+            FULL APPRAISAL
+            <span className="mode-desc">5 documents - complete CAM</span>
+          </button>
+          <button
+            className={`mode-btn ${mode === 'quick' ? 'mode-active' : ''}`}
+            onClick={() => setMode('quick')}>
+            QUICK APPRAISAL
+            <span className="mode-desc">1 document - instant results</span>
+          </button>
+        </div>
+
+        {mode === 'quick' ? (
+          <QuickAppraisalInline />
+        ) : (
+          <>
         {step === 1 ? (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
             <div style={{ textAlign: "left" }}>
@@ -215,6 +236,8 @@ const Stage1_Onboarding = ({ onNext }) => {
             <ArrowRight size={18} />
           </button>
         </div>
+        </>
+        )}
       </div>
     </div>
   );
