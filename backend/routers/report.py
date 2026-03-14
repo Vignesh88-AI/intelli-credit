@@ -480,42 +480,63 @@ async def perform_research(data: dict):
         sector = data.get("sector", "General")
 
         results = tavily_client.search(
-            query=f"{company_name} India headquarters revenue financials credit risk 2024",
-            max_results=3,
+            query=f"{company_name} India annual results revenue profit 2022 2023 2024 financials",
+            max_results=5,
             search_depth="basic"
         )
 
-        context = "\n".join([r.get("content", "") for r in results.get("results", [])])
+        context = "\n".join([f"Source: {r.get('url')}\nContent: {r.get('content', '')}" for r in results.get("results", [])])
 
         response = groq_client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
-                {"role": "system", "content": """You are a credit analyst.
-Based on the search results, return ONLY this exact JSON:
+                {"role": "system", "content": """You are a senior credit analyst at an Indian NBFC. 
+Analyze the provided web search results to perform a deep credit research on the company.
+
+Follow these strict output rules:
+1. Extract the last 3 years of revenue if available for the 'revenue_history' array.
+2. Calculate the 5Cs scores (out of max values) based on evidence:
+   - Character (max 20): Integrity, promoter background, litigation.
+   - Capacity (max 25): Cash flow, debt service ability, interest coverage.
+   - Capital (max 20): Net worth, promoter stake, leverage.
+   - Collateral (max 20): Asset quality, security, guarantees.
+   - Conditions (max 15): Sector outlook, macro environment.
+3. Return ONLY valid JSON:
 {
   "company_name": "",
   "headquarters": "",
   "founded_year": "",
   "sector": "",
-  "revenue": "",
-  "pat": "",
-  "total_debt": "",
-  "net_worth": "",
-  "de_ratio": "",
-  "roe": "",
-  "revenue_growth": "",
+  "revenue": "Latest annual revenue in Cr",
+  "pat": "Latest profit after tax in Cr",
+  "total_debt": "Total borrowings in Cr",
+  "net_worth": "Shareholders equity in Cr",
+  "de_ratio": "Total Debt / Net Worth",
+  "roe": "PAT / Net Worth %",
+  "revenue_growth": "YoY growth %",
+  "revenue_history": [
+    {"year": "2024", "revenue_cr": 0},
+    {"year": "2023", "revenue_cr": 0},
+    {"year": "2022", "revenue_cr": 0}
+  ],
+  "character_score": 18,
+  "capacity_score": 20,
+  "capital_score": 15,
+  "collateral_score": 15,
+  "conditions_score": 12,
+  "total_score": 80,
   "credit_decision": "APPROVE or REJECT or REFER TO COMMITTEE",
   "risk_level": "LOW or MEDIUM or HIGH",
-  "positive_signals": ["point1", "point2", "point3"],
-  "risk_flags": ["flag1", "flag2"],
-  "latest_news": ["news1", "news2"],
-  "sector_outlook": "one sentence",
-  "research_summary": "two sentences"
+  "positive_signals": ["Detailed signal 1", "Detailed signal 2"],
+  "risk_flags": ["Detailed risk 1", "Detailed risk 2"],
+  "latest_news": ["Recent event 1", "Recent event 2"],
+  "sector_outlook": "One summary sentence",
+  "research_summary": "Overall credit opinion in 3 sentences"
 }
-Use ONLY data from search results. No markdown. No backticks."""},
-                {"role": "user", "content": f"Company: {company_name}\n\nSearch data:\n{context[:3000]}"}
+Use numerical values for financials where possible. No markdown."""},
+                {"role": "user", "content": f"Company: {company_name}\n\nWeb Data:\n{context[:6000]}"}
             ],
-            max_tokens=1500,
+            max_tokens=2000,
             temperature=0.1
         )
 
