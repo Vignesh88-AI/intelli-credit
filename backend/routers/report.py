@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Form, Response
 from typing import Optional
 import os
 import json
+import re
 from groq import Groq
 from tavily import TavilyClient
 from reportlab.lib.pagesizes import letter

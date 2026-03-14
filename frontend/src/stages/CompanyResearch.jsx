@@ -189,8 +189,9 @@ export default function CompanyResearch({ onBack }) {
     } catch (e) {
       clearInterval(stageInt);
       clearInterval(progressInt);
-      console.error("ANALYSIS_ERROR:", e.response?.data || e.message || e);
-      setError("Analysis failed. Please check your connection or company name and try again.");
+      const errorMsg = e.response?.data?.detail || e.response?.data?.error || e.message || "Unknown error";
+      console.error("ANALYSIS_ERROR:", errorMsg);
+      setError(`Analysis failed: ${errorMsg}. Please try again later.`);
     } finally {
       setLoading(false);
     }
