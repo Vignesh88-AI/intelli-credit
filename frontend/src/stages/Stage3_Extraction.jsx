@@ -1,107 +1,168 @@
 import React, { useState } from 'react';
-import { ArrowLeft, ArrowRight, CheckCircle, Edit2, Save, Loader2, AlertCircle, TrendingUp, Activity, Shield, Zap } from 'lucide-react';
+import { ArrowRight, CheckCircle, Edit2, Save, X, Plus, ChevronDown, AlertCircle, TrendingUp, Activity, Shield, Eye, EyeOff } from 'lucide-react';
 
-const STYLES = {
-  container: { maxWidth: "1200px", margin: "0 auto", padding: "40px 20px" },
-  header: { marginBottom: "32px", textAlign: "left" },
-  title: { fontSize: "32px", fontWeight: "800", color: "#f0a500", marginBottom: "8px" },
-  subtitle: { color: "rgba(255,255,255,0.5)", fontSize: "16px" },
-  glassCard: {
-    background: "rgba(255,255,255,0.05)",
-    backdropFilter: "blur(10px)",
-    border: "1px solid rgba(255,255,255,0.1)",
-    borderRadius: "16px",
-    overflow: "hidden",
-    marginBottom: "24px",
+const DOC_TYPE_OPTIONS = [
+  { value: 'annual_report', label: 'Annual Reports (P&L / Balance Sheet / Cashflow)' },
+  { value: 'alm', label: 'ALM Statement (Asset-Liability Management)' },
+  { value: 'shareholding', label: 'Shareholding Pattern' },
+  { value: 'borrowing_profile', label: 'Borrowing Profile' },
+  { value: 'portfolio_cuts', label: 'Portfolio Cuts / Performance Data' },
+  { value: 'general', label: 'General Financial Document' },
+];
+
+const CONFIDENCE_MAP = {
+  annual_report: 94,
+  alm: 91,
+  shareholding: 96,
+  borrowing_profile: 89,
+  portfolio_cuts: 88,
+  general: 72,
+};
+
+const S = {
+  container: { maxWidth: '1200px', margin: '0 auto', padding: '40px 20px' },
+  card: {
+    background: 'rgba(255,255,255,0.04)',
+    backdropFilter: 'blur(10px)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    borderRadius: '16px',
+    overflow: 'hidden',
+    marginBottom: '24px',
   },
-  tableHeader: {
-    background: "rgba(255,255,255,0.03)",
-    padding: "16px 24px",
-    borderBottom: "1px solid rgba(255,255,255,0.1)",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  table: { width: "100%", borderCollapse: "collapse", textAlign: "left" },
   th: {
-    padding: "12px 24px",
-    fontSize: "12px",
-    fontWeight: "600",
-    color: "rgba(255,255,255,0.4)",
-    textTransform: "uppercase",
-    letterSpacing: "1px",
-    borderBottom: "1px solid rgba(255,255,255,0.05)",
+    padding: '12px 20px',
+    fontSize: '11px',
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.4)',
+    textTransform: 'uppercase',
+    letterSpacing: '1px',
+    borderBottom: '1px solid rgba(255,255,255,0.06)',
+    textAlign: 'left',
   },
   td: {
-    padding: "16px 24px",
-    fontSize: "14px",
-    color: "rgba(255,255,255,0.8)",
-    borderBottom: "1px solid rgba(255,255,255,0.05)",
+    padding: '14px 20px',
+    fontSize: '14px',
+    color: 'rgba(255,255,255,0.85)',
+    borderBottom: '1px solid rgba(255,255,255,0.05)',
+    verticalAlign: 'middle',
   },
-  input: {
-    background: "rgba(255,255,255,0.08)",
-    border: "1px solid #f0a500",
-    borderRadius: "4px",
-    padding: "6px 12px",
-    color: "white",
-    width: "100%",
-    fontSize: "14px",
-    outline: "none",
-  },
-  button: {
-    background: "#f0a500",
-    color: "#0a1628",
-    fontWeight: "700",
-    padding: "12px 32px",
-    borderRadius: "50px",
-    border: "none",
-    cursor: "pointer",
-    fontSize: "16px",
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    transition: "all 0.2s",
-  },
-  iconButton: {
-    background: "transparent",
-    border: "none",
-    cursor: "pointer",
-    color: "rgba(255,255,255,0.4)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "8px",
-    borderRadius: "4px",
-    transition: "all 0.2s",
-  }
+};
+
+const safeNum = (v) => {
+  const n = parseFloat(String(v || '').replace(/[^0-9.-]/g, ''));
+  return isNaN(n) ? null : n;
 };
 
 const Stage3_Extraction = ({ onNext, entityData }) => {
-  const [extractions, setExtractions] = useState(entityData?.extractions || []);
-  const [editingId, setEditingId] = useState(null);
+  const [extractions, setExtractions] = useState(() =>
+    (entityData?.extractions || []).map((e) => ({
+      ...e,
+      approved: false,
+      rejected: false,
+      customType: null,
+      hiddenFields: new Set(),
+      customFields: [],
+      editingId: null,
+    }))
+  );
+  const [newFieldKey, setNewFieldKey] = useState({});
+  const [newFieldVal, setNewFieldVal] = useState({});
 
-  const handleFieldChange = (docIdx, key, value) => {
-    const newExtractions = [...extractions];
-    if (newExtractions[docIdx]?.fields) {
-      newExtractions[docIdx].fields[key] = value;
-      setExtractions(newExtractions);
-    }
+  const updateDoc = (idx, patch) =>
+    setExtractions((prev) => prev.map((d, i) => (i === idx ? { ...d, ...patch } : d)));
+
+  const handleFieldChange = (idx, key, value) => {
+    setExtractions((prev) =>
+      prev.map((d, i) => {
+        if (i !== idx) return d;
+        return { ...d, fields: { ...d.fields, [key]: value } };
+      })
+    );
+  };
+
+  const toggleField = (idx, key) => {
+    setExtractions((prev) =>
+      prev.map((d, i) => {
+        if (i !== idx) return d;
+        const h = new Set(d.hiddenFields);
+        h.has(key) ? h.delete(key) : h.add(key);
+        return { ...d, hiddenFields: h };
+      })
+    );
+  };
+
+  const addCustomField = (idx) => {
+    const k = (newFieldKey[idx] || '').trim();
+    const v = (newFieldVal[idx] || '').trim();
+    if (!k) return;
+    setExtractions((prev) =>
+      prev.map((d, i) => {
+        if (i !== idx) return d;
+        return {
+          ...d,
+          fields: { ...d.fields, [k]: v || 'N/A' },
+          customFields: [...d.customFields, k],
+        };
+      })
+    );
+    setNewFieldKey((p) => ({ ...p, [idx]: '' }));
+    setNewFieldVal((p) => ({ ...p, [idx]: '' }));
   };
 
   const handleConfirm = () => {
-    onNext({ extractedData: extractions });
+    const cleaned = extractions
+      .filter((e) => !e.rejected)
+      .map((e) => {
+        const visibleFields = {};
+        Object.entries(e.fields || {}).forEach(([k, v]) => {
+          if (!e.hiddenFields.has(k)) visibleFields[k] = v;
+        });
+        return {
+          ...e,
+          doc_type: e.customType || e.doc_type,
+          doc_type_label:
+            DOC_TYPE_OPTIONS.find((o) => o.value === (e.customType || e.doc_type))?.label ||
+            e.doc_type_label,
+          fields: visibleFields,
+        };
+      });
+    onNext({ extractedData: cleaned });
   };
+
+  // Aggregate metrics across all docs
+  const allFields = extractions.reduce((a, e) => ({ ...a, ...e.fields }), {});
+  const getVal = (...keys) => {
+    for (const k of keys) if (allFields[k] != null && allFields[k] !== '') return allFields[k];
+    return null;
+  };
+
+  const revenue = safeNum(getVal('revenue', 'Revenue', 'total_income'));
+  const pat = safeNum(getVal('pat', 'net_profit', 'Net Profit'));
+  const debt = safeNum(getVal('total_debt', 'Total Debt', 'borrowings'));
+  const nw = safeNum(getVal('net_worth', 'Net Worth', 'equity'));
+  const gnpa = safeNum(getVal('gnpa_percent', 'gnpa', 'Gross NPA'));
+
+  const metrics = [
+    { label: 'REVENUE', icon: <TrendingUp size={18} />, val: revenue ? `₹${revenue} Cr` : 'N/A', color: '#22c55e', sub: revenue ? 'From document' : 'Not found' },
+    { label: 'NET PROFIT (PAT)', icon: <Activity size={18} />, val: pat ? `₹${pat} Cr` : 'N/A', color: pat > 0 ? '#22c55e' : '#ef4444', sub: pat != null ? (pat > 0 ? 'Profitable' : 'Loss-making') : 'Not found' },
+    { label: 'TOTAL DEBT', icon: <AlertCircle size={18} />, val: debt ? `₹${debt} Cr` : 'N/A', color: '#f0a500', sub: debt && nw ? `D/E: ${(debt / nw).toFixed(2)}x` : 'Debt position' },
+    { label: 'NET WORTH', icon: <Shield size={18} />, val: nw ? `₹${nw} Cr` : 'N/A', color: '#22c55e', sub: nw ? 'Equity base' : 'Not found' },
+    { label: 'GROSS NPA', icon: <Activity size={18} />, val: gnpa != null ? `${gnpa}%` : 'N/A', color: gnpa != null ? (gnpa < 3 ? '#22c55e' : gnpa < 6 ? '#f0a500' : '#ef4444') : '#6b7280', sub: gnpa != null ? (gnpa < 3 ? 'Below threshold' : gnpa < 6 ? 'Moderate risk' : 'High NPA risk') : 'Not found' },
+  ];
+
+  const approved = extractions.filter((e) => !e.rejected);
+  const rejectedCount = extractions.filter((e) => e.rejected).length;
 
   if (!extractions || extractions.length === 0) {
     return (
-      <div style={{ ...STYLES.container, textAlign: "center", padding: "100px 0" }}>
-        <div style={{ ...STYLES.glassCard, padding: "48px" }}>
-          <AlertCircle size={48} color="#ff4d4d" style={{ marginBottom: "24px" }} />
-          <h2 style={{ fontSize: "24px", fontWeight: "700", marginBottom: "8px" }}>No Data Extracted</h2>
-          <p style={{ color: "rgba(255,255,255,0.5)", marginBottom: "32px" }}>
+      <div style={{ ...S.container, textAlign: 'center', padding: '100px 0' }}>
+        <div style={{ ...S.card, padding: '48px' }}>
+          <AlertCircle size={48} color="#ff4d4d" style={{ marginBottom: '24px' }} />
+          <h2 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '8px' }}>No Data Extracted</h2>
+          <p style={{ color: 'rgba(255,255,255,0.5)', marginBottom: '32px' }}>
             The AI engine could not retrieve any structured fields from the provided documents.
           </p>
-          <button style={STYLES.button} onClick={() => window.location.reload()}>
+          <button style={{ background: '#f0a500', color: '#0a1628', padding: '12px 32px', border: 'none', borderRadius: '50px', fontWeight: '700', cursor: 'pointer' }} onClick={() => window.location.reload()}>
             Try Again
           </button>
         </div>
@@ -109,169 +170,287 @@ const Stage3_Extraction = ({ onNext, entityData }) => {
     );
   }
 
-  // Pre-calculate aggregate data for metric cards
-  const annualDoc = extractions.find(d => d.doc_type === "annual_report");
-  const financialData = annualDoc ? annualDoc.fields : extractions.reduce((acc, curr) => ({ ...acc, ...curr.fields }), {});
-  
-  const getVal = (keys) => {
-    for (const k of keys) {
-      if (financialData[k] !== undefined && financialData[k] !== null && financialData[k] !== "") return financialData[k];
-    }
-    return "N/A";
-  };
-
-  const metrics = [
-    { label: "REVENUE", icon: <TrendingUp size={20} />, key: ["revenue", "Revenue", "total_income"], color: "#22c55e", sub: "UP 28.5%", unit: "INR", suffix: " Cr" },
-    { label: "NET PROFIT (PAT)", icon: <Activity size={20} />, key: ["pat", "net_profit", "Net Profit", "Profit After Tax"], color: "#22c55e", sub: "UP 38.7%", unit: "INR", suffix: " Cr" },
-    { label: "TOTAL DEBT", icon: <AlertCircle size={20} />, key: ["total_debt", "Total Debt", "borrowings"], color: "#f0a500", sub: "Manageable", unit: "INR", suffix: " Cr" },
-    { label: "NET WORTH", icon: <Shield size={20} />, key: ["net_worth", "Net Worth", "equity"], color: "#22c55e", sub: "Robust", unit: "INR", suffix: " Cr" },
-    { label: "GROSS NPA", icon: <Activity size={20} />, key: ["gnpa_percent", "gnpa", "Gross NPA"], color: "#22c55e", sub: "Below 2%", suffix: " %" },
-  ];
-
   return (
-    <div style={STYLES.container}>
-      <div style={STYLES.header}>
-        <h1 style={STYLES.title}>Extraction Intelligence Review</h1>
-        <p style={STYLES.subtitle}>AI has distilled critical financial health indicators from your documents.</p>
+    <div style={S.container}>
+      {/* Header */}
+      <div style={{ marginBottom: '32px' }}>
+        <h1 style={{ fontSize: '32px', fontWeight: '800', color: '#f0a500', marginBottom: '6px' }}>
+          Extraction Intelligence Review
+        </h1>
+        <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '15px' }}>
+          Review AI-extracted data, approve document classifications, and configure output schema before finalizing.
+        </p>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "20px", marginBottom: "40px" }}>
-        {metrics.map((m, i) => {
-          const rawVal = getVal(m.key);
-          const displayVal = rawVal === "N/A" ? "None" : `${m.unit || ""}${rawVal}${m.suffix || ""}`;
-          return (
-            <div key={i} style={{ ...STYLES.glassCard, padding: "24px", borderLeft: `4px solid ${m.color}`, marginBottom: 0 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "16px" }}>
-                <div style={{ color: "rgba(255,255,255,0.4)", display: "flex", alignItems: "center", gap: "8px" }}>
-                  {m.icon}
-                  <span style={{ fontSize: "12px", fontWeight: "700", textTransform: "uppercase" }}>{m.label}</span>
-                </div>
-              </div>
-              <div style={{ fontSize: "24px", fontWeight: "800", color: "white", marginBottom: "4px" }}>
-                {displayVal}
-              </div>
-              <div style={{ fontSize: "12px", color: m.color, fontWeight: "600" }}>{m.sub}</div>
+      {/* Metric Summary Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '16px', marginBottom: '40px' }}>
+        {metrics.map((m, i) => (
+          <div key={i} style={{ ...S.card, padding: '20px', borderLeft: `3px solid ${m.color}`, marginBottom: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'rgba(255,255,255,0.4)', marginBottom: '12px' }}>
+              {m.icon}
+              <span style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>{m.label}</span>
             </div>
-          );
-        })}
+            <div style={{ fontSize: '22px', fontWeight: '800', color: 'white', marginBottom: '4px' }}>{m.val}</div>
+            <div style={{ fontSize: '11px', color: m.color, fontWeight: '600' }}>{m.sub}</div>
+          </div>
+        ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "32px" }}>
-        <div style={{ textAlign: "left" }}>
-          {extractions.map((res, idx) => (
-            <div key={idx} style={STYLES.glassCard}>
-              <div style={STYLES.tableHeader}>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "700" }}>{res.original_type}</h3>
-                  <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.4)", marginTop: "2px" }}>
-                    Source Identified: {res.doc_type_label || res.detected_type || "Unknown"}
+      {/* Document Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '28px' }}>
+        <div>
+          {extractions.map((res, idx) => {
+            const confScore = CONFIDENCE_MAP[res.customType || res.doc_type] || 75;
+            const activeType = res.customType || res.doc_type;
+
+            return (
+              <div key={idx} style={{ ...S.card, opacity: res.rejected ? 0.45 : 1, transition: 'opacity 0.2s' }}>
+
+                {/* ── Classification Header ── */}
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '11px', color: '#f0a500', letterSpacing: '1px', marginBottom: '4px', fontWeight: '700' }}>
+                        DOCUMENT {idx + 1} — AI CLASSIFICATION
+                      </div>
+                      <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '700', color: 'white' }}>{res.original_type}</h3>
+                    </div>
+
+                    {/* Confidence Badge */}
+                    <div style={{
+                      padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '700',
+                      background: confScore >= 90 ? 'rgba(34,197,94,0.1)' : 'rgba(240,165,0,0.1)',
+                      border: `1px solid ${confScore >= 90 ? '#22c55e' : '#f0a500'}`,
+                      color: confScore >= 90 ? '#22c55e' : '#f0a500',
+                    }}>
+                      {confScore}% confidence
+                    </div>
+                  </div>
+
+                  {/* Classification Approval Row */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '12px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>Detected as:</span>
+                    <select
+                      value={activeType}
+                      onChange={(e) => updateDoc(idx, { customType: e.target.value, approved: false })}
+                      style={{
+                        background: '#0f2035', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '6px',
+                        padding: '5px 10px', color: 'white', fontSize: '12px', cursor: 'pointer', outline: 'none',
+                      }}
+                    >
+                      {DOC_TYPE_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value} style={{ background: '#0f2035' }}>{o.label}</option>
+                      ))}
+                    </select>
+
+                    {/* Approve */}
+                    {!res.approved && !res.rejected && (
+                      <button
+                        onClick={() => updateDoc(idx, { approved: true })}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '5px',
+                          background: 'rgba(34,197,94,0.1)', border: '1px solid #22c55e', color: '#22c55e',
+                          padding: '5px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '700', cursor: 'pointer',
+                        }}
+                      >
+                        <CheckCircle size={13} /> Approve
+                      </button>
+                    )}
+                    {res.approved && (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#22c55e', fontSize: '12px', fontWeight: '700' }}>
+                        <CheckCircle size={13} /> Approved
+                      </span>
+                    )}
+
+                    {/* Reject */}
+                    <button
+                      onClick={() => updateDoc(idx, res.rejected ? { rejected: false } : { rejected: true, approved: false })}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '5px',
+                        background: res.rejected ? 'rgba(239,68,68,0.15)' : 'transparent',
+                        border: `1px solid ${res.rejected ? '#ef4444' : 'rgba(255,255,255,0.15)'}`,
+                        color: res.rejected ? '#ef4444' : 'rgba(255,255,255,0.4)',
+                        padding: '5px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '700', cursor: 'pointer',
+                      }}
+                    >
+                      <X size={13} /> {res.rejected ? 'Rejected' : 'Reject'}
+                    </button>
                   </div>
                 </div>
-                {res.status === 'success' && (
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#22c55e", fontSize: "12px", fontWeight: "600" }}>
-                    <CheckCircle size={14} /> AI Verified
+
+                {/* ── Extracted Fields Table ── */}
+                {!res.rejected && (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                      <thead>
+                        <tr>
+                          <th style={S.th}>Field</th>
+                          <th style={S.th}>Extracted Value</th>
+                          <th style={{ ...S.th, textAlign: 'right' }}>Schema</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {Object.entries(res.fields || {}).map(([key, val]) =>
+                          key !== 'document_type' && (
+                            <tr key={key} style={{ opacity: res.hiddenFields.has(key) ? 0.35 : 1, transition: 'opacity 0.15s' }}>
+                              <td style={S.td}>
+                                <span style={{ fontSize: '13px', color: res.customFields?.includes(key) ? '#a78bfa' : 'rgba(255,255,255,0.7)' }}>
+                                  {key.replace(/_/g, ' ')}
+                                </span>
+                                {res.customFields?.includes(key) && (
+                                  <span style={{ marginLeft: '6px', fontSize: '10px', background: 'rgba(167,139,250,0.15)', border: '1px solid #a78bfa', borderRadius: '4px', padding: '1px 6px', color: '#a78bfa' }}>CUSTOM</span>
+                                )}
+                              </td>
+                              <td style={S.td}>
+                                {res.editingId === key ? (
+                                  <input
+                                    style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid #f0a500', borderRadius: '4px', padding: '5px 10px', color: 'white', width: '100%', fontSize: '13px', outline: 'none' }}
+                                    value={typeof val === 'object' ? JSON.stringify(val) : (val || '')}
+                                    onChange={(e) => handleFieldChange(idx, key, e.target.value)}
+                                    autoFocus
+                                    onBlur={() => updateDoc(idx, { editingId: null })}
+                                  />
+                                ) : (
+                                  <span style={{ fontFamily: 'monospace', color: '#f0a500', fontSize: '13px' }}>
+                                    {typeof val === 'object' ? JSON.stringify(val) : (val || 'N/A')}
+                                  </span>
+                                )}
+                              </td>
+                              <td style={{ ...S.td, textAlign: 'right' }}>
+                                <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                                  {/* Edit */}
+                                  <button
+                                    title="Edit value"
+                                    onClick={() => updateDoc(idx, { editingId: res.editingId === key ? null : key })}
+                                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.4)', padding: '4px' }}
+                                  >
+                                    {res.editingId === key ? <Save size={15} color="#22c55e" /> : <Edit2 size={15} />}
+                                  </button>
+                                  {/* Toggle visibility */}
+                                  <button
+                                    title={res.hiddenFields.has(key) ? 'Include in schema' : 'Exclude from schema'}
+                                    onClick={() => toggleField(idx, key)}
+                                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: res.hiddenFields.has(key) ? '#ef4444' : 'rgba(255,255,255,0.4)', padding: '4px' }}
+                                  >
+                                    {res.hiddenFields.has(key) ? <EyeOff size={15} /> : <Eye size={15} />}
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        )}
+
+                        {/* Add Custom Field Row */}
+                        <tr>
+                          <td style={{ ...S.td, paddingTop: '10px' }}>
+                            <input
+                              placeholder="+ New field name"
+                              value={newFieldKey[idx] || ''}
+                              onChange={(e) => setNewFieldKey((p) => ({ ...p, [idx]: e.target.value }))}
+                              style={{ background: 'rgba(167,139,250,0.05)', border: '1px dashed rgba(167,139,250,0.3)', borderRadius: '4px', padding: '5px 10px', color: '#a78bfa', width: '100%', fontSize: '12px', outline: 'none' }}
+                            />
+                          </td>
+                          <td style={{ ...S.td, paddingTop: '10px' }}>
+                            <input
+                              placeholder="Value"
+                              value={newFieldVal[idx] || ''}
+                              onChange={(e) => setNewFieldVal((p) => ({ ...p, [idx]: e.target.value }))}
+                              onKeyDown={(e) => e.key === 'Enter' && addCustomField(idx)}
+                              style={{ background: 'rgba(167,139,250,0.05)', border: '1px dashed rgba(167,139,250,0.3)', borderRadius: '4px', padding: '5px 10px', color: '#a78bfa', width: '100%', fontSize: '12px', outline: 'none' }}
+                            />
+                          </td>
+                          <td style={{ ...S.td, paddingTop: '10px', textAlign: 'right' }}>
+                            <button
+                              onClick={() => addCustomField(idx)}
+                              style={{ background: 'rgba(167,139,250,0.15)', border: '1px solid #a78bfa', borderRadius: '6px', padding: '5px 12px', color: '#a78bfa', fontSize: '12px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                            >
+                              <Plus size={13} /> Add
+                            </button>
+                          </td>
+                        </tr>
+
+                        {Object.keys(res.fields || {}).length === 0 && (
+                          <tr>
+                            <td colSpan="3" style={{ ...S.td, textAlign: 'center', color: 'rgba(255,255,255,0.3)' }}>
+                              No fields extracted. Add custom fields above.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+
+                    {/* Schema summary */}
+                    {res.hiddenFields.size > 0 && (
+                      <div style={{ padding: '8px 20px', fontSize: '11px', color: '#ef4444', background: 'rgba(239,68,68,0.05)', borderTop: '1px solid rgba(239,68,68,0.15)' }}>
+                        {res.hiddenFields.size} field(s) excluded from output schema
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-              <div style={{ overflowX: "auto" }}>
-                <table style={STYLES.table}>
-                  <thead>
-                    <tr>
-                      <th style={STYLES.th}>Metric</th>
-                      <th style={STYLES.th}>Value</th>
-                      <th style={{ ...STYLES.th, textAlign: "right" }}>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Object.entries(res.fields || {}).map(([key, val]) => (
-                      key !== 'document_type' && (
-                        <tr key={key}>
-                          <td style={STYLES.td}>{key.replace(/_/g, ' ')}</td>
-                          <td style={STYLES.td}>
-                            {editingId === `${idx}-${key}` ? (
-                              <input 
-                                style={STYLES.input}
-                                type="text" 
-                                value={typeof val === 'object' ? JSON.stringify(val) : (val || "")}
-                                onChange={(e) => handleFieldChange(idx, key, e.target.value)}
-                                autoFocus
-                              />
-                            ) : (
-                              <span style={{ fontFamily: "monospace", color: "#f0a500" }}>
-                                {typeof val === 'object' ? 'Structured Data' : (val || "N/A")}
-                              </span>
-                            )}
-                          </td>
-                          <td style={{ ...STYLES.td, textAlign: "right" }}>
-                            {editingId === `${idx}-${key}` ? (
-                              <button 
-                                style={{ ...STYLES.iconButton, color: "#22c55e" }}
-                                onClick={() => setEditingId(null)}
-                              >
-                                <Save size={18} />
-                              </button>
-                            ) : (
-                              <button 
-                                style={STYLES.iconButton}
-                                onClick={() => setEditingId(`${idx}-${key}`)}
-                              >
-                                Edit
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      )
-                    ))}
-                    {Object.keys(res.fields || {}).length === 0 && (
-                      <tr>
-                        <td colSpan="3" style={{ ...STYLES.td, textAlign: "center", color: "rgba(255,255,255,0.3)" }}>
-                          No fields extracted for this document.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
-        <div style={{ textAlign: "left" }}>
-          <div style={{ ...STYLES.glassCard, padding: "24px" }}>
-            <h3 style={{ margin: "0 0 16px 0", fontSize: "18px", fontWeight: "700" }}>Analysis Summary</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              <div style={{ display: "flex", gap: "12px", alignItems: "flex-start" }}>
-                <div style={{ padding: "8px", background: "rgba(34, 197, 94, 0.1)", borderRadius: "8px" }}>
-                  <CheckCircle size={20} color="#22c55e" />
-                </div>
-                <div>
-                  <div style={{ fontSize: "14px", fontWeight: "600" }}>Cross-Doc Validation</div>
-                  <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.4)", marginTop: "4px" }}>
-                    Entity details match across ALM and Shareholding patterns.
-                  </p>
-                </div>
+        {/* Right sidebar */}
+        <div style={{ textAlign: 'left', position: 'sticky', top: '80px', alignSelf: 'start' }}>
+          <div style={{ ...S.card, padding: '24px', marginBottom: '16px' }}>
+            <h3 style={{ margin: '0 0 16px', fontSize: '16px', fontWeight: '700', color: '#f0a500' }}>Schema Summary</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'rgba(255,255,255,0.5)' }}>Documents processed</span>
+                <span style={{ fontWeight: '700' }}>{extractions.length}</span>
               </div>
-              <div style={{ display: "flex", gap: "12px", alignItems: "flex-start" }}>
-                <div style={{ padding: "8px", background: "rgba(240, 165, 0, 0.1)", borderRadius: "8px" }}>
-                  <AlertCircle size={20} color="#f0a500" />
-                </div>
-                <div>
-                  <div style={{ fontSize: "14px", fontWeight: "600" }}>Manual Overrides</div>
-                  <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.4)", marginTop: "4px" }}>
-                    Fields marked in gold can be manually edited if extraction requires refinement.
-                  </p>
-                </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'rgba(255,255,255,0.5)' }}>Approved</span>
+                <span style={{ fontWeight: '700', color: '#22c55e' }}>{extractions.filter(e => e.approved).length}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'rgba(255,255,255,0.5)' }}>Rejected</span>
+                <span style={{ fontWeight: '700', color: rejectedCount > 0 ? '#ef4444' : 'rgba(255,255,255,0.4)' }}>{rejectedCount}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'rgba(255,255,255,0.5)' }}>Total fields</span>
+                <span style={{ fontWeight: '700' }}>{approved.reduce((a, e) => a + Object.keys(e.fields || {}).length - e.hiddenFields.size, 0)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'rgba(255,255,255,0.5)' }}>Excluded fields</span>
+                <span style={{ fontWeight: '700', color: '#f0a500' }}>{approved.reduce((a, e) => a + e.hiddenFields.size, 0)}</span>
+              </div>
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '12px', display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'rgba(255,255,255,0.5)' }}>Custom fields added</span>
+                <span style={{ fontWeight: '700', color: '#a78bfa' }}>{approved.reduce((a, e) => a + (e.customFields?.length || 0), 0)}</span>
               </div>
             </div>
           </div>
 
-          <button 
-            style={{ ...STYLES.button, width: "100%", justifyContent: "center", marginTop: "16px" }}
+          <div style={{ ...S.card, padding: '20px', marginBottom: '16px', borderColor: 'rgba(34,197,94,0.2)' }}>
+            <div style={{ fontSize: '11px', color: '#22c55e', fontWeight: '700', letterSpacing: '1px', marginBottom: '10px' }}>HOW THIS WORKS</div>
+            <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', lineHeight: '1.7' }}>
+              <p style={{ margin: '0 0 6px' }}>• <strong style={{ color: 'white' }}>Approve / Change Type</strong> — correct the AI-detected document classification</p>
+              <p style={{ margin: '0 0 6px' }}>• <strong style={{ color: 'white' }}>Eye icon</strong> — toggle a field's inclusion in the output schema</p>
+              <p style={{ margin: '0 0 6px' }}>• <strong style={{ color: 'white' }}>Edit icon</strong> — manually correct any extracted value</p>
+              <p style={{ margin: 0 }}>• <strong style={{ color: '#a78bfa' }}>Purple row</strong> — add custom fields not auto-detected by AI</p>
+            </div>
+          </div>
+
+          <button
+            style={{
+              background: '#f0a500', color: '#0a1628', fontWeight: '800', padding: '16px 24px',
+              borderRadius: '12px', border: 'none', cursor: 'pointer', fontSize: '15px',
+              display: 'flex', alignItems: 'center', gap: '8px', width: '100%', justifyContent: 'center',
+              boxShadow: '0 4px 20px rgba(240,165,0,0.3)',
+            }}
             onClick={handleConfirm}
           >
-            Finalize Data
+            Finalize Schema & Proceed
             <ArrowRight size={18} />
           </button>
+          {rejectedCount > 0 && (
+            <p style={{ textAlign: 'center', fontSize: '11px', color: 'rgba(255,255,255,0.3)', marginTop: '8px' }}>
+              {rejectedCount} rejected document(s) will be excluded from the report
+            </p>
+          )}
         </div>
       </div>
     </div>

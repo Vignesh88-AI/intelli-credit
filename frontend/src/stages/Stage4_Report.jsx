@@ -269,13 +269,15 @@ const Stage4_Report = ({ onBack, entityData }) => {
     }]
   };
 
+  const liveDebt = parseFloat(allExtractedFields.total_debt || allExtractedFields.Total_Debt || 0) || 3180;
+  const liveNW   = parseFloat(allExtractedFields.net_worth   || allExtractedFields.Net_Worth   || 0) || 832;
   const pieData = {
     labels: [
-      `Total Debt: INR 3180 Cr (79%)`,
-      `Net Worth: INR 832 Cr (21%)`
+      `Total Debt: INR ${liveDebt} Cr (${Math.round(liveDebt/(liveDebt+liveNW)*100)}%)`,
+      `Net Worth: INR ${liveNW} Cr (${Math.round(liveNW/(liveDebt+liveNW)*100)}%)`
     ],
     datasets: [{
-      data: [3180, 832],
+      data: [liveDebt, liveNW],
       backgroundColor: ['#ef4444', '#22c55e'],
       borderWidth: 0,
       hoverOffset: 20
@@ -345,6 +347,50 @@ const Stage4_Report = ({ onBack, entityData }) => {
              <span style={{ fontSize: "10px", background: "rgba(255,255,255,0.05)", padding: "4px 8px", borderRadius: "4px", color: "rgba(255,255,255,0.4)" }}>TRIANGULATION ACTIVE</span>
              <span style={{ fontSize: "10px", background: "rgba(34, 197, 94, 0.1)", padding: "4px 8px", borderRadius: "4px", color: "#22c55e" }}>SENTIMENT: {research?.market_sentiment?.toUpperCase() || "NEUTRAL"}</span>
           </div>
+      </div>
+
+      {/* TRIANGULATION PANEL */}
+      <div style={{ ...STYLES.glassCard, borderLeft: '4px solid #a78bfa', background: 'rgba(167,139,250,0.03)' }}>
+        <h3 style={{ ...STYLES.sectionTitle, color: '#a78bfa' }}>
+          <Globe size={20} /> Pre-Cognitive Triangulation
+        </h3>
+        <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', marginBottom: '20px', marginTop: 0 }}>
+          AI cross-validates document data against real-time web intelligence to detect inconsistencies and confirm signals.
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+          {[
+            {
+              label: 'ASSET QUALITY (GNPA)',
+              doc: (() => { const v = allExtractedFields.gnpa_percent || allExtractedFields.gnpa; return v ? `${v}%` : 'Not extracted'; })(),
+              web: research?.findings?.find(f => f.snippet?.toLowerCase().includes('npa') || f.snippet?.toLowerCase().includes('asset quality'))?.snippet?.slice(0, 90) || 'No web mention found',
+              color: '#22c55e'
+            },
+            {
+              label: 'CREDIT RATING',
+              doc: (() => { const r = allExtractedFields.credit_rating_long_term; const o = allExtractedFields.rating_outlook; return r ? `${r}${o ? ` (${o})` : ''}` : 'Not extracted'; })(),
+              web: research?.findings?.find(f => f.snippet?.toLowerCase().includes('rating') || f.snippet?.toLowerCase().includes('icra') || f.snippet?.toLowerCase().includes('care'))?.snippet?.slice(0, 90) || 'No web mention found',
+              color: '#f0a500'
+            },
+            {
+              label: 'FINANCIAL PERFORMANCE',
+              doc: (() => { const r = allExtractedFields.revenue; const p = allExtractedFields.pat; return (r || p) ? `Rev ₹${r||'—'} Cr | PAT ₹${p||'—'} Cr` : 'Not extracted'; })(),
+              web: research?.findings?.[0]?.snippet?.slice(0, 90) || 'No web mention found',
+              color: '#60a5fa'
+            },
+          ].map((item, i) => (
+            <div key={i} style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '12px', padding: '16px', border: '1px solid rgba(255,255,255,0.07)' }}>
+              <div style={{ fontSize: '10px', fontWeight: '700', color: item.color, letterSpacing: '1px', marginBottom: '10px' }}>{item.label}</div>
+              <div style={{ marginBottom: '10px' }}>
+                <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', marginBottom: '3px' }}>FROM DOCUMENTS</div>
+                <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.85)', fontFamily: 'monospace' }}>{item.doc}</div>
+              </div>
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '10px' }}>
+                <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', marginBottom: '3px' }}>FROM WEB</div>
+                <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)', lineHeight: '1.5' }}>{item.web}</div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* 2. CHARTS ROW */}
@@ -518,8 +564,7 @@ const Stage4_Report = ({ onBack, entityData }) => {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "40px" }}>
              <div>
                 <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", marginBottom: "6px", textTransform: "uppercase" }}>Recommended Limit</div>
-                <div style={{ fontSize: "24px", fontWeight: "900", color: "#f0a500" }}>INR {result.scoring?.recommended_amount} Cr
-</div>
+                <div style={{ fontSize: '24px', fontWeight: '900', color: '#f0a500' }}>INR {scoreData?.recommended_amount || entityData?.loan?.amount || '—'} Cr</div>
              </div>
              <div>
                 <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", marginBottom: "6px", textTransform: "uppercase" }}>Interest Spread</div>

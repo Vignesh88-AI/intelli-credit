@@ -26,26 +26,37 @@ DOC_TYPE_LABELS = {
 
 MAX_PAGES = 15
 
-GENERAL_EXTRACTION_PROMPT = """You are a senior Indian credit analyst. 
-Extract financial metrics from the provided text.
-CRITICAL: 
-- Identify values in INR Crores (Cr) or Lakhs (L). Convert everything to Crores if possible.
-- Look for GST details (GSTR-2A vs 3B mismatches).
-- Check for NCLT/IBC insolvency mentions.
-- Use Indian accounting terminology (e.g., Sundry Debtors, WC limits).
+GENERAL_EXTRACTION_PROMPT = """You are a senior Indian credit analyst. Extract ALL financial metrics from this annual report / P&L / Balance Sheet.
+CRITICAL:
+- Identify values in INR Crores (Cr). Convert Lakhs to Crores if needed (1 Cr = 100 Lakhs).
+- Check for NCLT/IBC insolvency mentions, GST mismatch (GSTR-2A vs 3B), CIBIL references.
+- Use Indian accounting terminology.
 
-Return ONLY valid JSON with these keys if found:
+Return ONLY valid JSON with ALL fields you can find:
 {
-  "revenue": "numeric value",
-  "pat": "numeric value",
-  "total_debt": "numeric value",
-  "net_worth": "numeric value",
-  "gnpa_percent": "numeric value",
-  "car_percent": "numeric value",
-  "promoter_holding": "percentage",
-  "gst_mismatch": "brief description if any",
-  "nclt_status": "brief description if any"
+  "revenue": "total income / revenue from operations in Cr",
+  "revenue_fy24": "FY24 revenue if prior year shown",
+  "revenue_fy23": "FY23 revenue if two years prior shown",
+  "pat": "Profit After Tax in Cr",
+  "pbt": "Profit Before Tax in Cr",
+  "ebitda": "EBITDA in Cr if calculable",
+  "net_profit_margin": "PAT as % of revenue",
+  "total_debt": "total borrowings in Cr",
+  "net_worth": "shareholders equity / net worth in Cr",
+  "total_assets": "total assets in Cr",
+  "interest_paid": "finance costs / interest expense in Cr",
+  "dscr": "Debt Service Coverage Ratio if mentioned",
+  "interest_coverage": "EBIT / Interest Expense ratio",
+  "cash_from_operations": "operating cash flow in Cr",
+  "gnpa_percent": "Gross NPA % if mentioned",
+  "car_percent": "Capital Adequacy Ratio % if mentioned",
+  "promoter_holding": "promoter shareholding % if mentioned",
+  "revenue_growth_pct": "YoY revenue growth % if calculable",
+  "gst_mismatch": "any GSTR-2A vs 3B mismatch details",
+  "nclt_status": "any NCLT / IBC insolvency mention",
+  "auditor_remarks": "key auditor qualifications or emphasis of matter"
 }
+If a field is not found, use null. Do NOT invent values.
 """
 
 ALM_PROMPT = """You are a financial document analyst. Extract the following fields from this ALM (Asset-Liability Management) statement. Return ONLY valid JSON, no explanation.
