@@ -118,43 +118,87 @@ const Stage4_Report = ({ onBack, entityData }) => {
         const researchData = res.data;
         setResearch(researchData);
 
-        // --- DYNAMIC SCORING LOGIC ---
-        // Prioritize backend calculated scores if they exist
-        const targetScore = researchData?.total_score || researchData?.score || 72;
-        
-        setScoreData({
-          total: targetScore,
-          breakdown: { 
-            character: researchData?.character_score || 16, 
-            capacity: researchData?.capacity_score || 18, 
-            capital: researchData?.capital_score || 14, 
-            collateral: researchData?.collateral_score || 14, 
-            conditions: researchData?.conditions_score || 10 
-          },
-          red_flags: researchData?.risk_flags || [],
-          green_flags: researchData?.positive_signals || [],
-          recommended_amount: researchData?.recommended_amount,
-          recommended_rate: researchData?.recommended_rate
-        });
+        // --- SECOND CALL: DOCUMENT-BACKED SCORING ---
+        try {
+          // Build the extracted_docs structure for scoring
+          const extractedDocs = {}
+          if (entityData?.extractedData) {
+            entityData.extractedData.forEach(doc => {
+              extractedDocs[doc.doc_type] = doc.fields
+            })
+          }
+          const scoreRes = await axios.post(`${API_URL}/api/score`, new URLSearchParams({
+            data: JSON.stringify({
+              ...extractedDocs,
+              company_name: payload.company_name,
+              sector: payload.sector,
+              loan_amount: entityData?.loan?.amount || 50,
+              interest_rate: entityData?.loan?.rate || 11.5,
+              tenure: entityData?.loan?.tenure || 36
+            })
+          }))
+          const docScore = scoreRes.data
+          // Use document score if available, else fall back to web score
+          const targetScore = docScore?.total_score || docScore?.score || researchData?.total_score || 72
+          
+          setScoreData({
+            total: targetScore,
+            breakdown: {
+              character: docScore?.breakdown?.character || researchData?.character_score || 16,
+              capacity: docScore?.breakdown?.capacity || researchData?.capacity_score || 18,
+              capital: docScore?.breakdown?.capital || researchData?.capital_score || 14,
+              collateral: docScore?.breakdown?.collateral || researchData?.collateral_score || 14,
+              conditions: docScore?.breakdown?.conditions || researchData?.conditions_score || 10,
+            },
+            red_flags: docScore?.red_flags || researchData?.risk_flags || [],
+            green_flags: docScore?.green_flags || researchData?.positive_signals || [],
+            recommended_amount: docScore?.recommended_amount || researchData?.recommended_amount,
+            recommended_rate: docScore?.recommended_rate || researchData?.recommended_rate,
+            five_cs: docScore?.five_cs || {},
+            swot: docScore?.swot || {}
+          })
 
-        // ANIMATION LOGIC
-        let current = 0;
-        const steps = 100;
-        const increment = targetScore / steps;
-        const interval = setInterval(() => {
-          setAnimatedScore(prev => {
-             const nextVal = prev + increment;
-             if (nextVal >= targetScore) {
-               clearInterval(interval);
-               return targetScore;
-             }
-             return Math.ceil(nextVal);
+          // ANIMATION LOGIC
+          let current = 0;
+          const steps = 100;
+          const increment = targetScore / steps;
+          const interval = setInterval(() => {
+            setAnimatedScore(prev => {
+              const nextVal = prev + increment;
+              if (nextVal >= targetScore) {
+                clearInterval(interval);
+                return targetScore;
+              }
+              return Math.ceil(nextVal);
+            });
+          }, 2000 / steps);
+
+          setVerdict({
+            status: docScore?.decision || researchData?.credit_decision || (targetScore >= 75 ? 'APPROVE' : targetScore >= 60 ? 'APPROVE WITH CONDITIONS' : 'REJECT'),
+          })
+        } catch(scoreErr) {
+          console.error("Score API failed:", scoreErr)
+          // Fallback to research-only score if score API fails
+          const fallbackScore = researchData?.total_score || 72;
+          setScoreData({
+            total: fallbackScore,
+            breakdown: { 
+              character: researchData?.character_score || 16, 
+              capacity: researchData?.capacity_score || 18, 
+              capital: researchData?.capital_score || 14, 
+              collateral: researchData?.collateral_score || 14, 
+              conditions: researchData?.conditions_score || 10 
+            },
+            red_flags: researchData?.risk_flags || [],
+            green_flags: researchData?.positive_signals || [],
+            recommended_amount: researchData?.recommended_amount,
+            recommended_rate: researchData?.recommended_rate
           });
-        }, 2000 / steps);
-        
-        setVerdict({
-          status: researchData?.credit_decision || (targetScore >= 75 ? 'APPROVE' : targetScore >= 60 ? 'APPROVE WITH CONDITIONS' : 'REJECT'),
-        });
+          setVerdict({ 
+            status: researchData?.credit_decision || (fallbackScore >= 75 ? 'APPROVE' : fallbackScore >= 60 ? 'APPROVE WITH CONDITIONS' : 'REJECT') 
+          });
+          setAnimatedScore(fallbackScore);
+        }
       } catch (error) {
         console.error("Analysis Error:", error);
         setVerdict({ status: 'ERROR' });
@@ -432,6 +476,32 @@ const Stage4_Report = ({ onBack, entityData }) => {
              ))}
           </div>
       </div>
+
+      {/* SWOT SECTION */}
+      {scoreData?.swot && Object.keys(scoreData.swot).length > 0 && (
+        <div style={STYLES.glassCard}>
+          <h3 style={STYLES.sectionTitle}>SWOT Analysis (Pre-Cognitive Insight)</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            {[
+              { key: 'strengths', color: '#22c55e', bg: 'rgba(34,197,94,0.05)', border: 'rgba(34,197,94,0.2)' },
+              { key: 'weaknesses', color: '#ef4444', bg: 'rgba(239,68,68,0.05)', border: 'rgba(239,68,68,0.2)' },
+              { key: 'opportunities', color: '#3b82f6', bg: 'rgba(59,130,246,0.05)', border: 'rgba(59,130,246,0.2)' },
+              { key: 'threats', color: '#f97316', bg: 'rgba(249,115,22,0.05)', border: 'rgba(249,115,22,0.2)' },
+            ].map(({ key, color, bg, border }) => (
+              <div key={key} style={{ padding: '20px', borderRadius: '12px', background: bg, border: `1px solid ${border}` }}>
+                <h4 style={{ color, fontSize: '13px', fontWeight: '800', marginBottom: '12px', letterSpacing: '1px' }}>
+                  {key.toUpperCase()}
+                </h4>
+                <ul style={{ padding: 0, margin: 0, listStyle: 'none', fontSize: '13px', color: 'rgba(255,255,255,0.7)', lineHeight: '1.8' }}>
+                  {(scoreData.swot[key] || []).map((item, i) => (
+                    <li key={i}>• {item}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* PROPOSED TERMS */}
       <div style={{ ...STYLES.glassCard, background: "rgba(240, 165, 0, 0.08)", border: "1px solid rgba(240, 165, 0, 0.3)" }}>

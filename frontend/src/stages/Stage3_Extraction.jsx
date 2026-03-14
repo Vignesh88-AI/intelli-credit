@@ -184,21 +184,23 @@ const Stage3_Extraction = ({ onNext, entityData }) => {
     const cleaned = extractions
       .filter((e) => !e.rejected)
       .map((e) => {
-        const visibleFields = {};
+        // auto-approve anything not rejected
+        const visibleFields = {}
         Object.entries(e.fields || {}).forEach(([k, v]) => {
-          if (!e.hiddenFields.has(k)) visibleFields[k] = v;
-        });
+          if (!e.hiddenFields.has(k)) visibleFields[k] = v
+        })
         return {
           ...e,
+          approved: true,
           doc_type: e.customType || e.doc_type,
           doc_type_label:
             DOC_TYPE_OPTIONS.find((o) => o.value === (e.customType || e.doc_type))?.label ||
             e.doc_type_label,
           fields: visibleFields,
-        };
-      });
-    onNext({ extractedData: cleaned });
-  };
+        }
+      })
+    onNext({ extractedData: cleaned })
+  }
 
   const allFields = extractions.reduce((a, e) => ({ ...a, ...e.fields }), {});
   const getVal = (...keys) => {
@@ -528,7 +530,7 @@ const Stage3_Extraction = ({ onNext, entityData }) => {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'rgba(255,255,255,0.5)' }}>Approved</span>
-                <span style={{ fontWeight: '700', color: '#22c55e' }}>{extractions.filter(e => e.approved).length}</span>
+                <span style={{ fontWeight: '700', color: '#22c55e' }}>{extractions.filter(e => e.approved || (!e.rejected)).length}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'rgba(255,255,255,0.5)' }}>Total fields</span>
