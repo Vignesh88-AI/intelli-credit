@@ -17,6 +17,8 @@ export default function QuickAppraisal({ onBack }) {
   const sectors = ["NBFC", "Manufacturing", "IT/Technology", "Real Estate", 
                    "Healthcare", "Retail", "Infrastructure", "Agriculture", "Others"]
 
+  const API_URL = import.meta.env.VITE_API_URL || 'https://intelli-credit-7kzw.onrender.com'
+
   async function runQuickAppraisal() {
     if (!form.company_name || !file) return
     setStep("loading")
@@ -31,7 +33,6 @@ export default function QuickAppraisal({ onBack }) {
 
     try {
       setProgress("Extracting financial data from document...")
-      const API_URL = import.meta.env.VITE_API_URL || 'https://intelli-credit-7kzw.onrender.com'
       const res = await fetch(`${API_URL}/api/quick-appraisal`, {
         method: "POST",
         body: formData
@@ -229,7 +230,7 @@ export default function QuickAppraisal({ onBack }) {
       <div className="quick-actions">
         <button onClick={() => { setStep("input"); setResult(null); setFile(null) }} 
           className="btn-outline">New Appraisal</button>
-        <button onClick={() => window.open(`${import.meta.env.VITE_API_URL}/api/quick-report/${result.report_id}`)}
+        <button onClick={() => window.open(`${API_URL}/api/quick-report/${result.report_id}`)}
           className="btn-primary">Download CAM Report</button>
       </div>
     </div>
