@@ -4,10 +4,10 @@ const API_BASE = import.meta.env.VITE_API_URL || "https://intelli-credit-7kzw.on
 
 export default function QuickAppraisalInline() {
   const [companyName, setCompanyName] = useState("")
-  const [sector, setSector] = useState("NBFC")
+  const [sector, setSector] = useState("")
   const [loanAmount, setLoanAmount] = useState("")
-  const [tenure, setTenure] = useState("36")
-  const [interestRate, setInterestRate] = useState("11.5")
+  const [tenure, setTenure] = useState("")
+  const [interestRate, setInterestRate] = useState("")
   const [file, setFile] = useState(null)
   const [loading, setLoading] = useState(false)
   const [loadingMsg, setLoadingMsg] = useState("")
@@ -73,11 +73,12 @@ export default function QuickAppraisalInline() {
           <input
             value={companyName}
             onChange={e => setCompanyName(e.target.value)}
-            placeholder="e.g. Kinara Capital Private Limited" />
+            placeholder="Legal Entity Name" />
         </div>
         <div className="quick-field">
           <label>Sector</label>
           <select value={sector} onChange={e => setSector(e.target.value)}>
+            <option value="">Select Sector</option>
             {sectors.map(s => <option key={s}>{s}</option>)}
           </select>
         </div>
@@ -92,12 +93,12 @@ export default function QuickAppraisalInline() {
         <div className="quick-field">
           <label>Tenure (Months)</label>
           <input type="number" value={tenure}
-            onChange={e => setTenure(e.target.value)} placeholder="36" />
+            onChange={e => setTenure(e.target.value)} placeholder="e.g. 36" />
         </div>
         <div className="quick-field">
           <label>Interest Rate (%)</label>
           <input type="number" value={interestRate}
-            onChange={e => setInterestRate(e.target.value)} placeholder="11.5" />
+            onChange={e => setInterestRate(e.target.value)} placeholder="e.g. 11.5" />
         </div>
       </div>
 
@@ -117,10 +118,10 @@ export default function QuickAppraisalInline() {
         )}
       </div>
 
-      {error && <p className="quick-error">{error}</p>}
+      {error && <p className="quick-error">{typeof error === 'string' ? error : JSON.stringify(error)}</p>}
 
       <button className="btn-run-quick" onClick={runQuick}
-        disabled={!companyName || !file}>
+        disabled={!companyName || !file || !sector}>
         Run Quick Appraisal
       </button>
     </div>

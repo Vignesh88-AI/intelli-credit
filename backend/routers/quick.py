@@ -18,7 +18,7 @@ try:
 except ImportError:
     OCR_AVAILABLE = False
 
-router = APIRouter()
+router = APIRouter(prefix="/api")
 
 # Temporary in-memory storage for quick reports (would be Redis/DB in prod)
 quick_reports = {}
