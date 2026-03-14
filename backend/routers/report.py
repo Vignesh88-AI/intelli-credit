@@ -478,130 +478,60 @@ async def perform_research(data: dict):
     try:
         company_name = data.get("company_name", "Unknown Entity")
         sector = data.get("sector", "General")
-        extracted_data_list = data.get("extracted_docs", []) # From Stage 3
-        
-        # Reformat extracted docs for the template
-        extracted_docs = {}
-        for d in extracted_data_list:
-            doc_type = d.get("doc_type", "unknown")
-            extracted_docs[doc_type] = d.get("fields", {})
 
-        # --- TAVILY SEARCH — prioritise financial data for metric extraction ---
-        findings = []
-        queries_to_try = [
-            f"{company_name} revenue profit annual results FY2024 INR crore",
-            f"{company_name} annual report financial highlights 2024",
-            f"{company_name} credit rating ICRA CARE NBFC India",
-        ]
+        results = tavily_client.search(
+            query=f"{company_name} India headquarters revenue financials credit risk 2024",
+            max_results=3,
+            search_depth="basic"
+        )
 
-        for query in queries_to_try:
-            try:
-                search_result = tavily_client.search(query=query, max_results=3, search_depth="basic")
-                for r in search_result.get("results", []):
-                    findings.append({
-                        "title": r.get("title", ""),
-                        "snippet": r.get("content", "")[:800],  # 800 chars — enough for financial numbers
-                        "url": r.get("url", "")
-                    })
-                if findings:
-                    break  # 1 credit total — stop after first successful query
-            except Exception as e:
-                print(f"Tavily error for query '{query}': {e}")
-                continue
-        
-        context = "Relevant Web Findings:\n" + "\n".join([f"Title: {f['title']}\nSnippet: {f['snippet']}" for f in findings])
-        
-        # --- UNIVERSAL SCORING ---
-        entity_req = data.get("entity", {})
-        scoring_data = calculate_universal_score(company_name, extracted_docs, findings, entity_req)
+        context = "\n".join([r.get("content", "") for r in results.get("results", [])])
 
-        # --- EXTRACT FINANCIAL METRICS FROM WEB FINDINGS ---
-        financials = {}
-        if findings:
-            fin_context = "\n".join([f"{f['title']}: {f['snippet']}" for f in findings])
-            fin_prompt = f"""From these web search results about {company_name}, extract any financial metrics mentioned.
-Return ONLY valid JSON with these fields (use null if not found):
-{{
-  "revenue": "latest annual revenue in INR Crores (number only)",
-  "pat": "latest profit after tax in INR Crores (number only)",
-  "total_debt": "total debt/borrowings in INR Crores (number only)",
-  "net_worth": "net worth/equity in INR Crores (number only)",
-  "revenue_growth": "YoY revenue growth percentage (e.g. 22.5)",
-  "de_ratio": "debt to equity ratio (number only)",
-  "roe": "return on equity percentage (number only)",
-  "sector": "company sector/industry",
-  "founded_year": "year company was founded (number only)",
-  "headquarters": "city where headquartered",
-  "research_summary": "2-sentence summary of the company's current financial health",
-  "latest_news": ["news headline 1", "news headline 2"],
-  "sector_outlook": "one sentence about sector outlook",
-  "revenue_history": []
-}}
-Web data:
-{fin_context[:3000]}"""
-            try:
-                fin_response = groq_client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
-                    messages=[{"role": "user", "content": fin_prompt}],
-                    temperature=0.1,
-                    max_tokens=800
-                )
-                import re as _re
-                fin_text = fin_response.choices[0].message.content
-                fin_match = _re.search(r'\{.*\}', fin_text, _re.DOTALL)
-                if fin_match:
-                    financials = json.loads(fin_match.group())
-            except Exception as fe:
-                print(f"Financial extraction error: {fe}")
+        response = groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": """You are a credit analyst.
+Based on the search results, return ONLY this exact JSON:
+{
+  "company_name": "",
+  "headquarters": "",
+  "founded_year": "",
+  "sector": "",
+  "revenue": "",
+  "pat": "",
+  "total_debt": "",
+  "net_worth": "",
+  "de_ratio": "",
+  "roe": "",
+  "revenue_growth": "",
+  "credit_decision": "APPROVE or REJECT or REFER TO COMMITTEE",
+  "risk_level": "LOW or MEDIUM or HIGH",
+  "positive_signals": ["point1", "point2", "point3"],
+  "risk_flags": ["flag1", "flag2"],
+  "latest_news": ["news1", "news2"],
+  "sector_outlook": "one sentence",
+  "research_summary": "two sentences"
+}
+Use ONLY data from search results. No markdown. No backticks."""},
+                {"role": "user", "content": f"Company: {company_name}\n\nSearch data:\n{context[:3000]}"}
+            ],
+            max_tokens=1500,
+            temperature=0.1
+        )
 
-        response_payload = {
-            "company_name": company_name,
-            "score": scoring_data["score"],
-            "credit_decision": scoring_data["decision"],
-            "recommended_amount": scoring_data["recommended_amount"],
-            "recommended_rate": scoring_data["recommended_rate"],
-            "tenure": scoring_data["tenure"],
-            "red_flags": scoring_data["red_flags"],
-            "green_flags": scoring_data["green_flags"],
-            "five_cs": scoring_data["five_cs"],
-            "swot": scoring_data["swot"],
-            "findings": findings,
-            "sources_analyzed": len(findings),
-            "reasoning_engine": scoring_data["reasoning"],
-            # Financial metrics for CompanyResearch page
-            "revenue": financials.get("revenue"),
-            "pat": financials.get("pat"),
-            "total_debt": financials.get("total_debt"),
-            "net_worth": financials.get("net_worth"),
-            "revenue_growth": financials.get("revenue_growth"),
-            "de_ratio": financials.get("de_ratio"),
-            "roe": financials.get("roe"),
-            "sector": financials.get("sector", sector),
-            "founded_year": financials.get("founded_year"),
-            "headquarters": financials.get("headquarters"),
-            "research_summary": financials.get("research_summary"),
-            "latest_news": financials.get("latest_news", []),
-            "sector_outlook": financials.get("sector_outlook"),
-            "revenue_history": financials.get("revenue_history", []),
-            # 5Cs breakdown for CompanyResearch display
-            "character_score": scoring_data["five_cs"].get("character", {}).get("score", 18),
-            "capacity_score": scoring_data["five_cs"].get("capacity", {}).get("score", 18),
-            "capital_score": scoring_data["five_cs"].get("capital", {}).get("score", 14),
-            "collateral_score": scoring_data["five_cs"].get("collateral", {}).get("score", 14),
-            "conditions_score": scoring_data["five_cs"].get("conditions", {}).get("score", 12),
-            "total_score": scoring_data["score"],
-            "risk_level": scoring_data.get("risk_level", "MEDIUM"),
-            "risk_flags": scoring_data["red_flags"],
-            "positive_signals": scoring_data["green_flags"],
-        }
-        
-        return response_payload
-            
+        text = response.choices[0].message.content
+        print("GROQ:", text[:300])
+        match = re.search(r'\{.*\}', text, re.DOTALL)
+        if match:
+            return json.loads(match.group())
+        return {"error": "parsing failed", "raw": text[:500]}
+
     except Exception as e:
         print(f"ERROR: {str(e)}")
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post("/generate-cam")
 async def generate_report(data: str = Form(...)):
