@@ -194,7 +194,8 @@ If a field is not found use null.
 async def extract_data(
     file_paths: List[str] = Form(...), 
     doc_types: List[str] = Form(...),
-    custom_schema: str = Form(None)
+    custom_schema: str = Form(None),
+    user_notes: str = Form(None)
 ):
     try:
         results = []
@@ -241,19 +242,12 @@ async def extract_data(
                     results.append({"file_path": path, "status": "error", "message": "No text found", "fields": {}})
                     continue
 
-                # --- DYNAMIC SCHEMA LOGIC ---
+                # --- DYNAMIC SCHEMA & PRIMARY INSIGHT LOGIC ---
                 if custom_schema:
                     try:
                         schema_obj = json.loads(custom_schema)
-                        system_prompt = f"""You are a senior Indian credit analyst. Extract precisely these fields from the document.
-Return ONLY valid JSON matching this EXACT schema:
-{json.dumps(schema_obj, indent=2)}
-
-CRITICAL: 
-- Values in INR Crores (Cr).
-- Use null if not found.
-- Do NOT add fields not in the schema.
-"""
+                        field_names = ", ".join(schema_obj.keys())
+                        system_prompt = f"Extract ONLY these fields from the document: {field_names}. Return ONLY valid JSON with exactly these keys: {field_names}. Use null for not found."
                     except:
                         system_prompt = GENERAL_EXTRACTION_PROMPT
                 else:
@@ -263,8 +257,12 @@ CRITICAL:
                     elif detected_type == "borrowing_profile": system_prompt = BORROWING_PROMPT
                     elif detected_type == "portfolio_cuts": system_prompt = PORTFOLIO_CUTS_PROMPT
 
-                # Groq call with Retry Logic (Up to 2 retries)
+                # Groq call with Retry Logic
                 extracted_json = {}
+                user_msg_content = f"Extract fields from this text:\n\n{final_text}"
+                if user_notes:
+                    user_msg_content += f"\n\nCredit Officer Notes: {user_notes}\nConsider these observations when assessing risk."
+
                 for attempt in range(3):
                     try:
                         current_prompt = system_prompt
@@ -275,7 +273,7 @@ CRITICAL:
                             model="llama-3.3-70b-versatile",
                             messages=[
                                 {"role": "system", "content": current_prompt},
-                                {"role": "user", "content": f"Extract fields from this text:\n\n{final_text}"}
+                                {"role": "user", "content": user_msg_content}
                             ],
                             max_tokens=2000,
                             temperature=0.1 if attempt == 0 else 0.05
