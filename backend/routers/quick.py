@@ -110,23 +110,19 @@ async def quick_appraisal(
         # 2. Run AI extraction on whatever doc type it is
         extracted = extract_any_document(text, company_name, groq_client)
 
-        # 3. Run web research (adapted from report.py perform_research logic)
+        # 3. Run web research (strictly 1 credit Tavily call)
         findings = []
-        queries_to_try = [
-            f"{company_name} financial news 2024 2025",
-            f"{company_name} credit rating",
-        ]
-        for query in queries_to_try:
-            try:
-                search_result = tavily_client.search(query=query, max_results=3, search_depth="basic")
-                for r in search_result.get("results", []):
-                    findings.append({
-                        "title": r.get("title", ""),
-                        "snippet": r.get("content", "")[:300],
-                        "url": r.get("url", "")
-                    })
-                if findings: break
-            except: continue
+        try:
+            search_query = f"{company_name} India financial results 2024 financials revenue profit"
+            search_result = tavily_client.search(query=search_query, max_results=3, search_depth="basic")
+            for r in search_result.get("results", []):
+                findings.append({
+                    "title": r.get("title", ""),
+                    "snippet": r.get("content", "")[:300],
+                    "url": r.get("url", "")
+                })
+        except Exception as se:
+            print(f"Tavily search failed in quick-appraisal: {se}")
 
         # 4. Run universal scoring
         entity_data = {

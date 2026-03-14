@@ -107,7 +107,8 @@ export default function CompanyResearch({ onBack }) {
   const [error, setError] = useState(null);
   const [loadingStage, setLoadingStage] = useState(0);
   const [progress, setProgress] = useState(0);
-  const [retryCount, setRetryCount] = useState(0);
+// Removed retryCount to prevent loop
+
 
   const analyze = async () => {
     if (!query.trim() || loading) return;
@@ -182,7 +183,6 @@ export default function CompanyResearch({ onBack }) {
         };
         
         setResult(mappedResult);
-        setRetryCount(0); // Reset retry count on success
       } else {
         throw new Error("Empty response from backend");
       }
@@ -190,17 +190,9 @@ export default function CompanyResearch({ onBack }) {
       clearInterval(stageInt);
       clearInterval(progressInt);
       console.error("ANALYSIS_ERROR:", e.response?.data || e.message || e);
-      
-      if (retryCount < 1) {
-        console.log("Retrying research in 3 seconds...");
-        setRetryCount(1);
-        setTimeout(() => analyze(), 3000);
-      } else {
-        setError("Research timed out. Backend is warming up. Please click Analyze again.");
-        setRetryCount(0);
-      }
+      setError("Analysis failed. Please check your connection or company name and try again.");
     } finally {
-      if (retryCount >= 0) setLoading(false);
+      setLoading(false);
     }
   };
 
