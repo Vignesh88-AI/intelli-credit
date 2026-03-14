@@ -121,15 +121,24 @@ export default function CompanyResearch({ onBack }) {
   const [error, setError] = useState(null);
   const [loadingStage, setLoadingStage] = useState(0);
   const [progress, setProgress] = useState(0);
-// Removed retryCount to prevent loop
-
+  const [isPartial, setIsPartial] = useState(false);
 
   const analyze = async () => {
     if (!query.trim() || loading) return;
-    console.log("Searching for:", query);
+    
+    // NORMALIZE NAME
+    let normalized = query.trim();
+    const lowers = normalized.toLowerCase();
+    if (lowers === "byjus") normalized = "Byju's";
+    else if (lowers === "hdfc") normalized = "HDFC Bank";
+    else if (normalized.length < 6 && !normalized.includes(" ")) {
+      normalized += " India";
+    }
+
     setLoading(true);
     setResult(null);
     setError(null);
+    setIsPartial(false);
     setLoadingStage(0);
     setProgress(0);
 
@@ -144,7 +153,7 @@ export default function CompanyResearch({ onBack }) {
       const API_URL = import.meta.env.VITE_API_URL || 'https://intelli-credit-7kzw.onrender.com';
       
       const response = await axios.post(`${API_URL}/api/research`, {
-        company_name: query,
+        company_name: normalized,
         sector: 'General'
       });
       
@@ -152,60 +161,77 @@ export default function CompanyResearch({ onBack }) {
       clearInterval(progressInt);
       setProgress(100);
 
-      if (response.data) {
-        const data = response.data;
-        
-        // MAPPING REAL BACKEND DATA TO THE UI
-        const mappedResult = {
-          company_name: data.company_name || query,
-          sector: data.sector || "General Services",
-          founded: data.founded_year || "Not Available",
-          headquarters: data.headquarters || "Not Available",
-          summary: data.research_summary || data.latest_news?.[0] || "No summary available.",
-          financials: {
-            revenue: data.revenue || "N/A",
-            revenue_growth: data.revenue_growth || "N/A",
-            pat: data.pat || "N/A",
-            ebitda: "Not Available",
-            total_debt: data.total_debt || "N/A",
-            net_worth: data.net_worth || "N/A",
-            debt_equity: data.de_ratio || "N/A",
-            roe: data.roe || "N/A",
-            gnpa: "Not Available"
-          },
-          revenue_trend: data.revenue_history?.length > 0 
-            ? data.revenue_history.map(h => ({ label: h.year, val: parseFloat(extractNumeric(h.revenue_cr)) || 0 }))
-            : [{label: "Latest", val: parseFloat(extractNumeric(data.revenue)) || 0}],
-          five_cs: {
-            character: {score: data.character_score || 18, max: 20, note: "Promoter background checked"},
-            capacity: {score: data.capacity_score || 20, max: 25, note: "Interest coverage assessed"},
-            capital: {score: data.capital_score || 15, max: 20, note: `Net worth: ${data.net_worth}`},
-            collateral: {score: data.collateral_score || 15, max: 20, note: "Asset coverage estimated"},
-            conditions: {score: data.conditions_score || 12, max: 15, note: data.sector_outlook || "Market conditions"}
-          },
-          total_score: data.total_score || 70,
-          risk_level: data.risk_level || "MEDIUM",
-          red_flags: data.risk_flags?.length > 0 ? data.risk_flags : ["No major red flags identified"],
-          positive_signals: data.positive_signals?.length > 0 ? data.positive_signals : ["Steady operations"],
-          news_headlines: data.latest_news?.slice(0,3) || ["Latest sector developments"],
-          litigation_status: data.risk_flags?.[0] || "No major adverse cases found",
-          sector_outlook: data.sector_outlook || "Stable growth expected",
-          recommended_limit: "Varies",
-          recommended_rate: "Base + Spread",
-          tenure: "Flexible",
-          sources_searched: 8
-        };
-        
-        setResult(mappedResult);
-      } else {
-        throw new Error("Empty response from backend");
+      const data = response.data;
+      if (!data || data.error) {
+        throw new Error("EMPTY_DATA");
       }
+
+      // Check if data is truly empty (all key fields N/A)
+      const hasRevenue = data.revenue && data.revenue !== "N/A" && data.revenue !== "null";
+      const hasPat = data.pat && data.pat !== "N/A" && data.pat !== "null";
+      
+      if (!hasRevenue && !hasPat && (!data.latest_news || data.latest_news.length === 0)) {
+        throw new Error("EMPTY_DATA");
+      }
+
+      if (!hasRevenue && !hasPat) {
+        setIsPartial(true);
+      }
+      
+      // MAPPING REAL BACKEND DATA TO THE UI
+      const mappedResult = {
+        company_name: data.company_name || normalized,
+        sector: data.sector || "General Services",
+        founded: data.founded_year || "Not Available",
+        headquarters: data.headquarters || "Not Available",
+        summary: data.research_summary || data.latest_news?.[0] || "No summary available.",
+        financials: {
+          revenue: data.revenue || "N/A",
+          revenue_growth: data.revenue_growth || "N/A",
+          pat: data.pat || "N/A",
+          ebitda: "Not Available",
+          total_debt: data.total_debt || "N/A",
+          net_worth: data.net_worth || "N/A",
+          debt_equity: data.de_ratio || "N/A",
+          roe: data.roe || "N/A",
+          gnpa: "Not Available"
+        },
+        revenue_trend: data.revenue_history?.length > 0 
+          ? data.revenue_history.map(h => ({ label: h.year, val: parseFloat(extractNumeric(h.revenue_cr)) || 0 }))
+          : [{label: "Latest", val: parseFloat(extractNumeric(data.revenue)) || 0}],
+        five_cs: {
+          character: {score: data.character_score || 18, max: 20, note: "Promoter background checked"},
+          capacity: {score: data.capacity_score || 20, max: 25, note: "Interest coverage assessed"},
+          capital: {score: data.capital_score || 15, max: 20, note: `Net worth: ${data.net_worth}`},
+          collateral: {score: data.collateral_score || 15, max: 20, note: "Asset coverage estimated"},
+          conditions: {score: data.conditions_score || 12, max: 15, note: data.sector_outlook || "Market conditions"}
+        },
+        total_score: data.total_score || 70,
+        risk_level: data.risk_level || "MEDIUM",
+        red_flags: data.risk_flags?.length > 0 ? data.risk_flags : ["No major red flags identified"],
+        positive_signals: data.positive_signals?.length > 0 ? data.positive_signals : ["Steady operations"],
+        news_headlines: data.latest_news?.slice(0,3) || ["Latest sector developments"],
+        litigation_status: data.risk_flags?.[0] || "No major adverse cases found",
+        sector_outlook: data.sector_outlook || "Stable growth expected",
+        recommended_limit: "Varies",
+        recommended_rate: "Base + Spread",
+        tenure: "Flexible",
+        sources_searched: 8
+      };
+      
+      setResult(mappedResult);
     } catch (e) {
       clearInterval(stageInt);
       clearInterval(progressInt);
-      const errorMsg = e.response?.data?.detail || e.response?.data?.error || e.message || "Unknown error";
-      console.error("ANALYSIS_ERROR:", errorMsg);
-      setError(`Analysis failed: ${errorMsg}. Please try again later.`);
+      
+      if (e.message === "EMPTY_DATA") {
+        setError(`Insufficient public data for this company. Try searching with the full legal name e.g. 'Byju's Raveendran' or 'Think and Learn Pvt Ltd'`);
+      } else if (!e.response) {
+        setError("Service temporarily unavailable. Please try again in a moment.");
+      } else {
+        const errorMsg = e.response?.data?.detail || e.response?.data?.error || e.message || "Unknown error";
+        setError(`Analysis failed: ${errorMsg}. Please try again later.`);
+      }
     } finally {
       setLoading(false);
     }
@@ -369,6 +395,17 @@ export default function CompanyResearch({ onBack }) {
 
         {result && !loading && (
           <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+            
+            {isPartial && (
+              <div style={{ 
+                background: "rgba(240,165,0,0.1)", border: "1px solid rgba(240,165,0,0.3)", 
+                borderRadius: "12px", padding: "12px 20px", color: "#f0a500", fontSize: "13px", 
+                display: "flex", alignItems: "center", gap: "10px" 
+              }}>
+                <span style={{ fontSize: "16px" }}>ℹ</span>
+                <span>Limited public data found for {result.company_name}. Results shown are based on available web sources only.</span>
+              </div>
+            )}
 
             <div style={{
               background: "linear-gradient(135deg, #0a1628, #0d2040)",
