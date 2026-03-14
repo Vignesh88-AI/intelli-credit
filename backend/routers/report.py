@@ -517,6 +517,45 @@ async def perform_research(data: dict):
         entity_req = data.get("entity", {})
         scoring_data = calculate_universal_score(company_name, extracted_docs, findings, entity_req)
 
+        # --- EXTRACT FINANCIAL METRICS FROM WEB FINDINGS ---
+        financials = {}
+        if findings:
+            fin_context = "\n".join([f"{f['title']}: {f['snippet']}" for f in findings])
+            fin_prompt = f"""From these web search results about {company_name}, extract any financial metrics mentioned.
+Return ONLY valid JSON with these fields (use null if not found):
+{{
+  "revenue": "latest annual revenue in INR Crores (number only)",
+  "pat": "latest profit after tax in INR Crores (number only)",
+  "total_debt": "total debt/borrowings in INR Crores (number only)",
+  "net_worth": "net worth/equity in INR Crores (number only)",
+  "revenue_growth": "YoY revenue growth percentage (e.g. 22.5)",
+  "de_ratio": "debt to equity ratio (number only)",
+  "roe": "return on equity percentage (number only)",
+  "sector": "company sector/industry",
+  "founded_year": "year company was founded (number only)",
+  "headquarters": "city where headquartered",
+  "research_summary": "2-sentence summary of the company's current financial health",
+  "latest_news": ["news headline 1", "news headline 2"],
+  "sector_outlook": "one sentence about sector outlook",
+  "revenue_history": []
+}}
+Web data:
+{fin_context[:3000]}"""
+            try:
+                fin_response = groq_client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=[{"role": "user", "content": fin_prompt}],
+                    temperature=0.1,
+                    max_tokens=800
+                )
+                import re as _re
+                fin_text = fin_response.choices[0].message.content
+                fin_match = _re.search(r'\{.*\}', fin_text, _re.DOTALL)
+                if fin_match:
+                    financials = json.loads(fin_match.group())
+            except Exception as fe:
+                print(f"Financial extraction error: {fe}")
+
         response_payload = {
             "company_name": company_name,
             "score": scoring_data["score"],
@@ -530,7 +569,32 @@ async def perform_research(data: dict):
             "swot": scoring_data["swot"],
             "findings": findings,
             "sources_analyzed": len(findings),
-            "reasoning_engine": scoring_data["reasoning"]
+            "reasoning_engine": scoring_data["reasoning"],
+            # Financial metrics for CompanyResearch page
+            "revenue": financials.get("revenue"),
+            "pat": financials.get("pat"),
+            "total_debt": financials.get("total_debt"),
+            "net_worth": financials.get("net_worth"),
+            "revenue_growth": financials.get("revenue_growth"),
+            "de_ratio": financials.get("de_ratio"),
+            "roe": financials.get("roe"),
+            "sector": financials.get("sector", sector),
+            "founded_year": financials.get("founded_year"),
+            "headquarters": financials.get("headquarters"),
+            "research_summary": financials.get("research_summary"),
+            "latest_news": financials.get("latest_news", []),
+            "sector_outlook": financials.get("sector_outlook"),
+            "revenue_history": financials.get("revenue_history", []),
+            # 5Cs breakdown for CompanyResearch display
+            "character_score": scoring_data["five_cs"].get("character", {}).get("score", 18),
+            "capacity_score": scoring_data["five_cs"].get("capacity", {}).get("score", 18),
+            "capital_score": scoring_data["five_cs"].get("capital", {}).get("score", 14),
+            "collateral_score": scoring_data["five_cs"].get("collateral", {}).get("score", 14),
+            "conditions_score": scoring_data["five_cs"].get("conditions", {}).get("score", 12),
+            "total_score": scoring_data["score"],
+            "risk_level": scoring_data.get("risk_level", "MEDIUM"),
+            "risk_flags": scoring_data["red_flags"],
+            "positive_signals": scoring_data["green_flags"],
         }
         
         return response_payload
