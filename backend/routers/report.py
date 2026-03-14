@@ -486,27 +486,25 @@ async def perform_research(data: dict):
             doc_type = d.get("doc_type", "unknown")
             extracted_docs[doc_type] = d.get("fields", {})
 
-        # --- TAVILY FALLBACK LOGIC ---
+        # --- TAVILY SEARCH — prioritise financial data for metric extraction ---
         findings = []
         queries_to_try = [
-            f"{company_name} credit rating downgrade news India 2024 2025",
-            f"{company_name} NBFC financial news India",
-            f"{company_name} annual report rating ICRA CARE",
+            f"{company_name} revenue profit annual results FY2024 INR crore",
+            f"{company_name} annual report financial highlights 2024",
+            f"{company_name} credit rating ICRA CARE NBFC India",
         ]
 
         for query in queries_to_try:
-            if len(findings) >= 5:
-                break
             try:
                 search_result = tavily_client.search(query=query, max_results=3, search_depth="basic")
                 for r in search_result.get("results", []):
                     findings.append({
                         "title": r.get("title", ""),
-                        "snippet": r.get("content", "")[:300],
+                        "snippet": r.get("content", "")[:800],  # 800 chars — enough for financial numbers
                         "url": r.get("url", "")
                     })
                 if findings:
-                    break  # stop after first successful query
+                    break  # 1 credit total — stop after first successful query
             except Exception as e:
                 print(f"Tavily error for query '{query}': {e}")
                 continue
