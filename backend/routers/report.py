@@ -107,116 +107,204 @@ def apply_web_intelligence_penalties(base_score: int, research_findings: list) -
     
     return final_score, decision, red_flags
 
+def score_from_extracted_data(extracted_docs: dict) -> tuple:
+    base_score = 72  # neutral starting point
+    red_flags = []
+    green_flags = []
+
+    # ── Annual Report signals ──
+    annual = extracted_docs.get("annual_report", {})
+    gnpa = float(annual.get("gnpa_percent") or 0)
+    car  = float(annual.get("car_percent") or 15)
+    de_ratio = float(annual.get("debt_equity_ratio") or 0)
+    pat  = float(annual.get("pat") or 0)
+
+    if gnpa > 5:
+        base_score -= 15
+        red_flags.append(f"Gross NPA critical at {gnpa}% (>5% threshold)")
+    elif gnpa > 3:
+        base_score -= 8
+        red_flags.append(f"Gross NPA elevated at {gnpa}% (>3%)")
+    elif gnpa < 2:
+        base_score += 3
+        green_flags.append(f"Gross NPA healthy at {gnpa}% (below 2%)")
+
+    if car < 15:
+        base_score -= 12
+        red_flags.append(f"CAR below RBI minimum: {car}%")
+    elif car > 18:
+        base_score += 3
+        green_flags.append(f"Strong CAR at {car}% (well above 15% minimum)")
+
+    if pat > 0:
+        green_flags.append(f"Profitable entity — PAT ₹{pat} Cr")
+    else:
+        base_score -= 10
+        red_flags.append("Entity recorded net loss")
+
+    # ── Borrowing Profile signals ──
+    borrowing = extracted_docs.get("borrowing_profile", {})
+    outlook = str(borrowing.get("rating_outlook") or "").lower()
+    rating  = str(borrowing.get("credit_rating_long_term") or "").lower()
+
+    if "watch negative" in outlook or "watch-" in outlook:
+        base_score -= 12
+        red_flags.append("Credit rating on Watch Negative — imminent downgrade risk")
+    if "negative" in outlook and "watch" not in outlook:
+        base_score -= 8
+        red_flags.append("Negative rating outlook from credit agency")
+    if "bbb" in rating and ("negative" in outlook or "watch" in outlook):
+        base_score -= 8
+        red_flags.append("Rating downgraded to BBB category with negative outlook")
+    if "stable" in outlook and ("aa" in rating or "a+" in rating):
+        base_score += 5
+        green_flags.append(f"Strong credit rating: {rating.upper()} with stable outlook")
+
+    # ── Portfolio Cuts signals ──
+    portfolio = extracted_docs.get("portfolio_cuts", {})
+    coll_eff = float(portfolio.get("collection_efficiency") or 97)
+    par30    = float(portfolio.get("ptp_30_plus") or portfolio.get("par_30") or 0)
+
+    if coll_eff < 95:
+        base_score -= 8
+        red_flags.append(f"Collection efficiency below 95%: {coll_eff}%")
+    elif coll_eff > 98:
+        base_score += 3
+        green_flags.append(f"Excellent collection efficiency: {coll_eff}%")
+
+    if par30 > 5:
+        base_score -= 10
+        red_flags.append(f"High PAR-30 delinquency: {par30}%")
+
+    # ── Shareholding signals ──
+    shareholding = extracted_docs.get("shareholding_pattern", {})
+    pledged = str(shareholding.get("pledged_shares") or "0").replace("%","")
+    try:
+        pledged_pct = float(pledged)
+        if pledged_pct > 20:
+            base_score -= 10
+            red_flags.append(f"High promoter pledge: {pledged_pct}%")
+        elif pledged_pct == 0:
+            green_flags.append("Zero promoter pledge — clean ownership structure")
+    except:
+        pass
+
+    return max(min(base_score, 100), 10), red_flags, green_flags
+
+def generate_swot(company_name: str, extracted_docs: dict, research_findings: list) -> dict:
+    try:
+        research_text = "\n".join([f"- {f['title']}: {f['snippet']}" for f in research_findings[:5]])
+        annual = extracted_docs.get("annual_report", {})
+
+        prompt = f"""Generate a SWOT analysis for {company_name} based on this data.
+Financial: Revenue={annual.get('revenue')}, PAT={annual.get('pat')}, GNPA={annual.get('gnpa_percent')}%, CAR={annual.get('car_percent')}%
+Recent news:
+{research_text}
+
+Return ONLY valid JSON:
+{{"strengths": ["point1", "point2"], "weaknesses": ["point1", "point2"], "opportunities": ["point1", "point2"], "threats": ["point1", "point2"]}}
+Each array must have exactly 2-3 specific points relevant to THIS company. No generic points."""
+
+        response = groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=500
+        )
+        text = response.choices[0].message.content
+        import re
+        match = re.search(r'\{.*\}', text, re.DOTALL)
+        if match:
+            return json.loads(match.group())
+    except Exception as e:
+        print(f"SWOT generation error: {e}")
+    
+    return {
+        "strengths": ["Capital adequacy", "Market position"],
+        "weaknesses": ["Concentration risk", "Rising interest rates"],
+        "opportunities": ["Digital expansion", "New product launch"],
+        "threats": ["Regulatory changes", "Macro volatility"]
+    }
+
 @router.post("/research")
 async def perform_research(data: dict):
     try:
         company_name = data.get("company_name", "Unknown Entity")
         sector = data.get("sector", "General")
+        extracted_data_list = data.get("extracted_docs", []) # From Stage 3
         
-        # Single query = 1 credit only
-        combined_query = f"{company_name} {sector} India litigation promoter fraud SEBI credit rating ICRA NCLT news 2024 2025"
-        
-        search_result = tavily_client.search(
-            query=combined_query,
-            max_results=10,
-            search_depth="advanced"
-        )
-        
-        findings = [
-            {
-                "title": r.get("title", ""),
-                "snippet": r.get("content", "")[:300],
-                "url": r.get("url", "")
-            }
-            for r in search_result.get("results", [])
+        # Reformat extracted docs for the template
+        extracted_docs = {}
+        for d in extracted_data_list:
+            doc_type = d.get("doc_type", "unknown")
+            extracted_docs[doc_type] = d.get("fields", {})
+
+        # --- TAVILY FALLBACK LOGIC ---
+        findings = []
+        queries_to_try = [
+            f"{company_name} credit rating downgrade news India 2024 2025",
+            f"{company_name} NBFC financial news India",
+            f"{company_name} annual report rating ICRA CARE",
         ]
+
+        for query in queries_to_try:
+            if len(findings) >= 5:
+                break
+            try:
+                search_result = tavily_client.search(query=query, max_results=5, search_depth="advanced")
+                for r in search_result.get("results", []):
+                    findings.append({
+                        "title": r.get("title", ""),
+                        "snippet": r.get("content", "")[:300],
+                        "url": r.get("url", "")
+                    })
+                if findings:
+                    break  # stop after first successful query
+            except Exception as e:
+                print(f"Tavily error for query '{query}': {e}")
+                continue
         
         context = "Relevant Web Findings:\n" + "\n".join([f"Title: {f['title']}\nSnippet: {f['snippet']}" for f in findings])
         
-        response = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[
-                {"role": "system", "content": """You are a senior Indian credit analyst. 
-                Based on the search results, return ONLY this exact JSON format. 
-                
-                CRITICAL for Financials: All financial values MUST be PURE numeric strings (INR Crores).
-                
-                {
-                  "company_name": "",
-                  "headquarters": "",
-                  "founded_year": "",
-                  "sector": "",
-                  "revenue": "numeric string",
-                  "pat": "numeric string",
-                  "total_debt": "numeric string",
-                  "net_worth": "numeric string",
-                  "de_ratio": "",
-                  "roe": "",
-                  "revenue_growth": "",
-                  "revenue_history": [
-                    {"year": "2024", "revenue_cr": ""},
-                    {"year": "2023", "revenue_cr": ""},
-                    {"year": "2022", "revenue_cr": ""}
-                  ],
-                  "credit_decision": "APPROVE or REJECT or REFER TO COMMITTEE",
-                  "risk_level": "LOW or MEDIUM or HIGH",
-                  "reasoning_engine": "Provide a 3-sentence logical base explaining WHY the verdict was given, triangulating search data.",
-                  "swot": {
-                    "strengths": ["point1", "point2"],
-                    "weaknesses": ["point1", "point2"],
-                    "opportunities": ["point1", "point2"],
-                    "threats": ["point1", "point2"]
-                  },
-                  "market_sentiment": "Positive/Neutral/Cautious",
-                  "research_summary": "two sentences",
-                  "red_flags": ["Critical risk alert 1", "Critical risk alert 2"],
-                  "green_flags": ["Positive indicator 1", "Positive indicator 2"]
-                }
-                Use ONLY data from search results. No markdown."""},
-                {"role": "user", "content": f"Company: {company_name}\n\nSearch data:\n{context[:4000]}"}
-            ],
-            max_tokens=1500,
-            temperature=0.1
-        )
+        # --- MULTI-SIGNAL SCORING ---
+        base_score, doc_red_flags, doc_green_flags = score_from_extracted_data(extracted_docs)
+        final_score, decision_label, web_red_flags = apply_web_intelligence_penalties(base_score, findings)
         
-        import re, json
-        text = response.choices[0].message.content
-        match = re.search(r'\{.*\}', text, re.DOTALL)
-        if match:
-            final_data = json.loads(match.group())
-            
-            # Apply Intelligence Penalties
-            base_score = 72 # Default base score if not calculated elsewhere
-            final_score, decision, ai_red_flags = apply_web_intelligence_penalties(base_score, findings)
-            
-            # Merge flags
-            existing_red = final_data.get("red_flags", [])
-            final_data["red_flags"] = list(set(existing_red + ai_red_flags))
-            final_data["score"] = final_score
-            
-            # Calculate Recommended Terms
-            entity_req = data.get("entity", {})
-            requested_amount = float(entity_req.get("loan_amount", 50))
-            requested_rate = float(entity_req.get("interest_rate", 1.5))
-            requested_tenure = int(entity_req.get("tenure", 36))
-            
-            rec_terms = calculate_recommended_terms(final_score, requested_amount, requested_rate, requested_tenure)
-            
-            final_data["credit_decision"] = rec_terms["decision"]
-            final_data["recommended_amount"] = rec_terms["recommended_amount"]
-            final_data["recommended_rate"] = rec_terms["recommended_rate"]
-            final_data["tenure"] = rec_terms["tenure"]
-            
-            # Inject raw findings for frontend to display links
-            final_data["findings"] = findings
-            final_data["sources_analyzed"] = len(findings)
-            return final_data
-            
-        return {"error": "parsing failed", "raw": text[:500]}
+        # Combine flags
+        total_red_flags = list(set(doc_red_flags + web_red_flags))
+        
+        # Recommended Loan Terms logic
+        entity_req = data.get("entity", {})
+        requested_amount = float(entity_req.get("loan_amount", 50))
+        requested_rate = float(entity_req.get("interest_rate", 1.5))
+        requested_tenure = int(entity_req.get("tenure", 36))
+        
+        rec_terms = calculate_recommended_terms(final_score, requested_amount, requested_rate, requested_tenure)
+        
+        # Dynamic SWOT
+        swot_data = generate_swot(company_name, extracted_docs, findings)
 
+        response_payload = {
+            "company_name": company_name,
+            "score": final_score,
+            "credit_decision": rec_terms["decision"],
+            "recommended_amount": rec_terms["recommended_amount"],
+            "recommended_rate": rec_terms["recommended_rate"],
+            "tenure": rec_terms["tenure"],
+            "red_flags": total_red_flags,
+            "green_flags": doc_green_flags,
+            "swot": swot_data,
+            "findings": findings,
+            "sources_analyzed": len(findings),
+            "reasoning_engine": f"Triangulated {len(findings)} web sources with extracted document metrics. Score of {final_score}/100 reflect the {rec_terms['decision']} verdict based on risk parameters."
+        }
         
+        return response_payload
+            
     except Exception as e:
         print(f"ERROR: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/generate-cam")

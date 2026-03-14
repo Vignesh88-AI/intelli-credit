@@ -126,6 +126,7 @@ const Stage4_Report = ({ onBack, entityData }) => {
         const payload = {
           company_name: entityData?.entity?.companyName || entityData?.name || entityData?.entity_name || "Unknown Entity",
           sector: entityData?.entity?.sector || entityData?.industry || "NBFC",
+          extracted_docs: entityData?.extractedData || [],
           entity: {
             loan_amount: parseFloat(entityData?.loan?.amount || 50),
             interest_rate: parseFloat(entityData?.loan?.rate || 1.5),
