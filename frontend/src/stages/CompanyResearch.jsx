@@ -66,29 +66,15 @@ const RevenueChart = ({ data, growth }) => {
     );
   }
 
-  if (validData.length < 3) {
-    const latestValue = validData[0]?.val || 0;
-    return (
-      <div style={{ 
-        display: "flex", alignItems: "center", justifyContent: "center", 
-        height: "100px", color: "#94a3b8", fontSize: "13px", 
-        textAlign: "center", border: "1px dashed #1e3a5f", borderRadius: "8px",
-        padding: "0 20px", background: "#0a162888"
-      }}>
-        Revenue data: INR {latestValue} Cr ({cleanGrowth}% YoY growth)
-      </div>
-    );
-  }
-
   const max = Math.max(...validData.map(d => d.val)) * 1.2;
   return (
     <div style={{ display: "flex", alignItems: "flex-end", gap: "10px", height: "100px", padding: "0 8px" }}>
       {validData.map((d, i) => (
         <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}>
-          <span style={{ fontSize: "10px", color: "#94a3b8" }}>INR {d.val}Cr</span>
+          <span style={{ fontSize: "10px", color: "#94a3b8" }}>₹{d.val}Cr</span>
           <div style={{
             width: "100%", background: "linear-gradient(180deg, #f0a500, #d97706)",
-            height: `${(d.val / max) * 75}px`, borderRadius: "4px 4px 0 0",
+            height: `${Math.max((d.val / max) * 75, 4)}px`, borderRadius: "4px 4px 0 0",
             boxShadow: "0 0 12px #f0a50055", transition: "height 1s ease"
           }} />
           <span style={{ fontSize: "11px", color: "#64748b" }}>{d.label}</span>
@@ -196,9 +182,20 @@ export default function CompanyResearch({ onBack }) {
           roe: data.roe || "N/A",
           gnpa: "Not Available"
         },
-        revenue_trend: data.revenue_history?.length > 0 
-          ? data.revenue_history.map(h => ({ label: h.year, val: parseFloat(extractNumeric(h.revenue_cr)) || 0 }))
-          : [{label: "Latest", val: parseFloat(extractNumeric(data.revenue)) || 0}],
+        revenue_trend: (() => {
+          if (data.revenue_history?.length > 0) {
+            const valid = data.revenue_history
+              .filter(h => h.revenue_cr !== null && h.revenue_cr !== undefined)
+              .map(h => ({ 
+                label: h.year, 
+                val: typeof h.revenue_cr === 'number' ? h.revenue_cr : parseFloat(String(h.revenue_cr || '0').replace(/[^0-9.]/g, '')) 
+              }))
+              .filter(h => h.val > 0);
+            if (valid.length > 0) return valid;
+          }
+          const single = typeof data.revenue === 'number' ? data.revenue : parseFloat(String(data.revenue || '0').replace(/[^0-9.]/g, ''));
+          return single > 0 ? [{ label: 'Latest', val: single }] : [];
+        })(),
         five_cs: {
           character: {score: data.character_score || 18, max: 20, note: "Promoter background checked"},
           capacity: {score: data.capacity_score || 20, max: 25, note: "Interest coverage assessed"},

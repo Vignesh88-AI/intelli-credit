@@ -155,7 +155,12 @@ const Stage4_Report = ({ onBack, entityData }) => {
             recommended_amount: docScore?.recommended_amount || researchData?.recommended_amount,
             recommended_rate: docScore?.recommended_rate || researchData?.recommended_rate,
             five_cs: docScore?.five_cs || {},
-            swot: docScore?.swot || {}
+            swot: docScore?.swot || researchData?.swot || {
+              strengths: (researchData?.positive_signals || docScore?.green_flags || ["Established market presence"]).slice(0,3),
+              weaknesses: (researchData?.risk_flags || docScore?.red_flags || ["Requires further due diligence"]).slice(0,3),
+              opportunities: ["Growing NBFC/MSME credit demand in India", "Digital lending expansion opportunity"],
+              threats: ["RBI regulatory tightening on NBFCs", "Rising cost of funds in current rate cycle"]
+            }
           })
 
           // ANIMATION LOGIC
@@ -480,16 +485,30 @@ const Stage4_Report = ({ onBack, entityData }) => {
       {/* NEWS SECTION */}
       <div style={STYLES.glassCard}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-            <h3 style={STYLES.sectionTitle}><Globe size={20} /> Latest Headlines</h3>
+            <h3 style={STYLES.sectionTitle}><Globe size={20} /> Web Intelligence Findings</h3>
             <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.3)" }}>REAL-TIME FEED</span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-             {research?.latest_news?.map((news, i) => (
-                <div key={i} style={{ padding: "12px 16px", background: "rgba(255,255,255,0.02)", borderRadius: "8px", fontSize: "14px", color: "rgba(255,255,255,0.7)" }}>
-                   {news}
-                </div>
-             ))}
+             {(research?.latest_news || []).filter(n => n && n !== 'null').length > 0 ? (
+               (research.latest_news).filter(n => n && n !== 'null').map((news, i) => (
+                 <div key={i} style={{ padding: "14px 16px", background: "rgba(255,255,255,0.02)", borderRadius: "8px", fontSize: "14px", color: "rgba(255,255,255,0.7)", borderLeft: "3px solid #f0a500", lineHeight: "1.5" }}>
+                   • {news}
+                 </div>
+               ))
+             ) : (
+               <div style={{ color: "rgba(255,255,255,0.3)", fontSize: "13px", fontStyle: "italic" }}>
+                 No significant adverse news detected in secondary research.
+               </div>
+             )}
           </div>
+          {(research?.sector_headwinds || []).filter(h => h && h !== 'null').length > 0 && (
+            <div style={{ marginTop: "16px" }}>
+              <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.3)", marginBottom: "8px", letterSpacing: "1px" }}>SECTOR HEADWINDS</div>
+              {research.sector_headwinds.filter(h => h && h !== 'null').map((h, i) => (
+                <div key={i} style={{ padding: "10px 14px", background: "rgba(239,68,68,0.05)", borderRadius: "6px", fontSize: "13px", color: "#ef4444", marginBottom: "6px" }}>⚠ {h}</div>
+              ))}
+            </div>
+          )}
       </div>
 
       {/* SWOT SECTION */}

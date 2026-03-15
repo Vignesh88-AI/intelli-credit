@@ -200,8 +200,26 @@ async def extract_data(
     try:
         results = []
         for i, path in enumerate(file_paths):
+            print(f"[EXTRACT] Processing path {i}: {path} — exists={os.path.exists(path)}")
             if not os.path.exists(path):
-                continue
+                # Try alternate temp locations
+                basename = os.path.basename(path)
+                alt_paths = [
+                    f"/tmp/uploads/{basename}",
+                    f"/tmp/{basename}",
+                    path.replace("/app/", "/tmp/")
+                ]
+                found = False
+                for alt in alt_paths:
+                    if os.path.exists(alt):
+                        path = alt
+                        print(f"[EXTRACT] Found at alternate path: {alt}")
+                        found = True
+                        break
+                if not found:
+                    print(f"[EXTRACT] File not found: {path}")
+                    results.append({"file_path": path, "status": "error", "message": f"File not found: {path}", "fields": {}})
+                    continue
                 
             try:
                 raw_type = doc_types[i].lower()
