@@ -36,7 +36,7 @@ def robust_json_parser(text):
     return _robust_parse(text)
 
 # ─── CHUNKED PAGE EXTRACTION ───────────────────────────────────────────────
-def extract_pdf_chunked(path: str, doc_type: str, max_chars: int = 28000) -> str:
+def extract_pdf_chunked(path: str, doc_type: str, max_chars: int = 48000) -> str:
     """Extract text from large PDFs using smart chunked sampling."""
     if not PDF_AVAILABLE:
         return ""
@@ -55,13 +55,16 @@ def extract_pdf_chunked(path: str, doc_type: str, max_chars: int = 28000) -> str
         if total_pages <= 40:
             pages_to_read = list(range(total_pages))
         elif doc_type == "annual_report":
-            # Smart sampling for large docs: first 25 + last 20 + every 4th in middle
-            start = list(range(25))
-            end   = list(range(max(25, total_pages - 20), total_pages))
-            mid   = [p for p in range(25, total_pages - 20) if (p - 25) % 4 == 0]
+            # Smart sampling for large docs: first 30 + last 30 + every 5th in middle
+            start = list(range(30))
+            end   = list(range(max(30, total_pages - 30), total_pages))
+            mid   = [p for p in range(30, total_pages - 30) if (p - 30) % 5 == 0]
             pages_to_read = sorted(set(start + mid + end))
         else:
-            pages_to_read = list(range(min(total_pages, 50)))
+            # For other large docs, take first 40 and last 20
+            start = list(range(min(total_pages, 40)))
+            end   = list(range(max(40, total_pages - 20), total_pages))
+            pages_to_read = sorted(set(start + (end if total_pages > 40 else [])))
 
         priority_blocks = []
         other_blocks    = []
@@ -175,10 +178,10 @@ async def extract_data(
             elif path.lower().endswith((".xlsx",".xls")):
                 import pandas as pd
                 dfs = pd.read_excel(path, sheet_name=None)
-                final_text = "\n\n".join([f"Sheet: {sh}\n{df.to_string()}" for sh, df in dfs.items()])[:28000]
+                final_text = "\n\n".join([f"Sheet: {sh}\n{df.to_string()}" for sh, df in dfs.items()])[:48000]
             else:
                 with open(path, "r", errors="ignore") as f:
-                    final_text = f.read()[:28000]
+                    final_text = f.read()[:48000]
 
             if not final_text.strip():
                 results.append({"file_path": path, "status": "error",
@@ -210,7 +213,7 @@ async def extract_data(
                     response_text = call_gemini(
                         sp, user_content,
                         temperature=0.05 if attempt > 0 else 0.1,
-                        max_tokens=2500
+                        max_tokens=4000
                     )
                     extracted_json = robust_json_parser(response_text)
                     if extracted_json: break

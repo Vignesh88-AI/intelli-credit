@@ -95,19 +95,20 @@ const Stage2_Upload = ({ onNext, entityData }) => {
  
       // 1. Upload documents
       console.log('Step 1: Uploading documents...');
-      const uploadResponse = await axios.post(`${API_URL}/api/upload`, uploadForm);
+      const uploadResponse = await axios.post(`${API_URL}/api/upload`, uploadForm, { timeout: 300000 });
       const uploadedFiles = uploadResponse.data;
       console.log('Upload successful:', uploadedFiles);
 
       // 2. Trigger Extraction
       console.log('Step 2: Triggering AI extraction...');
+      setError('AI is now processing large documents... this may take up to 2-3 minutes.');
       const extractForm = new FormData();
       uploadedFiles.forEach(file => {
         extractForm.append('file_paths', file.path);
         extractForm.append('doc_types', file.doc_type);
       });
 
-      const extractResponse = await axios.post(`${API_URL}/api/extract`, extractForm);
+      const extractResponse = await axios.post(`${API_URL}/api/extract`, extractForm, { timeout: 300000 });
       const result = extractResponse.data;
       console.log('Extraction response:', result);
 
@@ -197,7 +198,9 @@ const Stage2_Upload = ({ onNext, entityData }) => {
             AI Analysis in Progress
           </div>
 
-          <p style={{ color: "rgba(255,255,255,0.5)", marginTop: "8px" }}>AI is analyzing your documents... (30-60 seconds)</p>
+          <p style={{ color: "rgba(255,255,255,0.5)", marginTop: "8px", maxWidth: "400px", textAlign: "center" }}>
+            AI is analyzing your documents... large files may take 2-4 minutes to process.
+          </p>
 
           <div style={{
             width: "300px", height: "4px",

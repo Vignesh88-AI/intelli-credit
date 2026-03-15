@@ -163,7 +163,7 @@ const DocumentCard = ({ type, description, isOptional, file, onUpload, onRemove 
               Upload File
             </span>
             <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.3)" }}>
-              PDF or XLSX up to 10MB
+              PDF or XLSX up to 100MB
             </span>
           </>
         )}
