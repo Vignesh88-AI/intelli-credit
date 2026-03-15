@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Form, Response
 import os, json, re, io, asyncio
-from groq import Groq
+import google.generativeai as genai
 from tavily import TavilyClient
 from docx import Document
 from docx.shared import Inches, Pt, RGBColor
@@ -9,7 +9,24 @@ from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 
 router = APIRouter(prefix="/api")
-groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+
+# ── Gemini 2.0 Flash — 1M free tokens/day ───────────────────
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+
+def call_gemini(system_prompt: str, user_prompt: str, temperature: float = 0.1, max_tokens: int = 2500) -> str:
+    """Universal Gemini 2.0 Flash caller. Returns response text."""
+    try:
+        model = genai.GenerativeModel(
+            model_name="gemini-2.0-flash",
+            generation_config={"temperature": temperature, "max_output_tokens": max_tokens},
+            system_instruction=system_prompt
+        )
+        response = model.generate_content(user_prompt)
+        return response.text
+    except Exception as e:
+        print(f"Gemini error: {e}")
+        raise e
+
 tavily_client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
 
 _research_cache = {}
@@ -268,12 +285,12 @@ def calculate_universal_score(company_name, extracted_docs, research_findings, e
     analyst_adj = 0
     if analyst_notes and len(analyst_notes.strip()) > 10:
         try:
-            resp = groq_client.chat.completions.create(
-                model="llama-3.1-8b-instant",
-                messages=[{"role":"user","content":f'Credit analyst notes: "{analyst_notes}"\nReturn ONLY JSON: {{"adjustment": -5, "reasoning": "brief reason"}}\nRange: -15 to +5.'}],
+            response_text = call_gemini(
+                "You are a credit scoring assistant. Analyze analyst notes and return a JSON score adjustment. Return ONLY valid JSON.",
+                f'Credit analyst notes: "{analyst_notes}"\nReturn ONLY JSON: {{"adjustment": -5, "reasoning": "brief reason"}}\nRange: -15 to +5.',
                 temperature=0.1, max_tokens=150
             )
-            adj_data = robust_json_parse(resp.choices[0].message.content)
+            adj_data = robust_json_parse(response_text)
             analyst_adj = max(-15, min(5, int(adj_data.get("adjustment",0))))
             if analyst_adj < 0: red_flags.append(f"Analyst note: {adj_data.get('reasoning','')}")
             reasoning_chain.append(f"ANALYST {analyst_adj:+d}: {adj_data.get('reasoning','')} (Source: Primary Due Diligence)")
@@ -338,12 +355,11 @@ RULES:
 Return ONLY valid JSON (no markdown, no extra text):
 {{"strengths":["specific point with numbers","specific point","specific point"],"weaknesses":["specific point with numbers","specific point","specific point"],"opportunities":["specific point","specific point"],"threats":["specific point","specific point","specific point"]}}"""
 
-        resp = groq_client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=[{"role":"user","content":prompt}],
-            temperature=0.4, max_tokens=700
+        response_text = call_gemini(
+            "You are a senior Indian credit analyst. Generate specific, data-driven SWOT analysis. Return ONLY valid JSON.",
+            prompt, temperature=0.4, max_tokens=700
         )
-        result = robust_json_parse(resp.choices[0].message.content)
+        result = robust_json_parse(response_text)
         if result and all(k in result for k in ["strengths","weaknesses","opportunities","threats"]):
             # Validate not generic
             all_points = result.get("strengths",[]) + result.get("weaknesses",[])
@@ -438,10 +454,7 @@ async def perform_research(data: dict):
 
         context = "\n".join([f"[{f['url']}]\n{f['title']}: {f['snippet']}" for f in findings])
 
-        resp = groq_client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=[
-                {"role":"system","content":f"""Senior Indian credit analyst. Analyze web results for {company}.
+        resp_system = f"""Senior Indian credit analyst. Analyze web results for {company}.
 
 CRITICAL UNIT RULES — STRICTLY FOLLOW:
 1. ALL financial values MUST be in INR Crores. 
@@ -483,11 +496,8 @@ Return ONLY valid JSON (no markdown):
   "data_sources":[]
 }}"""},
                 {"role":"user","content":f"Company: {company}\nSector: {sector}\n\nWeb Data ({len(findings)} sources):\n{context[:9000]}"}
-            ],
-            max_tokens=2500, temperature=0.1
-        )
-
-        text = resp.choices[0].message.content
+        resp_user = f"Company: {company}\nSector: {sector}\n\nWeb Data ({len(findings)} sources):\n{context[:9000]}"
+        text = call_gemini(resp_system, resp_user, temperature=0.1, max_tokens=2500)
         result = robust_json_parse(text)
 
         if not result:
@@ -838,12 +848,11 @@ Write exactly 5 sections with these headers (formal Indian banking language, ref
 3. RISK ASSESSMENT
 4. CREDIT OPINION
 5. RECOMMENDATION"""
-            nr=groq_client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=[{"role":"user","content":narrative_prompt}],
-                temperature=0.3, max_tokens=1500
+            narrative_text = call_gemini(
+                "You are a senior credit analyst at an Indian bank writing formal Credit Appraisal Memos.",
+                narrative_prompt, temperature=0.3, max_tokens=1500
             )
-            doc.add_paragraph(nr.choices[0].message.content)
+            doc.add_paragraph(narrative_text)
         except Exception as e:
             add_body(f"Narrative generation error: {e}")
         doc.add_paragraph()

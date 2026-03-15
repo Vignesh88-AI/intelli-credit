@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Form
 import os, json, re, time, io
-from groq import Groq
 from typing import List
+from .report import call_gemini, robust_json_parse as _robust_parse
 
 try:
     import pytesseract
@@ -17,7 +17,6 @@ except ImportError:
     PDF_AVAILABLE = False
 
 router = APIRouter(prefix="/api")
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 DOC_TYPE_LABELS = {
     "annual_report": "Annual Reports",
@@ -33,15 +32,8 @@ CONFIDENCE_MAP = {
 }
 
 def robust_json_parser(text):
-    if not text: return {}
-    clean = text.replace("```json","").replace("```","").strip()
-    try: return json.loads(clean)
-    except: pass
-    try:
-        m = re.search(r'\{.*\}', clean, re.DOTALL)
-        if m: return json.loads(m.group())
-    except: pass
-    return {}
+    """Use the robust parser from report.py."""
+    return _robust_parse(text)
 
 # ─── CHUNKED PAGE EXTRACTION ───────────────────────────────────────────────
 def extract_pdf_chunked(path: str, doc_type: str, max_chars: int = 28000) -> str:
@@ -215,16 +207,12 @@ async def extract_data(
                 try:
                     sp = system_prompt
                     if attempt > 0: sp += "\nSTRICT: Return ONLY the JSON object. No extra text."
-                    resp = client.chat.completions.create(
-                        model="llama-3.3-70b-versatile",
-                        messages=[
-                            {"role": "system", "content": sp},
-                            {"role": "user",   "content": user_content}
-                        ],
-                        max_tokens=2500,
-                        temperature=0.05 if attempt > 0 else 0.1
+                    response_text = call_gemini(
+                        sp, user_content,
+                        temperature=0.05 if attempt > 0 else 0.1,
+                        max_tokens=2500
                     )
-                    extracted_json = robust_json_parser(resp.choices[0].message.content)
+                    extracted_json = robust_json_parser(response_text)
                     if extracted_json: break
                 except Exception as ge:
                     print(f"Groq attempt {attempt+1} failed: {ge}")
@@ -250,15 +238,11 @@ async def extract_data(
 async def analyze_financials(data: str = Form(...)):
     try:
         payload = json.loads(data)
-        resp = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[
-                {"role": "system", "content": "Senior credit officer, Indian SME lending."},
-                {"role": "user", "content": f"Analyze: {json.dumps(payload)}. Return JSON: {{verdict, risk_alerts, positive_indicators}}"}
-            ],
-            max_tokens=2000, temperature=0.2
+        text = call_gemini(
+            "You are a senior credit officer specialised in Indian SME lending.",
+            f"Analyze: {json.dumps(payload)}. Return JSON: {{verdict, risk_alerts, positive_indicators}}",
+            temperature=0.2, max_tokens=2000
         )
-        text = resp.choices[0].message.content
         m = re.search(r'\{.*\}', text, re.DOTALL)
         return json.loads(m.group()) if m else {"verdict": text}
     except Exception as e:

@@ -12,3 +12,4 @@ pytesseract
 python-docx
 pdf2image
 Pillow
+google-generativeai>=0.8.0

@@ -56,7 +56,7 @@ def extract_text_from_file(contents: bytes, filename: str) -> str:
     try: return contents.decode('utf-8')[:25000]
     except: return ""
 
-def extract_any_document(text: str, company_name: str, client) -> dict:
+def extract_any_document(text: str, company_name: str, gemini_caller) -> dict:
     prompt = f"""You are a senior Indian credit analyst. Extract ALL financial data from this {company_name} document.
 
 CRITICAL UNIT RULES:
@@ -90,12 +90,11 @@ Return ONLY valid JSON:
 Document Text:
 {text[:20000]}"""
 
-    resp = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[{"role":"user","content":prompt}],
-        temperature=0.05, max_tokens=2500
+    response_text = gemini_caller(
+        "You are a senior Indian credit analyst extracting financial data. Return ONLY valid JSON.",
+        prompt, temperature=0.05, max_tokens=2500
     )
-    return robust_json_parser(resp.choices[0].message.content)
+    return robust_json_parser(response_text)
 
 @router.post("/upload")
 async def quick_upload(file: UploadFile = File(...), session_id: str = Form(...)):
@@ -108,10 +107,10 @@ async def quick_upload(file: UploadFile = File(...), session_id: str = Form(...)
 async def quick_analyze(company_name: str = Form(...), session_id: str = Form(...)):
     if session_id not in quick_session:
         raise HTTPException(status_code=404, detail="Session not found")
-    from .report import groq_client, normalize_to_inr_crores
+    from .report import call_gemini, normalize_to_inr_crores
 
     text = quick_session[session_id]["text"]
-    extracted = extract_any_document(text, company_name, groq_client)
+    extracted = extract_any_document(text, company_name, call_gemini)
     quick_session[session_id]["extracted"] = extracted
     quick_session[session_id]["company_name"] = company_name
 
@@ -187,7 +186,7 @@ async def quick_score(
 async def quick_research(session_id: str = Form(...)):
     if session_id not in quick_session:
         raise HTTPException(status_code=404, detail="Session not found")
-    from .report import cached_tavily_search, groq_client, get_decision, get_risk_level
+    from .report import cached_tavily, call_gemini, get_decision, get_risk_level
 
     session = quick_session[session_id]
     company = session.get("company_name")
@@ -200,8 +199,8 @@ async def quick_research(session_id: str = Form(...)):
 
     try:
         results = await asyncio.wait_for(asyncio.gather(
-            loop.run_in_executor(None, lambda: cached_tavily_search(q1, 3)),
-            loop.run_in_executor(None, lambda: cached_tavily_search(q2, 3)),
+            loop.run_in_executor(None, lambda: cached_tavily(q1, 3)),
+            loop.run_in_executor(None, lambda: cached_tavily(q2, 3)),
         ), timeout=20.0)
     except asyncio.TimeoutError:
         results = [{'results':[]}, {'results':[]}]
@@ -223,12 +222,10 @@ async def quick_research(session_id: str = Form(...)):
 Results: {findings_text[:5000]}
 Be factual. Only report what is in the results."""
 
-    resp = groq_client.chat.completions.create(
-        model="llama-3.1-8b-instant",
-        messages=[{"role":"user","content":prompt}],
-        temperature=0.3, max_tokens=1000
+    text = call_gemini(
+        "You are a credit risk analyst. Analyze web search results and provide a structured risk assessment.",
+        prompt, temperature=0.3, max_tokens=1000
     )
-    text = resp.choices[0].message.content
     risk_level = "MEDIUM"
     if "RISK LEVEL: LOW"      in text.upper(): risk_level = "LOW"
     elif "RISK LEVEL: MEDIUM" in text.upper(): risk_level = "MEDIUM"
