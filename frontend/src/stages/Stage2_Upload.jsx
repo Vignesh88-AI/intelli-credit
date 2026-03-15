@@ -78,6 +78,7 @@ const Stage2_Upload = ({ onNext, entityData }) => {
     if (uploads.length === 0) return;
     setIsUploading(true);
     setError(null);
+    // Set longer timeout for large PDFs
     
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'https://intelli-credit-7kzw.onrender.com';

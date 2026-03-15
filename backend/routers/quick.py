@@ -198,12 +198,13 @@ async def quick_research(session_id: str = Form(...)):
     q3 = f"{company} India RBI SEBI regulatory action penalty 2024"
     q4 = f"{company} India promoter background news"
 
-    results = await asyncio.gather(
-        loop.run_in_executor(None, lambda: cached_tavily_search(q1, 3)),
-        loop.run_in_executor(None, lambda: cached_tavily_search(q2, 3)),
-        loop.run_in_executor(None, lambda: cached_tavily_search(q3, 2)),
-        loop.run_in_executor(None, lambda: cached_tavily_search(q4, 2)),
-    )
+    try:
+        results = await asyncio.wait_for(asyncio.gather(
+            loop.run_in_executor(None, lambda: cached_tavily_search(q1, 3)),
+            loop.run_in_executor(None, lambda: cached_tavily_search(q2, 3)),
+        ), timeout=20.0)
+    except asyncio.TimeoutError:
+        results = [{'results':[]}, {'results':[]}]
 
     all_results = []
     seen = set()

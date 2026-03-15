@@ -148,7 +148,7 @@ export default function CompanyResearch({ onBack }) {
       setProgress(100);
 
       const data = response.data;
-      if (!data || data.error) {
+      if (!data || (data.error && !data.company_name)) {
         throw new Error("EMPTY_DATA");
       }
 
