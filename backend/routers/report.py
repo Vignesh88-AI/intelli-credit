@@ -494,8 +494,7 @@ Return ONLY valid JSON (no markdown):
   "sector_outlook":"one concise sentence",
   "research_summary":"3-sentence credit opinion mentioning {company} specifically",
   "data_sources":[]
-}}"""},
-                {"role":"user","content":f"Company: {company}\nSector: {sector}\n\nWeb Data ({len(findings)} sources):\n{context[:9000]}"}
+}}"""
         resp_user = f"Company: {company}\nSector: {sector}\n\nWeb Data ({len(findings)} sources):\n{context[:9000]}"
         text = call_gemini(resp_system, resp_user, temperature=0.1, max_tokens=2500)
         result = robust_json_parse(text)
