@@ -57,8 +57,7 @@ const Stage1_Onboarding = ({ onNext, onQuick }) => {
   const [step, setStep] = useState(1);
   const [localData, setLocalData] = useState({
     entity: {},
-    loan: { amount: "50", tenure: "36" },
-    quick: {}
+    loan: {}
   });
   const [errors, setErrors] = useState({});
   const [mode, setMode] = useState("full"); // "full" or "quick"
@@ -153,7 +152,7 @@ const Stage1_Onboarding = ({ onNext, onQuick }) => {
                 </div>
                 <div>
                   <label style={STYLES.label}>Loan Amount (Cr) *</label>
-                <input style={STYLES.input} type="number" value={localData.loan.amount ?? "50"} min="1" onChange={(e) => handleChange('loan', 'amount', e.target.value)} placeholder="50" />
+                  <input style={STYLES.input} type="number" value={localData.loan.amount || "50"} onChange={(e) => handleChange('loan', 'amount', e.target.value)} />
                 </div>
                 <div>
                   <label style={STYLES.label}>Document *</label>

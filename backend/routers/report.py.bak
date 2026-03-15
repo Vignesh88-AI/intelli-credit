@@ -648,27 +648,9 @@ async def generate_report(data: str = Form(...)):
 
         # Reformat extracted docs for the template
         extracted_docs = {}
-        if isinstance(extracted_data, list):
-            for doc in extracted_data:
-                doc_type = doc.get("doc_type", "unknown")
-                fields = doc.get("fields", {})
-                if fields:
-                    extracted_docs[doc_type] = fields
-        elif isinstance(extracted_data, dict):
-            extracted_docs = extracted_data
-
-        # Helper to get safe value
-        def safe_val(v):
-            if v is None or str(v).strip() in ['null', 'None', '', 'N/A']:
-                return None
-            return str(v)
-
-        # Pull from all doc types
-        annual = extracted_docs.get("annual_report", {})
-        borrowing = extracted_docs.get("borrowing_profile", {})
-        portfolio = extracted_docs.get("portfolio_cuts", {})
-        alm = extracted_docs.get("alm_statement", {})
-        shareholding = extracted_docs.get("shareholding_pattern", {})
+        for doc in extracted_data:
+            doc_type = doc.get("doc_type", "unknown")
+            extracted_docs[doc_type] = doc.get("fields", {})
 
         # Sample company names for testing: Tata Capital, Kinara, Vivriti
         
@@ -714,23 +696,15 @@ async def generate_report(data: str = Form(...)):
                 "collateral": {"score": 14, "notes": "Asset coverage adequate."},
                 "conditions": {"score": 10, "notes": "Sector outlook remains resilient."}
             })),
-            "swot": score_data.get("swot") or research_data.get("swot") or {
-                "strengths": [s for s in score_data.get("green_flags", [])[:3]] or ["Established market presence", "Regulatory compliance"],
-                "weaknesses": [s for s in score_data.get("red_flags", [])[:3]] or ["Requires further due diligence"],
-                "opportunities": ["Growing credit demand in India", "Digital lending expansion"],
-                "threats": ["Regulatory tightening on NBFCs", "Rising cost of funds"]
-            }
+            "swot": research_data.get("swot", {
+                "strengths": ["Capital adequacy", "Market position"],
+                "weaknesses": ["Concentration risk", "Rising interest rates"],
+                "opportunities": ["Digital expansion", "Rural growth"],
+                "threats": ["Regulatory changes", "Macro volatility"]
+            })
         }
 
-        # Get research findings - try multiple keys
         research_findings = research_data.get("findings", [])
-        if not research_findings:
-            # Convert latest_news strings to finding dicts
-            latest_news = research_data.get("latest_news", [])
-            if latest_news:
-                research_findings = [{"title": n, "snippet": n, "url": ""} for n in latest_news if n and n != "null"]
-        # Filter out nulls
-        research_findings = [f for f in research_findings if f and f.get("title") and f.get("title") != "null"]
 
         # ── Generate Report ──
         doc = Document()
@@ -820,51 +794,27 @@ async def generate_report(data: str = Form(...)):
         # 2. FIVE Cs ANALYSIS
         add_heading('2. Five Cs Framework Analysis', 1)
         five_cs = scoring_result.get("five_cs", {})
-        def get_cs(key, max_v):
-            d = five_cs.get(key, {})
-            score_v = d.get("score", 0) if isinstance(d, dict) else (d or 0)
-            notes_v = d.get("notes", "Based on extracted financial data") if isinstance(d, dict) else ""
-            return [f"{score_v}/{max_v}", notes_v]
         cs_rows = [
-            ["Character (Promoter Background)"] + get_cs("character", 20),
-            ["Capacity (Revenue & Profit)"] + get_cs("capacity", 20),
-            ["Capital (Net Worth & Leverage)"] + get_cs("capital", 20),
-            ["Collateral (Asset Coverage)"] + get_cs("collateral", 20),
-            ["Conditions (Sector Outlook)"] + get_cs("conditions", 15),
+            ["Character (Promoter Background)", f"{five_cs.get('character', {}).get('score', 0)}/20", five_cs.get("character", {}).get("notes", "")],
+            ["Capacity (Revenue & Profit)", f"{five_cs.get('capacity', {}).get('score', 0)}/20", five_cs.get("capacity", {}).get("notes", "")],
+            ["Capital (Net Worth & Leverage)", f"{five_cs.get('capital', {}).get('score', 0)}/20", five_cs.get("capital", {}).get("notes", "")],
+            ["Collateral (Asset Coverage)", f"{five_cs.get('collateral', {}).get('score', 0)}/20", five_cs.get("collateral", {}).get("notes", "")],
+            ["Conditions (Sector Outlook)", f"{five_cs.get('conditions', {}).get('score', 0)}/20", five_cs.get("conditions", {}).get("notes", "")],
         ]
         add_table(["Parameter", "Score", "Analysis Notes"], cs_rows)
 
         # 3. FINANCIAL HIGHLIGHTS
         add_heading('3. Financial Highlights', 1)
         annual = extracted_docs.get("annual_report", {})
-        borrowing = extracted_docs.get("borrowing_profile", {})
-        portfolio = extracted_docs.get("portfolio_cuts", {})
-        alm = extracted_docs.get("alm_statement", {})
-
-        def fmt_cr(v):
-            sv = safe_val(v)
-            return f"₹{sv} Cr" if sv else "N/A"
-        def fmt_pct(v):
-            sv = safe_val(v)
-            return f"{sv}%" if sv else "N/A"
-
         fin_rows = [
-            ["Revenue", fmt_cr(annual.get("revenue")), "Total income from operations"],
-            ["Net Profit (PAT)", fmt_cr(annual.get("pat")), "Profit After Tax"],
-            ["EBITDA", fmt_cr(annual.get("ebitda")), "Earnings before interest, tax, depreciation"],
-            ["Total Debt", fmt_cr(annual.get("total_debt") or borrowing.get("total_debt")), "Total borrowings"],
-            ["Net Worth", fmt_cr(annual.get("net_worth")), "Shareholders equity"],
-            ["Total Assets", fmt_cr(annual.get("total_assets") or alm.get("total_assets")), "Total assets"],
-            ["Gross NPA %", fmt_pct(annual.get("gnpa_percent") or portfolio.get("gnpa_percent")), "Below 2% is healthy"],
-            ["CAR %", fmt_pct(annual.get("car_percent")), "Above 15% is adequate (RBI)"],
-            ["Interest Coverage", safe_val(annual.get("interest_coverage")) or "N/A", "EBIT / Interest Expense"],
-            ["Cash from Operations", fmt_cr(annual.get("cash_from_operations")), "Operating cash flow"],
-            ["Credit Rating", safe_val(borrowing.get("credit_rating_long_term")) or "N/A", "Long-term rating"],
-            ["Rating Outlook", safe_val(borrowing.get("rating_outlook")) or "N/A", "Rating trajectory"],
-            ["Promoter Holding", fmt_pct(shareholding.get("promoter_holding")), "Promoter stake"],
-            ["Pledged Shares", fmt_pct(shareholding.get("pledged_shares")), "0% is ideal"],
+            ["Revenue", f"₹{annual.get('revenue', 'N/A')} Cr", ""],
+            ["Net Profit (PAT)", f"₹{annual.get('pat', 'N/A')} Cr", ""],
+            ["Total Debt", f"₹{annual.get('total_debt', 'N/A')} Cr", ""],
+            ["Net Worth", f"₹{annual.get('net_worth', 'N/A')} Cr", ""],
+            ["Gross NPA %", f"{annual.get('gnpa_percent', 'N/A')}%", "Below 2% is healthy"],
+            ["CAR %", f"{annual.get('car_percent', 'N/A')}%", "Above 15% is adequate"],
         ]
-        add_table(["Metric", "Value", "Benchmark / Notes"], fin_rows)
+        add_table(["Metric", "Value", "Benchmark"], fin_rows)
 
         # 4. RISK ALERTS & POSITIVE INDICATORS
         add_heading('4. Risk Alerts', 1)
@@ -908,39 +858,17 @@ async def generate_report(data: str = Form(...)):
 
         # 7. WEB INTELLIGENCE
         add_heading('7. Secondary Research (Web Intelligence)', 1)
-        # Add research summary first
-        if research_data.get("research_summary"):
-            doc.add_paragraph(research_data["research_summary"])
-        if research_data.get("sector_outlook"):
-            p = doc.add_paragraph()
-            p.add_run("Sector Outlook: ").bold = True
-            p.add_run(research_data["sector_outlook"])
-        doc.add_paragraph()
-
         if research_findings:
             for finding in research_findings[:5]:
-                title = finding.get("title", "")
-                snippet = finding.get("snippet", "") or finding.get("content", "")
-                url = finding.get("url", "")
-                if title and title != "null":
-                    p = doc.add_paragraph(style='List Bullet')
-                    p.add_run(title).bold = True
-                if snippet and snippet != title:
-                    doc.add_paragraph(snippet[:300])
-                if url:
-                    url_p = doc.add_paragraph()
-                    url_run = url_p.add_run(url)
-                    url_run.font.color.rgb = RGBColor(0, 70, 180)
-                    url_run.font.size = Pt(9)
+                p = doc.add_paragraph()
+                p.add_run(finding.get("title", "")).bold = True
+                doc.add_paragraph(finding.get("snippet", ""))
+                url_p = doc.add_paragraph()
+                url_run = url_p.add_run(finding.get("url", ""))
+                url_run.font.color.rgb = RGBColor(0, 70, 180)
+                url_run.font.size = Pt(9)
         else:
-            # Fall back to latest_news from research
-            news = [n for n in research_data.get("latest_news", []) if n and n != "null"]
-            if news:
-                for item in news:
-                    p = doc.add_paragraph(style='List Bullet')
-                    p.add_run(item)
-            else:
-                doc.add_paragraph("No adverse web findings detected. All secondary research sources returned clean results for this entity.")
+            doc.add_paragraph("No significant adverse findings detected in secondary research.")
 
         # FINAL DISCLAIMER
         doc.add_paragraph()

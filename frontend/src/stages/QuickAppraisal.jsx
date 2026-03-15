@@ -274,13 +274,6 @@ export default function QuickAppraisal({ onBack, initialData }) {
   const [sector, setSector] = useState(initialData?.sector || "NBFC");
 
   const fileInputRef = useRef(null);
-  
-  useEffect(() => {
-    if (initialData?.file && step === 0) {
-      // Auto-trigger upload when coming from Stage1 with pre-filled data
-      setTimeout(() => handleUpload(), 500);
-    }
-  }, []); // run once on mount
 
   const handleUpload = async () => {
     if (!file) return;

@@ -242,25 +242,10 @@ const Stage4_Report = ({ onBack, entityData }) => {
 
   if (loading) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "60vh", gap: "24px" }}>
-        <style>{`
-          @keyframes veridex-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-          @keyframes veridex-pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
-        `}</style>
-        <div style={{ width: "64px", height: "64px", border: "4px solid rgba(240,165,0,0.2)", borderTopColor: "#f0a500", borderRadius: "50%", animation: "veridex-spin 1s linear infinite" }} />
-        <div style={{ textAlign: "center" }}>
-          <h2 style={{ fontSize: "22px", fontWeight: "700", color: "white", animation: "veridex-pulse 2s ease-in-out infinite", margin: 0 }}>
-            Synthesizing REAL-TIME Intelligence...
-          </h2>
-          <p style={{ color: "rgba(255,255,255,0.5)", marginTop: "8px", fontSize: "14px" }}>
-            Fetching latest RBI flags and financial news
-          </p>
-        </div>
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center" }}>
-          {["Extracting financials", "Running web research", "Calculating score", "Building report"].map((s, i) => (
-            <div key={i} style={{ padding: "4px 12px", background: "rgba(240,165,0,0.1)", border: "1px solid rgba(240,165,0,0.2)", borderRadius: "20px", fontSize: "11px", color: "rgba(255,255,255,0.4)" }}>{s}</div>
-          ))}
-        </div>
+      <div style={{ ...STYLES.glassCard, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "100px 0", border: "none" }}>
+        <Loader2 className="animate-spin" size={64} color="#f0a500" />
+        <h2 style={{ marginTop: "24px", fontSize: "24px", fontWeight: "700" }}>Synthesizing REAL-TIME Intelligence...</h2>
+        <p style={{ color: "rgba(255,255,255,0.5)", marginTop: "8px" }}>Fetching latest RBI flags and financial news</p>
       </div>
     );
   }

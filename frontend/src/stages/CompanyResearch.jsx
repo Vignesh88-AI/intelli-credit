@@ -1,30 +1,5 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  ArcElement,
-  PointElement,
-  LineElement
-} from 'chart.js';
-import { Bar, Pie } from 'react-chartjs-2';
-
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  ArcElement,
-  PointElement,
-  LineElement
-);
 
 const ScoreRing = ({ score, size = 120 }) => {
   const r = 44, circ = 2 * Math.PI * r;
@@ -73,16 +48,7 @@ const MiniBar = ({ label, score, max }) => {
 };
 
 const RevenueChart = ({ data, growth }) => {
-  if (!data || data.length === 0 || data === null) return (
-    <div style={{ 
-      display: "flex", alignItems: "center", justifyContent: "center", 
-      height: "100px", color: "#64748b", fontSize: "13px", 
-      textAlign: "center", border: "1px dashed #1e3a5f", borderRadius: "8px",
-      padding: "0 20px", background: "#0a162888"
-    }}>
-      Revenue history not available from web sources
-    </div>
-  );
+  if (!data || !data.length) return null;
   
   const cleanGrowth = String(growth || "0").replace('%', '').trim();
   const validData = data.filter(d => d.val && d.val > 0);
@@ -230,17 +196,9 @@ export default function CompanyResearch({ onBack }) {
           roe: data.roe || "N/A",
           gnpa: "Not Available"
         },
-        revenue_trend: (() => {
-          if (data.revenue_history?.length > 0) {
-            // Filter out years where revenue_cr is 0 or null
-            const valid = data.revenue_history
-              .filter(h => h.revenue_cr && parseFloat(h.revenue_cr) > 0)
-              .map(h => ({ label: h.year, val: parseFloat(h.revenue_cr) }));
-            return valid.length > 0 ? valid : null;
-          }
-          const singleVal = parseFloat(extractNumeric(data.revenue));
-          return singleVal > 0 ? [{label: "Latest", val: singleVal}] : null;
-        })(),
+        revenue_trend: data.revenue_history?.length > 0 
+          ? data.revenue_history.map(h => ({ label: h.year, val: parseFloat(extractNumeric(h.revenue_cr)) || 0 }))
+          : [{label: "Latest", val: parseFloat(extractNumeric(data.revenue)) || 0}],
         five_cs: {
           character: {score: data.character_score || 18, max: 20, note: "Promoter background checked"},
           capacity: {score: data.capacity_score || 20, max: 25, note: "Interest coverage assessed"},
@@ -504,45 +462,10 @@ export default function CompanyResearch({ onBack }) {
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
               <div style={{ background: "#0a1628", border: "1px solid #1e3a5f", borderRadius: "16px", padding: "24px" }}>
-                <div style={{ fontSize: "13px", fontWeight: "600", color: "#94a3b8", marginBottom: "20px" }}>Capital Structure (INR Cr)</div>
-                <div style={{ height: "200px" }}>
-                  {(() => {
-                    const d = parseFloat(extractNumeric(result.financials.total_debt)) || 0;
-                    const n = parseFloat(extractNumeric(result.financials.net_worth)) || 0;
-                    if (d > 0 && n > 0) {
-                      return (
-                        <Pie 
-                          data={{
-                            labels: [`Total Debt: INR ${d} Cr`, `Net Worth: INR ${n} Cr`],
-                            datasets: [{
-                              data: [d, n],
-                              backgroundColor: ['#ef4444', '#22c55e'],
-                              borderWidth: 0,
-                            }]
-                          }}
-                          options={{
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', boxWidth: 10, font: { size: 10 } } } }
-                          }}
-                        />
-                      );
-                    }
-                    return (
-                      <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b", fontSize: "12px", border: "1px dashed #1e3a5f", borderRadius: "8px" }}>
-                        Debt/Equity breakdown not available from web sources
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
-              <div style={{ background: "#0a1628", border: "1px solid #1e3a5f", borderRadius: "16px", padding: "24px" }}>
                 <div style={{ fontSize: "13px", fontWeight: "600", color: "#94a3b8", marginBottom: "20px" }}>Revenue Growth (INR Crores)</div>
                 <RevenueChart data={result.revenue_trend} growth={result.financials.revenue_growth} />
               </div>
-            </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
               <div style={{ background: "#0a1628", border: "1px solid #1e3a5f", borderRadius: "16px", padding: "24px" }}>
                 <div style={{ fontSize: "13px", fontWeight: "600", color: "#94a3b8", marginBottom: "16px" }}>5 Cs Credit Framework</div>
                 <div style={{ display: "flex", gap: "16px", alignItems: "flex-start" }}>
@@ -558,17 +481,6 @@ export default function CompanyResearch({ onBack }) {
                   <ScoreRing score={result.total_score} size={100} />
                 </div>
               </div>
-
-               <div style={{ display: "grid", gridTemplateRows: "1fr 1fr", gap: "16px" }}>
-                 <div style={{ background: "#0a1628", border: "1px solid #1e3a5f", borderRadius: "16px", padding: "20px" }}>
-                    <div style={{ color: "#60a5fa", fontWeight: "700", fontSize: "13px", marginBottom: "12px" }}>SECTOR OUTLOOK</div>
-                    <div style={{ color: "#94a3b8", fontSize: "13px", lineHeight: "1.6" }}>{result.sector_outlook}</div>
-                 </div>
-                 <div style={{ background: "#0a1628", border: "1px solid #1e3a5f", borderRadius: "16px", padding: "20px" }}>
-                    <div style={{ color: "#f0a500", fontWeight: "700", fontSize: "13px", marginBottom: "12px" }}>LITIGATION STATUS</div>
-                    <div style={{ color: "#94a3b8", fontSize: "13px", lineHeight: "1.6" }}>{result.litigation_status}</div>
-                 </div>
-               </div>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px" }}>
