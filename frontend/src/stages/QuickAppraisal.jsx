@@ -52,17 +52,17 @@ const MetricCard = ({ label, value }) => (
 );
 
 // --- MAIN COMPONENT ---
-export default function QuickAppraisal({ onBack }) {
+export default function QuickAppraisal({ onBack, initialData }) {
   const [sessionId] = useState(() => crypto.randomUUID());
   const [step, setStep] = useState(0);
   const [results, setResults] = useState({ upload: null, analyze: null, score: null, research: null });
   const [loading, setLoading] = useState(false);
   const [loadingMsg, setLoadingMsg] = useState("");
   const [error, setError] = useState("");
-  const [file, setFile] = useState(null);
-  const [companyName, setCompanyName] = useState("");
-  const [loanAmount, setLoanAmount] = useState("50");
-  const [sector, setSector] = useState("NBFC");
+  const [file, setFile] = useState(initialData?.file || null);
+  const [companyName, setCompanyName] = useState(initialData?.companyName || "");
+  const [loanAmount, setLoanAmount] = useState(initialData?.loanAmount || "50");
+  const [sector, setSector] = useState(initialData?.sector || "NBFC");
 
   const fileInputRef = useRef(null);
 

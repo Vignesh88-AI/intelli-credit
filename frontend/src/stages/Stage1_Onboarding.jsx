@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowRight, ArrowLeft } from 'lucide-react';
-import QuickAppraisalInline from '../components/QuickAppraisalInline';
+
 
 const STYLES = {
   container: { maxWidth: "800px", margin: "0 auto", padding: "40px 20px" },
@@ -53,7 +53,7 @@ const STYLES = {
   error: { color: "#ff4d4d", fontSize: "12px", marginTop: "4px" }
 };
 
-const Stage1_Onboarding = ({ onNext }) => {
+const Stage1_Onboarding = ({ onNext, onQuick }) => {
   const [step, setStep] = useState(1);
   const [localData, setLocalData] = useState({
     entity: {},
@@ -128,7 +128,59 @@ const Stage1_Onboarding = ({ onNext }) => {
         </div>
 
         {mode === 'quick' ? (
-          <QuickAppraisalInline />
+          <div style={{ textAlign: "left" }}>
+             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px", marginBottom: "20px" }}>
+                <div>
+                  <label style={STYLES.label}>Company Name *</label>
+                  <input 
+                    style={STYLES.input} 
+                    placeholder="Legal Entity Name" 
+                    value={localData.entity.companyName || ""} 
+                    onChange={(e) => handleChange('entity', 'companyName', e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label style={STYLES.label}>Sector *</label>
+                  <select 
+                    style={{...STYLES.input, background:"#0f2035", color:"white"}} 
+                    value={localData.entity.sector || ""} 
+                    onChange={(e) => handleChange('entity', 'sector', e.target.value)}
+                  >
+                    <option value="">Select Sector</option>
+                    {sectors.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={STYLES.label}>Loan Amount (Cr) *</label>
+                  <input style={STYLES.input} type="number" value={localData.loan.amount || "50"} onChange={(e) => handleChange('loan', 'amount', e.target.value)} />
+                </div>
+                <div>
+                  <label style={STYLES.label}>Document *</label>
+                  <div 
+                    onClick={() => document.getElementById('quick-file-top').click()}
+                    style={{
+                      marginTop: "8px", background: "rgba(255,255,255,0.05)", border: "1px dashed rgba(255,255,255,0.2)",
+                      padding: "10px", borderRadius: "8px", textAlign: "center", cursor: "pointer", fontSize: "13px"
+                    }}
+                  >
+                    <input id="quick-file-top" type="file" hidden onChange={(e) => handleChange('quick', 'file', e.target.files[0])} accept=".pdf,.docx,.xlsx,.xls" />
+                    {localData.quick?.file ? `✓ ${localData.quick.file.name}` : "Select PDF/Excel"}
+                  </div>
+                </div>
+             </div>
+             <button 
+               style={{ ...STYLES.button, width: "100%", justifyContent: "center" }}
+               disabled={!localData.entity.companyName || !localData.entity.sector || !localData.quick?.file}
+               onClick={() => onQuick({
+                 companyName: localData.entity.companyName,
+                 sector: localData.entity.sector,
+                 loanAmount: localData.loan.amount || "50",
+                 file: localData.quick.file
+               })}
+             >
+               Run Quick Appraisal
+             </button>
+          </div>
         ) : (
           <>
         {step === 1 ? (
