@@ -80,7 +80,7 @@ export default function QuickAppraisal({ onBack }) {
       const form = new FormData();
       form.append('file', file);
       form.append('session_id', sessionId);
-      return await axios.post(`${API_URL}/api/quick/upload`, form, { timeout: 180000 });
+      return await axios.post(`${API_URL}/api/quick/upload`, form, { timeout: 300000 });
     };
 
     try {
@@ -92,8 +92,8 @@ export default function QuickAppraisal({ onBack }) {
       try {
         res = await attemptUpload();
       } catch (firstErr) {
-        setAnalyzeStatus('Retrying... server is starting up');
-        await new Promise(r => setTimeout(r, 5000));
+        setAnalyzeStatus('Server is asleep. Waiting 20s for wake-up...');
+        await new Promise(r => setTimeout(r, 20000));
         res = await attemptUpload();
       }
       
@@ -118,7 +118,7 @@ export default function QuickAppraisal({ onBack }) {
       const form = new FormData();
       form.append('company_name', companyName);
       form.append('session_id', sessionId);
-      return await axios.post(`${API_URL}/api/quick/analyze`, form, { timeout: 180000 });
+      return await axios.post(`${API_URL}/api/quick/analyze`, form, { timeout: 300000 });
     };
 
     try {
@@ -131,9 +131,9 @@ export default function QuickAppraisal({ onBack }) {
       try {
         res = await attemptAnalyze();
       } catch (firstErr) {
-        // Retry once after 5 seconds
-        setAnalyzeStatus('Retrying... server is starting up');
-        await new Promise(r => setTimeout(r, 5000));
+        // Retry once after 15 seconds
+        setAnalyzeStatus('Server is asleep. Waiting 15s for wake-up...');
+        await new Promise(r => setTimeout(r, 15000));
         res = await attemptAnalyze();
       }
       
@@ -159,7 +159,7 @@ export default function QuickAppraisal({ onBack }) {
       form.append('sector', sector);
       form.append('tenure', '36');
       form.append('interest_rate', '11.5');
-      return await axios.post(`${API_URL}/api/quick/score`, form, { timeout: 180000 });
+      return await axios.post(`${API_URL}/api/quick/score`, form, { timeout: 300000 });
     };
 
     try {
@@ -192,7 +192,7 @@ export default function QuickAppraisal({ onBack }) {
     try {
       const form = new FormData();
       form.append('session_id', sessionId);
-      const res = await axios.post(`${API_URL}/api/quick/research`, form, { timeout: 90000 });
+      const res = await axios.post(`${API_URL}/api/quick/research`, form, { timeout: 180000 });
       setResearchResult(res.data);
       complete(4);
     } catch(e) { alert('Research failed: ' + (e.response?.data?.detail || e.message)); }
@@ -203,7 +203,7 @@ export default function QuickAppraisal({ onBack }) {
     if (!researchResult?.report_id) return;
     setDownloading(true);
     try {
-      const res = await axios.get(`${API_URL}/api/quick/report/${researchResult.report_id}`, { responseType:'blob', timeout: 60000 });
+      const res = await axios.get(`${API_URL}/api/quick/report/${researchResult.report_id}`, { responseType:'blob', timeout: 120000 });
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const a = document.createElement('a'); a.href = url;
       a.setAttribute('download', `QuickCAM_${companyName.replace(/\s+/g,'_')}.docx`);
@@ -296,7 +296,7 @@ export default function QuickAppraisal({ onBack }) {
                   <input id="qa-file" type="file" hidden accept=".pdf,.xlsx,.xls,.docx" onChange={e => setFile(e.target.files[0])}/>
                   <Upload size={28} color="#f0a500" style={{ margin:'0 auto 10px' }}/>
                   <div style={{ fontSize:'14px', fontWeight:'600', color:'rgba(255,255,255,0.8)' }}>{file ? `✓ ${file.name}` : 'Click to select PDF, Excel or Word'}</div>
-                  <div style={{ fontSize:'12px', color:'rgba(255,255,255,0.3)', marginTop:'6px' }}>Annual Reports, Bank Statements, Audit Reports — up to 20MB</div>
+                  <div style={{ fontSize:'12px', color:'rgba(255,255,255,0.3)', marginTop:'6px' }}>Annual Reports, Bank Statements, Audit Reports — up to 100MB</div>
                 </div>
                 <button onClick={handleUpload} disabled={!file||uploading} style={T.btn('#f0a500', !file||uploading)}>
                   {uploading ? <><Loader2 size={15} style={{animation:'spin 1s linear infinite'}}/> {analyzeStatus || 'Extracting...'}</> : 'Upload & Extract Text'}
