@@ -474,7 +474,7 @@ Return ONLY valid JSON:
 Each array must have exactly 2-3 specific points relevant to THIS company. No generic points."""
 
         response = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="llama-3.1-8b-instant",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
             max_tokens=500
@@ -537,7 +537,7 @@ async def perform_research(data: dict):
         sources_list = list(unique_findings.keys())
 
         response = groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="llama-3.1-8b-instant",
             messages=[
                 {"role": "system", "content": """You are a senior credit analyst at an Indian NBFC. 
 Analyze the provided web search results to perform a deep credit research on the company.
