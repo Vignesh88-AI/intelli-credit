@@ -155,17 +155,16 @@ const Stage1_Onboarding = ({ onNext, onQuick }) => {
                   <input style={STYLES.input} type="number" value={localData.loan.amount || "50"} onChange={(e) => handleChange('loan', 'amount', e.target.value)} />
                 </div>
                 <div>
-                  <label style={STYLES.label}>Document *</label>
-                  <div 
-                    onClick={() => document.getElementById('quick-file-top').click()}
+                  <label 
+                    htmlFor="quick-file-stage1"
                     style={{
-                      marginTop: "8px", background: "rgba(255,255,255,0.05)", border: "1px dashed rgba(255,255,255,0.2)",
+                      display: "block", marginTop: "8px", background: "rgba(255,255,255,0.05)", border: "1px dashed rgba(255,255,255,0.2)",
                       padding: "10px", borderRadius: "8px", textAlign: "center", cursor: "pointer", fontSize: "13px"
                     }}
                   >
-                    <input id="quick-file-top" type="file" hidden onChange={(e) => handleChange('quick', 'file', e.target.files[0])} accept=".pdf,.docx,.xlsx,.xls" />
+                    <input id="quick-file-stage1" type="file" hidden onChange={(e) => handleChange('quick', 'file', e.target.files[0])} accept=".pdf,.docx,.xlsx,.xls" />
                     {localData.quick?.file ? `✓ ${localData.quick.file.name}` : "Select PDF/Excel"}
-                  </div>
+                  </label>
                 </div>
              </div>
              <button 

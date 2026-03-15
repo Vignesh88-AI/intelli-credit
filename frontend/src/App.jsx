@@ -12,6 +12,7 @@ const STAGES = ["Entity", "Documents", "Extraction", "Report"]
 export default function App() {
   const [stage, setStage] = useState(0)
   const [data, setData] = useState({})
+  const [quickData, setQuickData] = useState(null)
 
   const next = (d) => { setData({...data,...d}); setStage(s=>s+1) }
 
@@ -113,12 +114,12 @@ export default function App() {
       {/* MAIN CONTENT */}
       <div style={{paddingTop: (stage === 0 || stage === 5 || stage === 6) ? "0" : "80px"}}>
         {stage===0&&<Stage0_Landing onStart={() => setStage(1)} onResearch={() => setStage(5)} onQuick={() => setStage(6)}/>}
-        {stage===1&&<Stage1_Onboarding onNext={next} onQuick={(d) => { setData({...data, ...d}); setStage(6); }}/>}
+        {stage===1&&<Stage1_Onboarding onNext={next} onQuick={(d) => { setQuickData(d); setStage(6); }}/>}
         {stage===2&&<Stage2_Upload onNext={next} entityData={data}/>}
         {stage===3&&<Stage3_Extraction onNext={next} entityData={data}/>}
         {stage===4&&<Stage4_Report entityData={data}/>}
         {stage===5&&<CompanyResearch onBack={() => setStage(0)}/>}
-        {stage===6&&<QuickAppraisal onBack={() => setStage(0)} initialData={data}/>}
+        {stage===6 && <QuickAppraisal onBack={() => { setQuickData(null); setStage(0); }} initialData={quickData} />}
       </div>
     </div>
   )

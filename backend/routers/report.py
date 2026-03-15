@@ -544,7 +544,7 @@ Analyze the provided web search results to perform a deep credit research on the
 
 Follow these strict output rules:
 1. Extract the last 3 years of revenue history. 
-   CRITICAL: If you do not have confirmed revenue data for a specific year, use null — NEVER use 0. Only include a year if you found actual data for it.
+   CRITICAL for revenue_history: Only include years where you found ACTUAL revenue data from the search results. Set revenue_cr to null (NOT 0) for any year where data is not confirmed. Do not guess or extrapolate.
 2. Calculate the 5Cs scores (out of max values) based on evidence.
 
 Return ONLY valid JSON:

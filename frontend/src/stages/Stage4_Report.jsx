@@ -127,16 +127,16 @@ const Stage4_Report = ({ onBack, entityData }) => {
               extractedDocs[doc.doc_type] = doc.fields
             })
           }
-          const scoreRes = await axios.post(`${API_URL}/api/score`, new URLSearchParams({
-            data: JSON.stringify({
-              ...extractedDocs,
-              company_name: payload.company_name,
-              sector: payload.sector,
-              loan_amount: entityData?.loan?.amount || 50,
-              interest_rate: entityData?.loan?.rate || 11.5,
-              tenure: entityData?.loan?.tenure || 36
-            })
-          }))
+          const scoreForm = new FormData();
+          scoreForm.append('data', JSON.stringify({
+            ...extractedDocs,
+            company_name: payload.company_name,
+            sector: payload.sector,
+            loan_amount: entityData?.loan?.amount || 50,
+            interest_rate: entityData?.loan?.rate || 11.5,
+            tenure: entityData?.loan?.tenure || 36
+          }));
+          const scoreRes = await axios.post(`${API_URL}/api/score`, scoreForm);
           const docScore = scoreRes.data
           // Use document score if available, else fall back to web score
           const targetScore = docScore?.total_score || docScore?.score || researchData?.total_score || 72
@@ -155,7 +155,12 @@ const Stage4_Report = ({ onBack, entityData }) => {
             recommended_amount: docScore?.recommended_amount || researchData?.recommended_amount,
             recommended_rate: docScore?.recommended_rate || researchData?.recommended_rate,
             five_cs: docScore?.five_cs || {},
-            swot: docScore?.swot || {}
+            swot: docScore?.swot || researchData?.swot || {
+              strengths: (docScore?.green_flags || researchData?.positive_signals || []).slice(0,3),
+              weaknesses: (docScore?.red_flags || researchData?.risk_flags || []).slice(0,3),
+              opportunities: ["Growing NBFC credit demand in India", "Digital lending expansion opportunity"],
+              threats: ["RBI regulatory tightening on NBFCs", "Rising cost of funds in rate cycle"]
+            }
           })
 
           // ANIMATION LOGIC
@@ -258,7 +263,21 @@ const Stage4_Report = ({ onBack, entityData }) => {
   };
 
   // --- CHART DATA ---
-  const allExtractedFields = entityData?.extractedData?.reduce((acc, curr) => ({ ...acc, ...curr.fields }), {}) || {};
+  // Build flat fields from extracted docs array correctly
+  const extractedDocsFlat = {};
+  if (entityData?.extractedData && Array.isArray(entityData.extractedData)) {
+    entityData.extractedData.forEach(doc => {
+      Object.entries(doc.fields || {}).forEach(([k, v]) => {
+        if (v !== null && v !== undefined && v !== 'null') extractedDocsFlat[k] = v;
+      });
+    });
+  }
+  // Also get from nested doc_type structure
+  const annualFields = entityData?.extractedData?.find(d => d.doc_type === 'annual_report')?.fields || {};
+  const borrowingFields = entityData?.extractedData?.find(d => d.doc_type === 'borrowing_profile')?.fields || {};
+  const almFields = entityData?.extractedData?.find(d => d.doc_type === 'alm_statement')?.fields || {};
+
+  const allExtractedFields = extractedDocsFlat; // use the correctly built flat object
   
   // Use revenue history from research if available
   const revenueHistory = research?.revenue_history?.length > 0 
@@ -280,8 +299,8 @@ const Stage4_Report = ({ onBack, entityData }) => {
     }]
   };
 
-  const liveDebt = parseFloat(research?.total_debt || allExtractedFields.total_debt || 0);
-  const liveNW   = parseFloat(research?.net_worth || allExtractedFields.net_worth || 0);
+  const liveDebt = parseFloat(String(annualFields.total_debt || borrowingFields.total_debt || extractedDocsFlat.total_debt || research?.total_debt || '0').replace(/[^0-9.]/g, '')) || 0;
+  const liveNW = parseFloat(String(annualFields.net_worth || extractedDocsFlat.net_worth || research?.net_worth || '0').replace(/[^0-9.]/g, '')) || 0;
   const pieData = {
     labels: [
       `Total Debt: INR ${liveDebt} Cr`,
@@ -392,7 +411,13 @@ const Stage4_Report = ({ onBack, entityData }) => {
               <PieIcon size={16} color="#ef4444" /> Capital Structure
             </h4>
             <div style={{ height: "300px" }}>
-               <Pie data={pieData} options={chartOptions('pie')} />
+               {liveDebt > 0 && liveNW > 0 ? (
+                 <Pie data={pieData} options={chartOptions('pie')} />
+               ) : (
+                 <div style={{ height: "200px", display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,0.3)", fontSize: "13px", border: "1px dashed rgba(255,255,255,0.1)", borderRadius: "8px" }}>
+                   Debt/equity data not available from web sources
+                 </div>
+               )}
             </div>
          </div>
       </div>
@@ -465,16 +490,40 @@ const Stage4_Report = ({ onBack, entityData }) => {
       {/* NEWS SECTION */}
       <div style={STYLES.glassCard}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-            <h3 style={STYLES.sectionTitle}><Globe size={20} /> Latest Headlines</h3>
+            <h3 style={STYLES.sectionTitle}><Globe size={20} /> Web Intelligence Findings</h3>
             <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.3)" }}>REAL-TIME FEED</span>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-             {research?.latest_news?.map((news, i) => (
-                <div key={i} style={{ padding: "12px 16px", background: "rgba(255,255,255,0.02)", borderRadius: "8px", fontSize: "14px", color: "rgba(255,255,255,0.7)" }}>
-                   {news}
+          {research?.latest_news?.length > 0 ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              {research.latest_news.map((news, i) => (
+                <div key={i} style={{ 
+                  padding: "14px 16px", 
+                  background: "rgba(255,255,255,0.02)", 
+                  borderRadius: "8px", 
+                  fontSize: "14px", 
+                  color: "rgba(255,255,255,0.7)",
+                  borderLeft: "3px solid #f0a500",
+                  lineHeight: "1.5"
+                }}>
+                  • {news}
                 </div>
-             ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ color: "rgba(255,255,255,0.3)", fontSize: "13px", fontStyle: "italic" }}>
+              No significant adverse news detected in secondary research.
+            </div>
+          )}
+          {research?.sector_headwinds?.length > 0 && (
+            <div style={{ marginTop: "16px" }}>
+              <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.3)", marginBottom: "8px", letterSpacing: "1px" }}>SECTOR HEADWINDS</div>
+              {research.sector_headwinds.map((h, i) => (
+                <div key={i} style={{ padding: "10px 14px", background: "rgba(239,68,68,0.05)", borderRadius: "6px", fontSize: "13px", color: "#ef4444", marginBottom: "6px" }}>
+                  ⚠ {h}
+                </div>
+              ))}
+            </div>
+          )}
       </div>
 
       {/* SWOT SECTION */}
