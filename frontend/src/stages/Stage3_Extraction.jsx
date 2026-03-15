@@ -140,6 +140,12 @@ const Stage3_Extraction = ({ onNext, entityData }) => {
   };
 
   const handleReExtract = async () => {
+    // Check if file paths are still valid before re-extracting
+    const hasValidPaths = extractions.some(e => e.file_path && e.file_path.trim());
+    if (!hasValidPaths) {
+      alert('Cannot re-extract: file paths are no longer available on server. Please go back to Stage 2 and re-upload documents.');
+      return;
+    }
     setIsReExtracting(true);
     setSchemaLocked(false);
     try {
@@ -163,14 +169,21 @@ const Stage3_Extraction = ({ onNext, entityData }) => {
       const res = await axios.post(`${API_URL}/api/extract`, form);
       
       if (res.data?.extractions) {
-        setExtractions(res.data.extractions.map(e => ({
-          ...e,
-          approved: false,
-          rejected: false,
-          hiddenFields: new Set(),
-          customFields: [],
-          editingId: null
-        })));
+        const newExtractions = res.data.extractions.map((e, i) => {
+          // If new extraction has empty/null fields, preserve old data
+          const hasNewData = e.fields && Object.values(e.fields).some(v => v !== null && v !== '');
+          const oldFields = extractions[i]?.fields || {};
+          return {
+            ...e,
+            fields: hasNewData ? e.fields : oldFields,
+            approved: false,
+            rejected: false,
+            hiddenFields: new Set(),
+            customFields: [],
+            editingId: null
+          };
+        });
+        setExtractions(newExtractions);
         setSchemaLocked(true);
       }
     } catch (err) {

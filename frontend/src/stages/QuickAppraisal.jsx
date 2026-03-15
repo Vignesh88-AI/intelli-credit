@@ -1,533 +1,368 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import axios from 'axios';
+import {
+  Upload, Brain, BarChart2, Globe, FileDown, CheckCircle,
+  AlertTriangle, ChevronDown, Loader2, ArrowLeft, Zap
+} from 'lucide-react';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_API_URL || 'https://intelli-credit-7kzw.onrender.com';
 
-// Master CSS matching reference project
-const styles = `
-  @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Outfit:wght@300;400;600&family=JetBrains+Mono:wght@400;500&display=swap');
-
-  :root {
-    --bg: #000;
-    --surface: #0a0a0c;
-    --surface2: #121214;
-    --surface3: #1a1a1c;
-    --accent: #2563eb;
-    --accent-glow: rgba(37, 99, 235, 0.4);
-    --border: #222;
-    --border2: #333;
-    --text: #ffffff;
-    --text2: #a1a1aa;
-    --text3: #71717a;
-    --green: #34C77B;
-    --red: #F05050;
-    --gold: #E8A832;
-    --font-display: 'Instrument Serif', serif;
-    --font-body: 'Outfit', sans-serif;
-    --font-mono: 'JetBrains Mono', monospace;
-  }
-
-  .qa-container {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--font-body);
-    min-height: 100vh;
-    padding: 40px 20px;
-    position: relative;
-    overflow-x: hidden;
-  }
-
-  .qa-container::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    background-image: 
-      radial-gradient(circle at 2px 2px, rgba(255,255,255,0.03) 1px, transparent 0);
-    background-size: 40px 40px;
-    pointer-events: none;
-    z-index: 1;
-  }
-
-  .grain {
-    position: fixed;
-    inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-    opacity: 0.04;
-    pointer-events: none;
-    z-index: 2;
-  }
-
-  .qa-content {
-    max-width: 800px;
-    margin: 0 auto;
-    position: relative;
-    z-index: 3;
-  }
-
-  .qa-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 40px;
-  }
-
-  .qa-title {
-    font-family: var(--font-display);
-    font-size: 3rem;
-    font-style: italic;
-    margin: 0;
-    background: linear-gradient(to right, #fff, #999);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-
-  .btn-back {
-    background: none;
-    border: 1px solid var(--border);
-    color: var(--text3);
-    padding: 8px 16px;
-    border-radius: 20px;
-    cursor: pointer;
-    font-family: var(--font-mono);
-    font-size: 0.7rem;
-    transition: all 0.2s;
-  }
-
-  .btn-back:hover {
-    border-color: var(--text3);
-    color: var(--text);
-  }
-
-  .stepper {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 32px;
-  }
-
-  .step-pill {
-    flex: 1;
-    height: 4px;
-    background: var(--surface3);
-    border-radius: 2px;
-    transition: all 0.4s;
-  }
-
-  .step-pill.active { background: var(--accent); box-shadow: 0 0 10px var(--accent-glow); }
-  .step-pill.done { background: var(--green); }
-
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 32px;
-    margin-bottom: 24px;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .card.active { border-color: var(--border2); background: var(--surface2); }
-  .card.locked { opacity: 0.4; pointer-events: none; grayscale: 100%; }
-
-  .section-label {
-    font-family: var(--font-mono);
-    font-size: 0.65rem;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    color: var(--text3);
-    margin-bottom: 20px;
-  }
-
-  .form-group { margin-bottom: 24px; }
-  .form-group label { display: block; font-size: 0.82rem; margin-bottom: 8px; color: var(--text2); }
-  .form-group input, .form-group select, .form-group textarea {
-    width: 100%;
-    background: #000;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 14px;
-    color: #fff;
-    font-size: 0.95rem;
-    transition: border-color 0.2s;
-  }
-  .form-group input:focus { border-color: var(--accent); outline: none; }
-
-  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-  .grid-4 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-  @media(min-width: 600px) { .grid-4 { grid-template-columns: repeat(4, 1fr); } }
-
-  .metric-box {
-    background: var(--surface3);
-    border: 1px solid var(--border);
-    padding: 16px;
-    border-radius: 12px;
-  }
-  .metric-label { font-size: 0.65rem; color: var(--text3); text-transform: uppercase; margin-bottom: 6px; font-family: var(--font-mono); }
-  .metric-value { font-size: 1.1rem; font-weight: 600; color: var(--accent); }
-
-  .btn-primary {
-    background: var(--accent);
-    color: #fff;
-    border: none;
-    padding: 16px 24px;
-    border-radius: 12px;
-    font-weight: 600;
-    font-size: 1rem;
-    cursor: pointer;
-    width: 100%;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-  }
-
-  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn-primary:not(:disabled):hover { transform: translateY(-2px); box-shadow: 0 8px 24px var(--accent-glow); }
-
-  .success-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--green);
-    background: rgba(52, 199, 123, 0.1);
-    padding: 6px 14px;
-    border-radius: 20px;
-    font-size: 0.85rem;
-    font-weight: 600;
-  }
-
-  .badge {
-    padding: 4px 10px;
-    border-radius: 4px;
-    font-size: 0.7rem;
-    font-family: var(--font-mono);
-    text-transform: uppercase;
-  }
-  .badge-approve { background: rgba(52, 199, 123, 0.1); color: var(--green); border: 1px solid rgba(52, 199, 123, 0.2); }
-  .badge-reject { background: rgba(240, 80, 80, 0.1); color: var(--red); border: 1px solid rgba(240, 80, 80, 0.2); }
-  .badge-review { background: rgba(232, 168, 50, 0.1); color: var(--gold); border: 1px solid rgba(232, 168, 50, 0.2); }
-
-  /* Spinner */
-  .spinner {
-    width: 20px; height: 20px;
-    border: 2px solid rgba(255,255,255,0.1);
-    border-top-color: var(--text);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  /* SWOT Grid */
-  .swot-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px; }
-  .swot-cell { background: var(--surface3); border: 1px solid var(--border); padding: 16px; border-radius: 12px; }
-  .swot-title { font-size: 0.65rem; font-family: var(--font-mono); margin-bottom: 8px; text-transform: uppercase; }
-  .swot-s { border-left: 3px solid var(--green); }
-  .swot-w { border-left: 3px solid var(--red); }
-  .swot-o { border-left: 3px solid var(--accent); }
-  .swot-t { border-left: 3px solid var(--gold); }
-  .swot-list { list-style: none; padding: 0; font-size: 0.75rem; color: var(--text2); }
-  .swot-list li { margin-bottom: 4px; padding-left: 12px; position: relative; }
-  .swot-list li::before { content: "›"; position: absolute; left: 0; color: var(--text3); }
-
-  /* Dropzone */
-  .dropzone {
-    border: 2px dashed var(--border2);
-    border-radius: 16px;
-    padding: 48px;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .dropzone:hover { border-color: var(--accent); background: rgba(37, 99, 235, 0.02); }
-`;
-
-// --- SMALL COMPONENTS ---
-
-const ScoreRing = ({ score, color }) => {
-  const r = 38, cx = 50, cy = 50;
-  const circ = 2 * Math.PI * r;
-  const dash = (score / 100) * circ;
-  return (
-    <div style={{ position: 'relative', width: '120px', height: '120px', margin: '0 auto' }}>
-      <svg width="120" height="120" viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--border2)" strokeWidth="4" />
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth="4"
-          strokeDasharray={`${dash} ${circ - dash}`} strokeLinecap="round" />
-      </svg>
-      <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ fontFamily: 'var(--font-display)', fontSize: '2.5rem', fontStyle: 'italic', color }}>{score}</div>
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', color: 'var(--text3)' }}>/100</div>
-      </div>
-    </div>
-  );
+const getDecision = (score) => {
+  if (score >= 80) return { label: "APPROVE",                   color: "#22c55e", grade: "A" };
+  if (score >= 65) return { label: "APPROVE WITH CONDITIONS",   color: "#f0a500", grade: "B" };
+  if (score >= 50) return { label: "REFER TO CREDIT COMMITTEE", color: "#f97316", grade: "C" };
+  return              { label: "REJECT",                        color: "#ef4444", grade: "D" };
 };
 
-export default function QuickAppraisal({ onBack, initialData }) {
-  const [sessionId] = useState(() => crypto.randomUUID());
-  const [step, setStep] = useState(0);
-  const [results, setResults] = useState({ upload: null, analyze: null, score: null, research: null });
-  const [loading, setLoading] = useState(false);
-  const [loadingMsg, setLoadingMsg] = useState("");
-  const [error, setError] = useState("");
-  const [file, setFile] = useState(initialData?.file || null);
-  const [companyName, setCompanyName] = useState(initialData?.companyName || "");
-  const [loanAmount, setLoanAmount] = useState(initialData?.loanAmount || "50");
-  const [sector, setSector] = useState(initialData?.sector || "NBFC");
+const SECTORS = ['NBFC','Manufacturing','Real Estate','Infrastructure','Retail','IT Services','Healthcare','Pharma','Logistics','Other'];
 
-  const fileInputRef = useRef(null);
+// Step definitions
+const STEPS = [
+  { id: 1, icon: <Upload size={18} />,    label: "Upload Document"  },
+  { id: 2, icon: <Brain size={18} />,     label: "AI Analysis"      },
+  { id: 3, icon: <BarChart2 size={18} />, label: "Credit Score"     },
+  { id: 4, icon: <Globe size={18} />,     label: "Web Research"     },
+  { id: 5, icon: <FileDown size={18} />,  label: "Download Report"  },
+];
+
+const S = {
+  card: { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "14px", overflow: "hidden", marginBottom: "12px" },
+  cardHeader: { padding: "18px 24px", display: "flex", alignItems: "center", gap: "14px", cursor: "pointer", userSelect: "none" },
+  cardBody: { padding: "0 24px 24px" },
+  label: { fontSize: "12px", color: "rgba(255,255,255,0.5)", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "6px" },
+  input: { background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "8px", padding: "11px 14px", color: "white", width: "100%", fontSize: "14px", outline: "none", boxSizing: "border-box" },
+  btn: (color="#f0a500") => ({ background: color, color: color === "#f0a500" ? "#0a1628" : "white", border: "none", borderRadius: "8px", padding: "11px 20px", fontSize: "13px", fontWeight: "800", cursor: "pointer", display: "flex", alignItems: "center", gap: "8px", letterSpacing: "0.5px" }),
+  metric: { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "10px", padding: "14px 16px" },
+};
+
+export default function QuickAppraisal({ onBack }) {
+  const sessionId = useRef(`qa_${Date.now()}`).current;
+  const [activeStep, setActiveStep]   = useState(1);
+  const [completedSteps, setCompletedSteps] = useState(new Set());
+
+  // Step 1
+  const [file, setFile]               = useState(null);
+  const [uploading, setUploading]     = useState(false);
+  const [uploadDone, setUploadDone]   = useState(false);
+  const [charsExtracted, setCharsExtracted] = useState(0);
+
+  // Step 2
+  const [companyName, setCompanyName] = useState('');
+  const [analyzing, setAnalyzing]     = useState(false);
+  const [financials, setFinancials]   = useState(null);
+
+  // Step 3
+  const [sector, setSector]           = useState('NBFC');
+  const [loanAmt, setLoanAmt]         = useState('50');
+  const [scoring, setScoring]         = useState(false);
+  const [scoreResult, setScoreResult] = useState(null);
+
+  // Step 4
+  const [researching, setResearching] = useState(false);
+  const [researchResult, setResearchResult] = useState(null);
+
+  // Step 5
+  const [downloading, setDownloading] = useState(false);
+
+  const complete = (step) => setCompletedSteps(prev => new Set([...prev, step]));
 
   const handleUpload = async () => {
     if (!file) return;
-    setLoading(true);
-    setLoadingMsg("Uploading & OCR...");
-    setError("");
+    setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('session_id', sessionId);
-      const res = await axios.post(`${API_URL}/api/quick/upload`, formData);
-      setResults(prev => ({ ...prev, upload: res.data }));
-      setStep(1);
-    } catch (err) {
-      setError("Upload failed. Try again.");
-    } finally {
-      setLoading(false);
-    }
+      const form = new FormData();
+      form.append('file', file);
+      form.append('session_id', sessionId);
+      const res = await axios.post(`${API_URL}/api/quick/upload`, form);
+      setCharsExtracted(res.data.characters_extracted);
+      setUploadDone(true);
+      complete(1);
+      setActiveStep(2);
+    } catch (e) { alert('Upload failed: ' + (e.response?.data?.detail || e.message)); }
+    finally { setUploading(false); }
   };
 
   const handleAnalyze = async () => {
-    if (!companyName) {
-        setError("Company name is required.");
-        return;
-    }
-    setLoading(true);
-    setLoadingMsg("AI Extracting Financials...");
-    setError("");
+    if (!companyName.trim()) return;
+    setAnalyzing(true);
     try {
-      const formData = new FormData();
-      formData.append('company_name', companyName);
-      formData.append('session_id', sessionId);
-      const res = await axios.post(`${API_URL}/api/quick/analyze`, formData);
-      setResults(prev => ({ ...prev, analyze: res.data }));
-      setStep(2);
-    } catch (err) {
-      setError("Analysis failed.");
-    } finally {
-      setLoading(false);
-    }
+      const form = new FormData();
+      form.append('company_name', companyName);
+      form.append('session_id', sessionId);
+      const res = await axios.post(`${API_URL}/api/quick/analyze`, form);
+      setFinancials(res.data.financials);
+      complete(2);
+      setActiveStep(3);
+    } catch (e) { alert('Analysis failed: ' + (e.response?.data?.detail || e.message)); }
+    finally { setAnalyzing(false); }
   };
 
   const handleScore = async () => {
-    setLoading(true);
-    setLoadingMsg("Calculating Risk Score...");
-    setError("");
+    setScoring(true);
     try {
-      const formData = new FormData();
-      formData.append('session_id', sessionId);
-      formData.append('loan_amount', loanAmount);
-      formData.append('sector', sector);
-      formData.append('tenure', "36");
-      formData.append('interest_rate', "11.5");
-      const res = await axios.post(`${API_URL}/api/quick/score`, formData);
-      setResults(prev => ({ ...prev, score: res.data }));
-      setStep(3);
-    } catch (err) {
-      setError("Scoring failed.");
-    } finally {
-      setLoading(false);
-    }
+      const form = new FormData();
+      form.append('session_id', sessionId);
+      form.append('loan_amount', loanAmt);
+      form.append('sector', sector);
+      form.append('tenure', '36');
+      form.append('interest_rate', '11.5');
+      const res = await axios.post(`${API_URL}/api/quick/score`, form);
+      setScoreResult(res.data);
+      complete(3);
+      setActiveStep(4);
+    } catch (e) { alert('Scoring failed: ' + (e.response?.data?.detail || e.message)); }
+    finally { setScoring(false); }
   };
 
   const handleResearch = async () => {
-    setLoading(true);
-    setLoadingMsg("Running Web Intelligence...");
-    setError("");
+    setResearching(true);
     try {
-      const formData = new FormData();
-      formData.append('session_id', sessionId);
-      const res = await axios.post(`${API_URL}/api/quick/research`, formData);
-      setResults(prev => ({ ...prev, research: res.data }));
-      setStep(4);
-    } catch (err) {
-      setError("Research agent failed.");
-    } finally {
-      setLoading(false);
-    }
+      const form = new FormData();
+      form.append('session_id', sessionId);
+      const res = await axios.post(`${API_URL}/api/quick/research`, form);
+      setResearchResult(res.data);
+      complete(4);
+      setActiveStep(5);
+    } catch (e) { alert('Research failed: ' + (e.response?.data?.detail || e.message)); }
+    finally { setResearching(false); }
   };
 
-  const resetAll = () => {
-    setStep(0);
-    setResults({ upload: null, analyze: null, score: null, research: null });
-    setLoading(false);
-    setLoadingMsg("");
-    setError("");
-    setFile(null);
-    setCompanyName("");
-    setLoanAmount("50");
-    setSector("NBFC");
+  const handleDownload = async () => {
+    if (!researchResult?.report_id) return;
+    setDownloading(true);
+    try {
+      const res = await axios.get(`${API_URL}/api/quick/report/${researchResult.report_id}`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement('a'); a.href = url;
+      a.setAttribute('download', `QuickCAM_${companyName.replace(/\s+/g,'_')}.docx`);
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      complete(5);
+    } catch (e) { alert('Download failed: ' + (e.response?.data?.detail || e.message)); }
+    finally { setDownloading(false); }
   };
 
-  const getScoreColor = (s) => s >= 75 ? 'var(--green)' : s >= 60 ? 'var(--gold)' : 'var(--red)';
+  const stepStatus = (id) => completedSteps.has(id) ? 'done' : id === activeStep ? 'active' : 'pending';
+
+  const dec = scoreResult ? getDecision(scoreResult.score) : null;
 
   return (
-    <div className="qa-container">
-      <style>{styles}</style>
-      <div className="grain"></div>
-      
-      <div className="qa-content">
-        <header className="qa-header">
-          <h1 className="qa-title">Quick Appraisal</h1>
-          <button className="btn-back" onClick={onBack}>← BACK TO ONBOARDING</button>
-        </header>
+    <div style={{ maxWidth: "760px", margin: "0 auto", padding: "40px 20px", color: "white", fontFamily: "'Inter',sans-serif" }}>
 
-        <nav className="stepper">
-          {[0,1,2,3,4].map(s => (
-            <div key={s} className={`step-pill ${step === s ? 'active' : (step > s ? 'done' : '')}`} />
-          ))}
-        </nav>
-
-        {/* STEP 0: UPLOAD */}
-        <div className={`card ${step === 0 ? 'active' : (step > 0 ? '' : 'locked')}`}>
-          <div className="section-label">01 // Document Capture</div>
-          {step === 0 ? (
-            <>
-              <div className="dropzone" onClick={() => !loading && fileInputRef.current.click()}>
-                <input type="file" ref={fileInputRef} hidden onChange={(e) => setFile(e.target.files[0])} accept=".pdf,.xlsx,.xls,.docx" />
-                <div style={{ fontSize: '3rem', marginBottom: '16px' }}>📄</div>
-                <div style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: '8px' }}>
-                  {file ? file.name : "Drop appraisal document here"}
-                </div>
-                <div style={{ color: 'var(--text3)', fontSize: '0.85rem' }}>
-                  Annual Report, Bank Statement or Audit Report (PDF/Excel)
-                </div>
-              </div>
-              <div style={{ marginTop: '24px' }}>
-                <button className="btn-primary" onClick={handleUpload} disabled={!file || loading}>
-                  {loading ? <div className="spinner" /> : "Initiate AI Onboarding"}
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="success-chip">✓ {file?.name} Processed</div>
-          )}
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "36px" }}>
+        <button onClick={onBack} style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.5)", borderRadius: "8px", padding: "8px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px", fontSize: "13px" }}>
+          <ArrowLeft size={14} /> Back
+        </button>
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <Zap size={22} color="#3b82f6" />
+            <h1 style={{ margin: 0, fontSize: "24px", fontWeight: "900", letterSpacing: "-0.5px" }}>Quick Appraisal</h1>
+          </div>
+          <p style={{ margin: "4px 0 0", fontSize: "13px", color: "rgba(255,255,255,0.4)" }}>Upload 1 document · Get instant credit assessment · Download CAM report</p>
         </div>
+      </div>
 
-        {/* STEP 1: ANALYSIS */}
-        <div className={`card ${step === 1 ? 'active' : (step > 1 ? '' : 'locked')}`}>
-          <div className="section-label">02 // AI Financial Extraction</div>
-          {step === 1 ? (
-            <>
-              <div className="grid-2">
-                <div className="form-group">
-                  <label>Company Name</label>
-                  <input value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="Legal entity name..." />
+      {/* Progress bar */}
+      <div style={{ display: "flex", alignItems: "center", gap: "0", marginBottom: "28px", padding: "16px 20px", background: "rgba(255,255,255,0.03)", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.06)" }}>
+        {STEPS.map((step, i) => {
+          const st = stepStatus(step.id);
+          return (
+            <React.Fragment key={step.id}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", flex: 1 }}>
+                <div style={{
+                  width: "32px", height: "32px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+                  background: st === 'done' ? "#22c55e" : st === 'active' ? "#3b82f6" : "rgba(255,255,255,0.05)",
+                  border: st === 'done' ? "2px solid #22c55e" : st === 'active' ? "2px solid #3b82f6" : "2px solid rgba(255,255,255,0.1)",
+                  color: st === 'done' ? "white" : st === 'active' ? "white" : "rgba(255,255,255,0.3)",
+                  fontSize: "11px",
+                  boxShadow: st === 'active' ? "0 0 12px rgba(59,130,246,0.4)" : "none",
+                  transition: "all 0.3s ease"
+                }}>
+                  {st === 'done' ? <CheckCircle size={14} /> : step.id}
                 </div>
-                <div className="form-group">
-                  <label>Sector</label>
-                  <select value={sector} onChange={e => setSector(e.target.value)}>
-                    {["NBFC", "Manufacturing", "IT", "Real Estate", "Healthcare", "Infrastructure", "Others"].map(s => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
-                </div>
+                <span style={{ fontSize: "10px", fontWeight: "600", color: st === 'done' ? "#22c55e" : st === 'active' ? "#3b82f6" : "rgba(255,255,255,0.3)", textAlign: "center", letterSpacing: "0.3px" }}>
+                  {step.label}
+                </span>
               </div>
-              <div className="form-group">
-                <label>Proposed Loan Amount (₹ Crore)</label>
-                <input type="number" value={loanAmount} onChange={e => setLoanAmount(e.target.value)} />
-              </div>
-              <button className="btn-primary" onClick={handleAnalyze} disabled={loading}>
-                {loading ? <div className="spinner" /> : "Run Deep Analysis"}
-              </button>
-            </>
-          ) : step > 1 && (
-            <div className="grid-4">
-              {Object.entries(results.analyze?.financials || {}).map(([k, v]) => (
-                <div key={k} className="metric-box">
-                  <div className="metric-label">{k}</div>
-                  <div className="metric-value">{v ?? '—'}</div>
+              {i < STEPS.length - 1 && (
+                <div style={{ height: "2px", flex: 1, background: completedSteps.has(step.id) ? "#22c55e" : "rgba(255,255,255,0.07)", margin: "0 4px 22px", borderRadius: "2px", transition: "background 0.3s" }} />
+              )}
+            </React.Fragment>
+          );
+        })}
+      </div>
+
+      {/* ── STEP 1: UPLOAD ── */}
+      <StepCard id={1} status={stepStatus(1)} icon={STEPS[0].icon} label="Upload Document" activeStep={activeStep} setActiveStep={setActiveStep} completedSteps={completedSteps}>
+        {uploadDone ? (
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "14px", background: "rgba(34,197,94,0.08)", borderRadius: "10px", border: "1px solid rgba(34,197,94,0.2)" }}>
+            <CheckCircle size={20} color="#22c55e" />
+            <div>
+              <div style={{ fontWeight: "700", fontSize: "14px" }}>{file.name}</div>
+              <div style={{ fontSize: "12px", color: "#22c55e", marginTop: "2px" }}>✓ {charsExtracted.toLocaleString()} characters extracted</div>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div
+              onClick={() => document.getElementById('qa-file').click()}
+              style={{ border: "2px dashed rgba(59,130,246,0.4)", borderRadius: "12px", padding: "32px", textAlign: "center", cursor: "pointer", marginBottom: "16px", background: "rgba(59,130,246,0.03)", transition: "all 0.2s" }}
+              onMouseOver={e => e.currentTarget.style.borderColor = "rgba(59,130,246,0.7)"}
+              onMouseOut={e => e.currentTarget.style.borderColor = "rgba(59,130,246,0.4)"}
+            >
+              <input id="qa-file" type="file" hidden accept=".pdf,.xlsx,.xls,.docx" onChange={e => setFile(e.target.files[0])} />
+              <Upload size={28} color="#3b82f6" style={{ margin: "0 auto 10px" }} />
+              <div style={{ fontSize: "14px", fontWeight: "600" }}>{file ? `✓ ${file.name}` : "Click to select PDF, Excel or Word"}</div>
+              <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.35)", marginTop: "6px" }}>Annual Reports, Bank Statements, Audit Reports</div>
+            </div>
+            <button onClick={handleUpload} disabled={!file || uploading} style={{ ...S.btn("#3b82f6"), opacity: !file ? 0.5 : 1 }}>
+              {uploading ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> Extracting text...</> : "Upload & Extract"}
+            </button>
+          </>
+        )}
+      </StepCard>
+
+      {/* ── STEP 2: AI ANALYSIS ── */}
+      <StepCard id={2} status={stepStatus(2)} icon={STEPS[1].icon} label="AI Analysis" activeStep={activeStep} setActiveStep={setActiveStep} completedSteps={completedSteps}>
+        {financials ? (
+          <>
+            <div style={{ fontSize: "12px", color: "#22c55e", marginBottom: "14px", fontWeight: "700" }}>✓ Financials extracted for {companyName}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
+              {Object.entries(financials).slice(0,9).map(([k, v]) => (
+                <div key={k} style={S.metric}>
+                  <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.4)", marginBottom: "4px", textTransform: "uppercase", letterSpacing: "0.5px" }}>{k}</div>
+                  <div style={{ fontSize: "16px", fontWeight: "800", color: "#3b82f6" }}>{v}</div>
                 </div>
               ))}
             </div>
-          )}
-        </div>
-
-        {/* STEP 2: SCORING */}
-        <div className={`card ${step === 2 ? 'active' : (step > 2 ? '' : 'locked')}`}>
-          <div className="section-label">03 // Quantum Credit Score</div>
-          {step === 2 ? (
-            <button className="btn-primary" onClick={handleScore} disabled={loading}>
-              {loading ? <div className="spinner" /> : "Calculate Intelligence Score"}
+          </>
+        ) : (
+          <>
+            <div style={{ marginBottom: "14px" }}>
+              <div style={S.label}>Company Name</div>
+              <input style={S.input} placeholder="e.g. Kinara Capital Private Limited" value={companyName} onChange={e => setCompanyName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAnalyze()} />
+            </div>
+            <button onClick={handleAnalyze} disabled={!companyName.trim() || analyzing} style={{ ...S.btn("#3b82f6"), opacity: !companyName.trim() ? 0.5 : 1 }}>
+              {analyzing ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> Extracting financials...</> : "Run AI Analysis"}
             </button>
-          ) : step > 2 && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '40px', alignItems: 'center' }}>
-              <ScoreRing score={results.score?.score} color={getScoreColor(results.score?.score)} />
+          </>
+        )}
+      </StepCard>
+
+      {/* ── STEP 3: CREDIT SCORE ── */}
+      <StepCard id={3} status={stepStatus(3)} icon={STEPS[2].icon} label="Credit Score" activeStep={activeStep} setActiveStep={setActiveStep} completedSteps={completedSteps}>
+        {scoreResult ? (
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "24px", marginBottom: "18px", flexWrap: "wrap" }}>
+              <div style={{ fontSize: "56px", fontWeight: "900", color: dec.color, lineHeight: 1 }}>{scoreResult.score}</div>
               <div>
-                <div style={{ marginBottom: '12px' }}>
-                  <span className={`badge ${results.score?.decision === 'APPROVE' ? 'badge-approve' : (results.score?.decision === 'REJECT' ? 'badge-reject' : 'badge-review')}`}>
-                    {results.score?.decision}
-                  </span>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text3)', marginLeft: '12px' }}>GRADE {results.score?.grade}</span>
-                </div>
-                <div style={{ fontSize: '0.85rem', color: 'var(--text2)', lineHeight: 1.6 }}>
-                   Recommended Limit: ₹{results.score?.recommended_amount} Cr @ {results.score?.recommended_rate}% p.a.
-                </div>
+                <div style={{ fontSize: "20px", fontWeight: "900", color: dec.color }}>{scoreResult.decision}</div>
+                <div style={{ fontSize: "13px", color: "rgba(255,255,255,0.5)", marginTop: "4px" }}>Grade {dec.grade} · {scoreResult.recommended_rate}</div>
+                <div style={{ fontSize: "13px", color: "rgba(255,255,255,0.5)" }}>Recommended: ₹{scoreResult.recommended_amount} Cr</div>
               </div>
             </div>
-          )}
-        </div>
-
-        {/* STEP 3: RESEARCH */}
-        <div className={`card ${step === 3 ? 'active' : (step > 3 ? '' : 'locked')}`}>
-          <div className="section-label">04 // Web Intelligence & SWOT</div>
-          {step === 3 ? (
-            <button className="btn-primary" onClick={handleResearch} disabled={loading}>
-              {loading ? <div className="spinner" /> : "Launch Web Intelligence Agent"}
-            </button>
-          ) : step > 3 && (
-            <>
-              <div style={{ marginBottom: '20px' }}>
-                <span className={`badge ${results.research?.risk_level === 'LOW' ? 'badge-approve' : (results.research?.risk_level === 'HIGH' ? 'badge-reject' : 'badge-review')}`}>
-                  {results.research?.risk_level} RISK DETECTED
-                </span>
-                <p style={{ fontSize: '0.82rem', color: 'var(--text2)', marginTop: '12px', lineHeight: 1.6 }}>
-                  {results.research?.summary}
-                </p>
-              </div>
-              <div className="swot-grid">
-                <div className="swot-cell swot-s">
-                  <div className="swot-title">Strengths</div>
-                  <ul className="swot-list">
-                    {(results.score?.positive_signals || results.score?.green_flags || []).map((s, i) => <li key={i}>{s}</li>)}
-                  </ul>
-                </div>
-                <div className="swot-cell swot-w">
-                  <div className="swot-title">Weaknesses</div>
-                  <ul className="swot-list">
-                    {(results.score?.red_flags || []).map((s, i) => <li key={i}>{s}</li>)}
-                  </ul>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* STEP 4: REPORT */}
-        <div className={`card ${step === 4 ? 'active' : 'locked'}`}>
-          <div className="section-label">05 // Intelligence Memo</div>
-          <p style={{ color: 'var(--text2)', fontSize: '0.85rem', marginBottom: '24px' }}>
-            A high-fidelity Credit Appraisal Memo (CAM) has been synthesized using 360° data triangulation.
-          </p>
-          <div className="grid-2">
-            <button className="btn-primary" onClick={() => window.open(`${API_URL}/api/quick/report/${results.research?.report_id}`)}>
-              ⬇ Download CAM (.docx)
-            </button>
-            <button className="btn-back" style={{ padding: '0 24px', fontSize: '1rem', borderRadius: '12px', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={resetAll}>
-              NEW APPRAISAL
-            </button>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+              {scoreResult.red_flags?.slice(0,3).map((f,i) => (
+                <div key={i} style={{ padding: "10px 12px", background: "rgba(239,68,68,0.08)", borderRadius: "8px", fontSize: "12px", color: "#ef4444", borderLeft: "3px solid #ef4444" }}>⚠ {f}</div>
+              ))}
+              {scoreResult.green_flags?.slice(0,2).map((f,i) => (
+                <div key={i} style={{ padding: "10px 12px", background: "rgba(34,197,94,0.08)", borderRadius: "8px", fontSize: "12px", color: "#22c55e", borderLeft: "3px solid #22c55e" }}>✓ {f}</div>
+              ))}
+            </div>
           </div>
-        </div>
+        ) : (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", marginBottom: "16px" }}>
+              <div>
+                <div style={S.label}>Sector</div>
+                <select style={{ ...S.input, background: "#0f2035" }} value={sector} onChange={e => setSector(e.target.value)}>
+                  {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div>
+                <div style={S.label}>Loan Amount (INR Cr)</div>
+                <input style={S.input} type="number" value={loanAmt} onChange={e => setLoanAmt(e.target.value)} />
+              </div>
+            </div>
+            <button onClick={handleScore} disabled={scoring} style={S.btn("#3b82f6")}>
+              {scoring ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> Calculating...</> : "Calculate Score"}
+            </button>
+          </>
+        )}
+      </StepCard>
 
-        {error && <div style={{ color: 'var(--red)', fontSize: '0.8rem', textAlign: 'center', marginTop: '16px' }}>✕ {error}</div>}
+      {/* ── STEP 4: WEB RESEARCH ── */}
+      <StepCard id={4} status={stepStatus(4)} icon={STEPS[3].icon} label="Web Research" activeStep={activeStep} setActiveStep={setActiveStep} completedSteps={completedSteps}>
+        {researchResult ? (
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "14px" }}>
+              <span style={{ padding: "5px 14px", borderRadius: "20px", fontSize: "13px", fontWeight: "800", background: researchResult.risk_level === 'LOW' ? "rgba(34,197,94,0.15)" : researchResult.risk_level === 'HIGH' || researchResult.risk_level === 'CRITICAL' ? "rgba(239,68,68,0.15)" : "rgba(240,165,0,0.15)", color: researchResult.risk_level === 'LOW' ? "#22c55e" : researchResult.risk_level === 'HIGH' || researchResult.risk_level === 'CRITICAL' ? "#ef4444" : "#f0a500", border: "1px solid currentColor" }}>
+                Risk: {researchResult.risk_level}
+              </span>
+              <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.4)" }}>{researchResult.sources} sources analyzed</span>
+            </div>
+            <div style={{ fontSize: "13px", color: "rgba(255,255,255,0.7)", lineHeight: "1.7", whiteSpace: "pre-line", background: "rgba(255,255,255,0.02)", borderRadius: "8px", padding: "14px" }}>
+              {researchResult.summary?.replace(/^\d+\.\s*/gm,'').replace(/\*\s*/g,'• ')}
+            </div>
+          </div>
+        ) : (
+          <>
+            <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.5)", marginBottom: "16px", lineHeight: "1.6" }}>
+              Searches news, court records, RBI/SEBI regulatory filings, and promoter background automatically using 4 targeted queries.
+            </p>
+            <button onClick={handleResearch} disabled={researching} style={S.btn("#3b82f6")}>
+              {researching ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> Researching web...</> : "Run Web Research"}
+            </button>
+          </>
+        )}
+      </StepCard>
+
+      {/* ── STEP 5: DOWNLOAD ── */}
+      <StepCard id={5} status={stepStatus(5)} icon={STEPS[4].icon} label="Download CAM Report" activeStep={activeStep} setActiveStep={setActiveStep} completedSteps={completedSteps}>
+        <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.5)", marginBottom: "18px", lineHeight: "1.6" }}>
+          Generates a complete Credit Appraisal Memo as a Word document — includes Five Cs analysis, SWOT, financial tables, web intelligence, and credit recommendation.
+        </p>
+        <button
+          onClick={handleDownload}
+          disabled={downloading || !researchResult?.report_id}
+          style={{ ...S.btn("#f0a500"), opacity: !researchResult?.report_id ? 0.5 : 1, width: "100%", justifyContent: "center", padding: "14px" }}
+        >
+          {downloading ? <><Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> Building report...</> : <><FileDown size={16} /> Download CAM Report (.docx)</>}
+        </button>
+      </StepCard>
+
+      <style>{`@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
+}
+
+// ── Accordion step card ──────────────────────────────────
+function StepCard({ id, status, icon, label, activeStep, setActiveStep, completedSteps, children }) {
+  const isOpen = id === activeStep;
+  const isDone = status === 'done';
+  const isPending = id > activeStep && !completedSteps.has(id);
+
+  return (
+    <div style={{
+      ...S.card,
+      border: isOpen ? "1px solid rgba(59,130,246,0.4)" : isDone ? "1px solid rgba(34,197,94,0.3)" : "1px solid rgba(255,255,255,0.06)",
+      opacity: isPending ? 0.5 : 1,
+      transition: "all 0.3s ease"
+    }}>
+      <div
+        style={{ ...S.cardHeader, background: isOpen ? "rgba(59,130,246,0.06)" : isDone ? "rgba(34,197,94,0.04)" : "transparent" }}
+        onClick={() => !isPending && setActiveStep(isOpen ? 0 : id)}
+      >
+        <div style={{ width: "32px", height: "32px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: isDone ? "#22c55e" : isOpen ? "#3b82f6" : "rgba(255,255,255,0.07)", flexShrink: 0 }}>
+          {isDone ? <CheckCircle size={16} color="white" /> : <span style={{ color: isOpen ? "white" : "rgba(255,255,255,0.4)" }}>{icon}</span>}
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: "14px", fontWeight: "700", color: isDone ? "#22c55e" : isOpen ? "white" : "rgba(255,255,255,0.5)" }}>{label}</div>
+          {isDone && <div style={{ fontSize: "11px", color: "#22c55e", marginTop: "2px" }}>Completed ✓</div>}
+        </div>
+        {!isPending && <ChevronDown size={16} color="rgba(255,255,255,0.3)" style={{ transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.3s" }} />}
       </div>
+      {isOpen && <div style={S.cardBody}>{children}</div>}
     </div>
   );
 }
