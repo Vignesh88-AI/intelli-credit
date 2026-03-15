@@ -1,5 +1,6 @@
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Response
 import uuid
+from uuid import uuid4
 import os
 import json
 import asyncio
@@ -7,6 +8,7 @@ import re
 from typing import Dict, List
 from .report import calculate_universal_score, generate_swot, tavily_client, groq_client, cached_tavily_search
 import io
+from datetime import datetime
 
 try:
     import pytesseract
@@ -15,15 +17,14 @@ try:
 except ImportError:
     OCR_AVAILABLE = False
 
-router = APIRouter(prefix="/api")
+router = APIRouter(prefix="/api/quick")
 
-# Temporary in-memory storage for quick reports
-quick_reports = {}
+# Global session store
+quick_session = {}
 
 MAX_PAGES = 15
 
 def robust_json_parser(text: str) -> dict:
-    """Strip markdown fences and parse JSON with regex fallback."""
     if not text: return {}
     clean_text = text.replace("```json", "").replace("```", "").strip()
     try:
@@ -43,11 +44,7 @@ def extract_text_from_file(contents: bytes, filename: str) -> str:
         import pdfplumber
         text = ""
         with pdfplumber.open(io.BytesIO(contents)) as pdf:
-            total_pages = len(pdf.pages)
-            # For quick appraisal, we still cap it or follow similar logic to extraction.py
-            # But here we'll keep it simple: first 15 pages.
             pages_to_read = pdf.pages[:MAX_PAGES]
-            
             for page in pages_to_read:
                 page_text = page.extract_text() or ""
                 if page_text and len(page_text.strip()) > 50:
@@ -66,13 +63,19 @@ def extract_text_from_file(contents: bytes, filename: str) -> str:
         from docx import Document
         doc = Document(io.BytesIO(contents))
         return "\n".join([p.text for p in doc.paragraphs])
+    elif filename.endswith(('.xlsx', '.xls')):
+        import pandas as pd
+        df_dict = pd.read_excel(io.BytesIO(contents), sheet_name=None)
+        text = ""
+        for sheet, df in df_dict.items():
+            text += f"Sheet: {sheet}\n{df.to_string()}\n\n"
+        return text
     try:
         return contents.decode('utf-8')
     except:
         return ""
 
 def extract_any_document(text: str, company_name: str, client) -> dict:
-    # Use 20,000 characters for context as requested
     prompt = f"""You are a senior Indian credit analyst. Extract ALL financial data from this {company_name} document. 
 Look for: revenue/total income, PAT/net profit, total debt/borrowings, net worth/equity, GNPA%, CAR%, promoter holding%, pledged shares%, credit rating, rating outlook, total AUM, collection efficiency. 
 Convert all values to INR Crores. 
@@ -109,171 +112,184 @@ Document Text:
     )
     return robust_json_parser(response.choices[0].message.content)
 
-@router.post("/quick-appraisal")
-async def quick_appraisal(
-    file: UploadFile = File(...),
-    company_name: str = Form(...),
-    sector: str = Form("NBFC"),
-    loan_amount: str = Form("50"),
-    tenure: str = Form("36"),
-    interest_rate: str = Form("11.5")
+@router.post("/upload")
+async def quick_upload(file: UploadFile = File(...), session_id: str = Form(...)):
+    contents = await file.read()
+    text = extract_text_from_file(contents, file.filename)
+    quick_session[session_id] = {"text": text, "filename": file.filename}
+    return {
+        "filename": file.filename, 
+        "characters_extracted": len(text), 
+        "preview": text[:300]
+    }
+
+@router.post("/analyze")
+async def quick_analyze(company_name: str = Form(...), session_id: str = Form(...)):
+    if session_id not in quick_session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    text = quick_session[session_id]["text"]
+    extracted = extract_any_document(text, company_name, groq_client)
+    
+    quick_session[session_id]["extracted"] = extracted
+    quick_session[session_id]["company_name"] = company_name
+    
+    annual = extracted.get("annual_report", {})
+    borrowing = extracted.get("borrowing_profile", {})
+    portfolio = extracted.get("portfolio_cuts", {})
+    alm = extracted.get("alm_statement", {})
+    shareholding = extracted.get("shareholding_pattern", {})
+    
+    financials = {
+        "Revenue": annual.get("revenue"),
+        "Profit": annual.get("pat"),
+        "EBITDA": annual.get("ebitda"),
+        "Total Debt": annual.get("total_debt") or borrowing.get("total_debt"),
+        "Net Worth": annual.get("net_worth"),
+        "Total Assets": annual.get("total_assets") or alm.get("total_assets"),
+        "GNPA %": annual.get("gnpa_percent") or portfolio.get("gnpa_percent"),
+        "CAR %": annual.get("car_percent"),
+        "Collection Efficiency": portfolio.get("collection_efficiency"),
+        "Credit Rating": borrowing.get("credit_rating_long_term"),
+        "Rating Outlook": borrowing.get("rating_outlook"),
+        "Promoter Holding": shareholding.get("promoter_holding"),
+    }
+    
+    # Remove null values
+    financials = {k: v for k, v in financials.items() if v is not None}
+    quick_session[session_id]["financials"] = financials
+    
+    return {"company": company_name, "financials": financials}
+
+@router.post("/score")
+async def quick_score(
+    session_id: str = Form(...), 
+    loan_amount: str = Form("50"), 
+    tenure: str = Form("36"), 
+    interest_rate: str = Form("11.5"), 
+    sector: str = Form("NBFC")
 ):
-    try:
-        # 1. Extract text
-        contents = await file.read()
-        text = extract_text_from_file(contents, file.filename)
-
-        # 2. AI Financial Extraction
-        extracted = extract_any_document(text, company_name, groq_client)
+    if session_id not in quick_session:
+        raise HTTPException(status_code=404, detail="Session not found")
         
-        annual = extracted.get("annual_report", {})
-        borrowing = extracted.get("borrowing_profile", {})
-        portfolio = extracted.get("portfolio_cuts", {})
-        shareholding = extracted.get("shareholding_pattern", {})
+    session = quick_session[session_id]
+    extracted = session.get("extracted", {})
+    company_name = session.get("company_name", "Unknown Company")
+    
+    entity_data = {
+        "company_name": company_name,
+        "sector": sector,
+        "loan_amount": float(loan_amount),
+        "interest_rate": float(interest_rate),
+        "tenure": int(tenure)
+    }
+    
+    scoring = calculate_universal_score(company_name, extracted, [], entity_data)
+    swot = generate_swot(company_name, extracted, [])
+    scoring["swot"] = swot
+    
+    quick_session[session_id]["scoring"] = scoring
+    quick_session[session_id]["entity_data"] = entity_data
+    
+    return scoring
 
-        # Flattened financials for frontend
-        def fmt_cr(val):
-            return f"{val} Cr" if val and str(val).lower() != 'null' else "null"
-        def fmt_pct(val):
-            return f"{val}%" if val and str(val).lower() != 'null' else "null"
-
-        financials = {
-            "Revenue": fmt_cr(annual.get('revenue')),
-            "Net Profit (PAT)": fmt_cr(annual.get('pat')),
-            "EBITDA": fmt_cr(annual.get('ebitda')),
-            "Total Debt": fmt_cr(annual.get('total_debt') or borrowing.get('total_debt')),
-            "Net Worth": fmt_cr(annual.get('net_worth')),
-            "Total Assets": fmt_cr(annual.get('total_assets') or extracted.get('alm_statement', {}).get('total_assets')),
-            "GNPA %": fmt_pct(annual.get('gnpa_percent') or portfolio.get('gnpa_percent')),
-            "CAR %": fmt_pct(annual.get('car_percent')),
-            "Collection Efficiency": fmt_pct(portfolio.get('collection_efficiency')),
-            "Credit Rating": borrowing.get('credit_rating_long_term') or "null",
-            "Rating Outlook": borrowing.get('rating_outlook') or "null",
-            "Promoter Holding": fmt_pct(shareholding.get('promoter_holding')),
-        }
-
-        # 3. AI Narrative Summary (Doc Analysis)
-        analysis_prompt = f"""You are a senior Indian credit analyst. In 3-4 sentences, summarize the financial health and key risks of {company_name} based on these metrics: {json.dumps(financials)}. 
-        Be specific with numbers. Use professional Indian banking language."""
+@router.post("/research")
+async def quick_research(session_id: str = Form(...)):
+    if session_id not in quick_session:
+        raise HTTPException(status_code=404, detail="Session not found")
         
-        analysis_res = groq_client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=[{"role": "user", "content": analysis_prompt}],
-            temperature=0.3,
-            max_tokens=500
-        )
-        analysis_narrative = analysis_res.choices[0].message.content
+    session = quick_session[session_id]
+    company_name = session.get("company_name")
+    
+    # Run 2 cached_tavily_search calls
+    loop = asyncio.get_event_loop()
+    q1 = f"{company_name} India fraud litigation NCLT default NPA 2024 2025"
+    q2 = f"{company_name} India financial news credit rating 2024 2025"
+    
+    results = await asyncio.gather(
+        loop.run_in_executor(None, lambda: cached_tavily_search(query=q1, max_results=3)),
+        loop.run_in_executor(None, lambda: cached_tavily_search(query=q2, max_results=2))
+    )
+    
+    all_results = []
+    seen_urls = set()
+    for res in results:
+        for r in res.get("results", []):
+            if r.get("url") not in seen_urls:
+                all_results.append(r)
+                seen_urls.add(r.get("url"))
+                
+    findings_text = "\n".join([f"- {r.get('title')}: {r.get('content')}" for r in all_results])
+    
+    prompt = f"""You are a credit risk analyst. Based on these web search results about {company_name}, provide:
+1. RISK LEVEL: (LOW / MEDIUM / HIGH / CRITICAL)
+2. KEY FINDINGS: List the most important findings (max 5 bullet points using * prefix)
+3. SUMMARY: 2-3 sentence overall assessment
 
-        # 4. Web Intelligence Pass
-        loop = asyncio.get_event_loop()
-        research_query = f"{company_name} India credit rating news risk litigation 2024 2025"
-        search_resp = await loop.run_in_executor(
-            None, 
-            lambda: cached_tavily_search(query=research_query, max_results=3)
-        )
-        
-        web_context = "\n".join([f"- {r.get('title')}: {r.get('content')}" for r in search_resp.get("results", [])])
-        research_prompt = f"Summarize the latest web intelligence for {company_name} in 2 sentences focus on risk/reputation: {web_context}"
-        
-        research_res = groq_client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=[{"role": "user", "content": research_prompt}],
-            temperature=0.3,
-            max_tokens=300
-        )
-        research_narrative = research_res.choices[0].message.content
+Search Results: {findings_text[:5000]}
 
-        # 5. Scoring
-        entity_data = {
-            "company_name": company_name,
-            "sector": sector,
-            "loan_amount": float(loan_amount),
-            "interest_rate": float(interest_rate),
-            "tenure": int(tenure)
-        }
-        findings = [{"title": r.get("title"), "snippet": r.get("content"), "url": r.get("url")} for r in search_resp.get("results", [])]
-        
-        scoring = calculate_universal_score(company_name, extracted, findings, entity_data)
-        
-        # Grading Logic
-        grade = "D"
-        s = scoring.get("score", 0)
-        if s >= 80: grade = "A"
-        elif s >= 70: grade = "B+"
-        elif s >= 60: grade = "B"
-        elif s >= 50: grade = "C"
+Be factual. Only report what is actually in the results. Format exactly as shown."""
 
-        # 6. Combined Structured Result
-        report_id = str(uuid.uuid4())[:8]
-        
-        combined_result = {
-            "upload": { 
-                "filename": file.filename, 
-                "characters_extracted": len(text), 
-                "preview": text[:200] + "..." 
-            },
-            "financials": financials,
-            "analysis": analysis_narrative,
-            "scoring": {
-                "score": s,
-                "grade": grade,
-                "decision": scoring.get("decision"),
-                "interest_rate": scoring.get("recommended_rate"),
-                "recommended_amount": scoring.get("recommended_amount"),
-                "red_flags": scoring.get("red_flags", []),
-                "green_flags": scoring.get("green_flags", []),
-                "explanation": f"Scored {s}/95. {scoring.get('reasoning').split('.')[0]}.",
-                "five_cs": { k: v.get("score") for k, v in scoring.get("five_cs", {}).items() },
-                "swot": scoring.get("swot", {}),
-                "reasoning": scoring.get("reasoning")
-            },
-            "research": {
-                "risk_level": "HIGH" if len(scoring.get("red_flags", [])) > 3 else "MEDIUM" if len(scoring.get("red_flags", [])) > 0 else "LOW",
-                "summary": research_narrative,
-                "sources": len(findings)
-            },
-            "extracted": extracted,
-            "findings": findings,
-            "report_id": report_id
-        }
+    response = groq_client.chat.completions.create(
+        model="llama-3.1-8b-instant",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.3,
+        max_tokens=1000
+    )
+    groq_response_text = response.choices[0].message.content
+    
+    # Extract risk level
+    risk_level = "MEDIUM" # Default
+    if "RISK LEVEL: LOW" in groq_response_text.upper(): risk_level = "LOW"
+    elif "RISK LEVEL: MEDIUM" in groq_response_text.upper(): risk_level = "MEDIUM"
+    elif "RISK LEVEL: HIGH" in groq_response_text.upper(): risk_level = "HIGH"
+    elif "RISK LEVEL: CRITICAL" in groq_response_text.upper(): risk_level = "CRITICAL"
+    
+    # Update scoring based on risk
+    scoring = session.get("scoring", {})
+    if risk_level == "CRITICAL":
+        scoring["score"] = max(0, scoring.get("score", 0) - 20)
+    elif risk_level == "HIGH":
+        scoring["score"] = max(0, scoring.get("score", 0) - 10)
+    
+    report_id = str(uuid4())[:8]
+    quick_session[session_id]["research"] = {
+        "risk_level": risk_level,
+        "summary": groq_response_text,
+        "sources": len(all_results),
+        "report_id": report_id,
+        "findings": all_results
+    }
+    
+    return {
+        "risk_level": risk_level, 
+        "summary": groq_response_text, 
+        "sources": len(all_results), 
+        "report_id": report_id
+    }
 
-        # Cache for download
-        quick_reports[report_id] = {
-            "company_name": company_name,
-            "scoring": scoring,
-            "extracted": extracted,
-            "findings": findings,
-            "entity_data": entity_data
-        }
-
-        return combined_result
-
-    except Exception as e:
-        print(f"Quick Appraisal Error: {e}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/quick-report/{report_id}")
+@router.get("/report/{report_id}")
 async def get_quick_report(report_id: str):
-    """Generate CAM DOCX for a quick appraisal result."""
-    from fastapi import Response
+    # Lookup session by scanning quick_session for matching report_id
+    session_found = None
+    for sid, data in quick_session.items():
+        if data.get("research", {}).get("report_id") == report_id:
+            session_found = data
+            break
+            
+    if not session_found:
+        raise HTTPException(status_code=404, detail="Report not found")
+        
     from docx import Document
     from docx.shared import Pt, RGBColor, Inches
     from docx.enum.text import WD_ALIGN_PARAGRAPH
-    from docx.oxml.ns import qn
-    from docx.oxml import OxmlElement
-    from datetime import datetime
-    import io
     
-    if report_id not in quick_reports:
-        raise HTTPException(status_code=404, detail="Report not found. Please run the appraisal again.")
-    
-    data = quick_reports[report_id]
+    data = session_found
     company_name = data.get("company_name", "Unknown")
     scoring = data.get("scoring", {})
     extracted = data.get("extracted", {})
-    findings = data.get("findings", [])
+    research = data.get("research", {})
+    findings = research.get("findings", [])
     entity_data = data.get("entity_data", {})
     
     annual = extracted.get("annual_report", {})
@@ -294,7 +310,7 @@ async def get_quick_report(report_id: str):
         r1 = p.add_run(f"{label}: ")
         r1.bold = True
         r1.font.size = Pt(11)
-        r2 = p.add_run(str(value) if value and value != "null" else "N/A")
+        r2 = p.add_run(str(value) if value is not None and value != "null" else "N/A")
         r2.font.size = Pt(11)
     
     # COVER
@@ -313,7 +329,7 @@ async def get_quick_report(report_id: str):
     # VERDICT
     add_heading("1. Credit Decision", 1)
     add_kv("Decision", scoring.get("decision", "N/A"))
-    add_kv("Intelli-Score", f"{scoring.get('score', 0)}/95")
+    add_kv("Intelli-Score", f"{scoring.get('score', 0)}/100")
     add_kv("Recommended Limit", f"INR {scoring.get('recommended_amount', 'N/A')} Cr")
     add_kv("Recommended Rate", scoring.get("recommended_rate", "N/A"))
     doc.add_paragraph()
@@ -323,38 +339,29 @@ async def get_quick_report(report_id: str):
     
     # FINANCIALS
     add_heading("2. Financial Summary", 1)
-    fin_data = [
-        ("Revenue", annual.get("revenue"), "Cr"),
-        ("Net Profit (PAT)", annual.get("pat"), "Cr"),
-        ("EBITDA", annual.get("ebitda"), "Cr"),
-        ("Total Debt", annual.get("total_debt") or extracted.get("borrowing_profile", {}).get("total_debt"), "Cr"),
-        ("Net Worth", annual.get("net_worth"), "Cr"),
-        ("Total Assets", annual.get("total_assets") or extracted.get("alm_statement", {}).get("total_assets"), "Cr"),
-        ("GNPA %", annual.get("gnpa_percent") or extracted.get("portfolio_cuts", {}).get("gnpa_percent"), "%"),
-        ("CAR %", annual.get("car_percent"), "%"),
-        ("Collection Efficiency", extracted.get("portfolio_cuts", {}).get("collection_efficiency"), "%"),
-        ("Credit Rating", extracted.get("borrowing_profile", {}).get("credit_rating_long_term"), ""),
-        ("Rating Outlook", extracted.get("borrowing_profile", {}).get("rating_outlook"), ""),
-        ("Promoter Holding", extracted.get("shareholding_pattern", {}).get("promoter_holding"), "%"),
-    ]
-    table = doc.add_table(rows=1, cols=3)
+    financials = data.get("financials", {})
+    table = doc.add_table(rows=len(financials) + 1, cols=2)
     table.style = "Table Grid"
     hdr = table.rows[0].cells
-    for i, h in enumerate(["Metric", "Value", "Unit"]):
-        hdr[i].text = h
-        hdr[i].paragraphs[0].runs[0].bold = True
-    for metric, val, unit in fin_data:
-        row = table.add_row().cells
-        row[0].text = metric
-        row[1].text = str(val) if val and val != "null" else "N/A"
-        row[2].text = unit
+    hdr[0].text = "Metric"
+    hdr[1].text = "Value"
+    hdr[0].paragraphs[0].runs[0].bold = True
+    hdr[1].paragraphs[0].runs[0].bold = True
+    
+    for i, (k, v) in enumerate(financials.items()):
+        row = table.rows[i+1].cells
+        row[0].text = k
+        row[1].text = str(v)
     doc.add_paragraph()
     
     # 5Cs
     add_heading("3. Five Cs Analysis", 1)
     five_cs = scoring.get("five_cs", {})
-    for c, data_c in five_cs.items():
-        add_kv(c.capitalize(), f"{data_c.get('score', 0)} pts — {data_c.get('notes', '')}")
+    for c, score_val in five_cs.items():
+        if isinstance(score_val, dict):
+             add_kv(c.capitalize(), f"{score_val.get('score', 0)} pts — {score_val.get('notes', '')}")
+        else:
+             add_kv(c.capitalize(), f"{score_val} pts")
     
     # RED FLAGS
     add_heading("4. Risk Alerts", 1)
@@ -377,13 +384,15 @@ async def get_quick_report(report_id: str):
     
     # WEB INTEL
     add_heading("6. Web Intelligence", 1)
+    add_kv("Risk Level", research.get("risk_level", "N/A"))
+    doc.add_paragraph(research.get("summary", ""))
+    
     if findings:
+        add_heading("Research Sources", 2)
         for f in findings[:5]:
             p = doc.add_paragraph()
             p.add_run(f.get("title", "")).bold = True
-            doc.add_paragraph(f.get("snippet", ""))
-    else:
-        doc.add_paragraph("No adverse findings in secondary research.")
+            doc.add_paragraph(f.get("content") or f.get("snippet") or "")
     
     buffer = io.BytesIO()
     doc.save(buffer)
