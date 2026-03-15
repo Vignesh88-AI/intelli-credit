@@ -64,6 +64,7 @@ export default function QuickAppraisal({ onBack }) {
   const [researching, setResearching]     = useState(false);
   const [researchResult, setResearchResult] = useState(null);
   const [downloading, setDownloading]     = useState(false);
+  const [analyzeStatus, setAnalyzeStatus] = useState('');
 
   const complete = (step) => {
     setCompletedSteps(prev => new Set([...prev, step]));
@@ -73,46 +74,117 @@ export default function QuickAppraisal({ onBack }) {
   const handleUpload = async () => {
     if (!file) return;
     setUploading(true);
-    try {
+    setAnalyzeStatus('Uploading document...');
+    
+    const attemptUpload = async () => {
       const form = new FormData();
       form.append('file', file);
       form.append('session_id', sessionId);
-      const res = await axios.post(`${API_URL}/api/quick/upload`, form, { timeout: 120000 });
+      return await axios.post(`${API_URL}/api/quick/upload`, form, { timeout: 180000 });
+    };
+
+    try {
+      const wakeTimer = setTimeout(() => {
+        setAnalyzeStatus('Waking up server... please wait (30-60 seconds)');
+      }, 8000);
+
+      let res;
+      try {
+        res = await attemptUpload();
+      } catch (firstErr) {
+        setAnalyzeStatus('Retrying... server is starting up');
+        await new Promise(r => setTimeout(r, 5000));
+        res = await attemptUpload();
+      }
+      
+      clearTimeout(wakeTimer);
       setCharsExtracted(res.data.characters_extracted);
       setUploadDone(true);
       complete(1);
-    } catch(e) { alert('Upload failed: ' + (e.response?.data?.detail || e.message)); }
-    finally { setUploading(false); }
+    } catch(e) {
+      alert('Upload failed: ' + (e.response?.data?.detail || e.message));
+    } finally {
+      setUploading(false);
+      setAnalyzeStatus('');
+    }
   };
 
   const handleAnalyze = async () => {
     if (!companyName.trim()) return;
     setAnalyzing(true);
-    try {
+    setAnalyzeStatus('Extracting financials...');
+    
+    const attemptAnalyze = async () => {
       const form = new FormData();
       form.append('company_name', companyName);
       form.append('session_id', sessionId);
-      const res = await axios.post(`${API_URL}/api/quick/analyze`, form, { timeout: 120000 });
+      return await axios.post(`${API_URL}/api/quick/analyze`, form, { timeout: 180000 });
+    };
+
+    try {
+      // Show wake-up message after 8 seconds
+      const wakeTimer = setTimeout(() => {
+        setAnalyzeStatus('Waking up server... please wait (30-60 seconds)');
+      }, 8000);
+
+      let res;
+      try {
+        res = await attemptAnalyze();
+      } catch (firstErr) {
+        // Retry once after 5 seconds
+        setAnalyzeStatus('Retrying... server is starting up');
+        await new Promise(r => setTimeout(r, 5000));
+        res = await attemptAnalyze();
+      }
+      
+      clearTimeout(wakeTimer);
       setFinancials(res.data.financials);
       complete(2);
-    } catch(e) { alert('Analysis failed: ' + (e.response?.data?.detail || e.message)); }
-    finally { setAnalyzing(false); }
+    } catch(e) {
+      alert('Analysis failed: ' + (e.response?.data?.detail || e.message));
+    } finally {
+      setAnalyzing(false);
+      setAnalyzeStatus('');
+    }
   };
 
   const handleScore = async () => {
     setScoring(true);
-    try {
+    setAnalyzeStatus('Calculating credit score...');
+
+    const attemptScore = async () => {
       const form = new FormData();
       form.append('session_id', sessionId);
       form.append('loan_amount', loanAmt);
       form.append('sector', sector);
       form.append('tenure', '36');
       form.append('interest_rate', '11.5');
-      const res = await axios.post(`${API_URL}/api/quick/score`, form, { timeout: 60000 });
+      return await axios.post(`${API_URL}/api/quick/score`, form, { timeout: 180000 });
+    };
+
+    try {
+      const wakeTimer = setTimeout(() => {
+        setAnalyzeStatus('Waking up server... please wait (30-60 seconds)');
+      }, 8000);
+
+      let res;
+      try {
+        res = await attemptScore();
+      } catch (firstErr) {
+        setAnalyzeStatus('Retrying... server is starting up');
+        await new Promise(r => setTimeout(r, 5000));
+        res = await attemptScore();
+      }
+
+      clearTimeout(wakeTimer);
       setScoreResult(res.data);
       complete(3);
-    } catch(e) { alert('Scoring failed: ' + (e.response?.data?.detail || e.message)); }
-    finally { setScoring(false); }
+    } catch(e) {
+      alert('Scoring failed: ' + (e.response?.data?.detail || e.message));
+    } finally {
+      setScoring(false);
+      setAnalyzeStatus('');
+    }
   };
 
   const handleResearch = async () => {
@@ -227,7 +299,7 @@ export default function QuickAppraisal({ onBack }) {
                   <div style={{ fontSize:'12px', color:'rgba(255,255,255,0.3)', marginTop:'6px' }}>Annual Reports, Bank Statements, Audit Reports — up to 20MB</div>
                 </div>
                 <button onClick={handleUpload} disabled={!file||uploading} style={T.btn('#f0a500', !file||uploading)}>
-                  {uploading ? <><Loader2 size={15} style={{animation:'spin 1s linear infinite'}}/> Extracting...</> : 'Upload & Extract Text'}
+                  {uploading ? <><Loader2 size={15} style={{animation:'spin 1s linear infinite'}}/> {analyzeStatus || 'Extracting...'}</> : 'Upload & Extract Text'}
                 </button>
               </>
             )}
@@ -264,7 +336,7 @@ export default function QuickAppraisal({ onBack }) {
                   <input style={T.input} placeholder="e.g. Tata Capital Limited" value={companyName} onChange={e => setCompanyName(e.target.value)} onKeyDown={e => e.key==='Enter' && handleAnalyze()}/>
                 </div>
                 <button onClick={handleAnalyze} disabled={!companyName.trim()||analyzing} style={T.btn('#f0a500', !companyName.trim()||analyzing)}>
-                  {analyzing ? <><Loader2 size={15} style={{animation:'spin 1s linear infinite'}}/> Extracting financials...</> : 'Run AI Analysis'}
+                  {analyzing ? <><Loader2 size={15} style={{animation:'spin 1s linear infinite'}}/> {analyzeStatus || 'Extracting financials...'}</> : 'Run AI Analysis'}
                 </button>
               </>
             )}
@@ -318,7 +390,7 @@ export default function QuickAppraisal({ onBack }) {
                   </div>
                 </div>
                 <button onClick={handleScore} disabled={scoring} style={T.btn('#f0a500', scoring)}>
-                  {scoring ? <><Loader2 size={15} style={{animation:'spin 1s linear infinite'}}/> Calculating...</> : 'Calculate Credit Score'}
+                  {scoring ? <><Loader2 size={15} style={{animation:'spin 1s linear infinite'}}/> {analyzeStatus || 'Calculating...'}</> : 'Calculate Credit Score'}
                 </button>
               </>
             )}
